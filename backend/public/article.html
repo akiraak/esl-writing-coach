@@ -12,23 +12,31 @@
     <span class="spacer"></span>
     <span id="status" class="status"></span>
   </header>
-  <main class="editor-grid">
-    <section class="pane">
-      <h2>文章生成のルール</h2>
+  <main class="editor">
+    <details class="rules-panel">
+      <summary>文章生成のルール</summary>
       <textarea id="rules" placeholder="添削時に AI へ渡すルールを書く（例: カジュアルな表現を使う、300 語以内、など）"></textarea>
-    </section>
-    <section class="pane">
-      <h2>ユーザーの英作文</h2>
-      <textarea id="draft" placeholder="英文を書く。日本語が混じっても OK（AI が英文化して添削します）"></textarea>
-    </section>
-    <section class="pane">
-      <h2>AI の添削済み英文</h2>
-      <div id="corrected" class="output"></div>
-    </section>
-    <section class="pane">
-      <h2>AI からのアドバイス</h2>
-      <div id="advice" class="output"></div>
-    </section>
+    </details>
+    <div class="editor-grid">
+      <section class="column">
+        <h2 class="group-title">入力</h2>
+        <div class="pane">
+          <h3>ユーザーの英作文</h3>
+          <textarea id="draft" placeholder="英文を書く。日本語が混じっても OK（AI が英文化して添削します）"></textarea>
+        </div>
+      </section>
+      <section class="column column-output">
+        <h2 class="group-title">AI のアウトプット</h2>
+        <div class="pane pane-output">
+          <h3>AI の添削済み英文</h3>
+          <div id="corrected" class="output"></div>
+        </div>
+        <div class="pane pane-output">
+          <h3>AI からのアドバイス</h3>
+          <div id="advice" class="output"></div>
+        </div>
+      </section>
+    </div>
   </main>
   <script src="/js/article.js"></script>
 </body>

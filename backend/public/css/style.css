@@ -68,32 +68,92 @@ body {
 
 .empty-message { text-align: center; color: #888; margin-top: 48px; }
 
-.editor-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
+.editor {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   padding: 12px 16px;
   height: calc(100vh - 57px);
 }
 
+.rules-panel {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.rules-panel summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #555;
+  user-select: none;
+}
+.rules-panel summary:hover { color: #000; }
+
+.rules-panel textarea {
+  display: block;
+  width: 100%;
+  height: 160px;
+  border: none;
+  border-top: 1px solid #eee;
+  border-radius: 0 0 8px 8px;
+  resize: vertical;
+  padding: 12px;
+  font-size: 15px;
+  line-height: 1.7;
+  font-family: inherit;
+}
+.rules-panel textarea:focus { outline: none; }
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.group-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  text-transform: none;
+  letter-spacing: 0.05em;
+}
+
 .pane {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 8px;
   overflow: hidden;
 }
 
-.pane h2 {
+.pane h3 {
   margin: 0;
   padding: 8px 12px;
   font-size: 13px;
+  font-weight: 600;
   color: #555;
   background: #fafafa;
   border-bottom: 1px solid #eee;
 }
+
+.pane-output { background: #f9fafc; }
+.pane-output h3 { background: #f3f5f9; }
 
 .pane textarea {
   flex: 1;
@@ -116,10 +176,11 @@ body {
   background: #fcfcfd;
 }
 
+.pane-output .output { background: transparent; }
+
 @media (max-width: 900px) {
-  .editor-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(4, minmax(200px, 1fr));
-    height: auto;
-  }
+  .editor { height: auto; }
+  .editor-grid { grid-template-columns: 1fr; }
+  .pane { min-height: 200px; }
+  .pane textarea { min-height: 200px; }
 }

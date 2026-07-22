@@ -1,5 +1,10 @@
 # DONE
 
+- [x] 2026-07-22 レイアウトを見やすくする [plan](docs/plans/archive/editor-layout-redesign.md)
+  - [x] article.html: ルールを折りたたみ化し、入力 / AI アウトプットの 2 カラム構造へ組み替え
+  - [x] style.css: 折りたたみ・2 カラムグリッド・グループ見出しのスタイル実装
+  - [x] 動作確認（自動保存 → 添削の動線・レスポンシブ）
+
 - [x] 2026-07-22 タイトルは必要ない [plan](docs/plans/archive/remove-title.md)
 
 - [x] 2026-07-22 実 API キーでの添削動作確認（claude-sonnet-5 で POST /correct を実行し、添削済み英文と日本語アドバイスが保存されることを確認）
