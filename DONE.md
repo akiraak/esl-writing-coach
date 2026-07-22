@@ -1,5 +1,9 @@
 # DONE
 
+- [x] 2026-07-22 出力ペインの見出しを短縮（AI の添削済み英文 → 添削済み英文 / AI からのアドバイス → アドバイス）[plan](docs/plans/archive/shorten-output-labels.md)
+
+- [x] 2026-07-22 入力欄と添削英文に word 数を表示 [plan](docs/plans/archive/word-count.md)
+
 - [x] 2026-07-22 レイアウトを見やすくする [plan](docs/plans/archive/editor-layout-redesign.md)
   - [x] article.html: ルールを折りたたみ化し、入力 / AI アウトプットの 2 カラム構造へ組み替え
   - [x] style.css: 折りたたみ・2 カラムグリッド・グループ見出しのスタイル実装
