@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESL Writing Coach - 記事編集</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="back-link">&larr; 一覧へ</a>
+    <input id="title" class="title-input" type="text" placeholder="タイトル">
+    <span id="status" class="status"></span>
+  </header>
+  <main class="editor-grid">
+    <section class="pane">
+      <h2>文章生成のルール</h2>
+      <textarea id="rules" placeholder="添削時に AI へ渡すルールを書く（例: カジュアルな表現を使う、300 語以内、など）"></textarea>
+    </section>
+    <section class="pane">
+      <h2>ユーザーの英作文</h2>
+      <textarea id="draft" placeholder="英文を書く。日本語が混じっても OK（AI が英文化して添削します）"></textarea>
+    </section>
+    <section class="pane">
+      <h2>AI の添削済み英文</h2>
+      <div id="corrected" class="output"></div>
+    </section>
+    <section class="pane">
+      <h2>AI からのアドバイス</h2>
+      <div id="advice" class="output"></div>
+    </section>
+  </main>
+  <script src="/js/article.js"></script>
+</body>
+</html>

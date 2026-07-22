@@ -1,0 +1,125 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  background: #f5f6f8;
+  color: #222;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+}
+
+.topbar h1 { font-size: 18px; margin: 0; flex: 1; }
+
+.back-link { text-decoration: none; color: #555; white-space: nowrap; }
+.back-link:hover { color: #000; }
+
+.title-input {
+  flex: 1;
+  font-size: 16px;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.status { font-size: 13px; color: #888; min-width: 8em; text-align: right; }
+.status.busy { color: #c77400; }
+.status.error { color: #c0392b; }
+
+.btn {
+  padding: 8px 16px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+.btn:hover { background: #f0f0f0; }
+.btn-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-danger { color: #c0392b; border-color: #e5b4ae; }
+.btn-danger:hover { background: #fdeeec; }
+
+.container { max-width: 800px; margin: 24px auto; padding: 0 16px; }
+
+.article-list { list-style: none; margin: 0; padding: 0; }
+.article-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.article-list li:hover { border-color: #2563eb; }
+.article-list .article-title { flex: 1; font-weight: 600; }
+.article-list .article-title.untitled { color: #999; font-weight: 400; }
+.article-list .article-date { font-size: 12px; color: #888; }
+
+.empty-message { text-align: center; color: #888; margin-top: 48px; }
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+  padding: 12px 16px;
+  height: calc(100vh - 57px);
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pane h2 {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #555;
+  background: #fafafa;
+  border-bottom: 1px solid #eee;
+}
+
+.pane textarea {
+  flex: 1;
+  border: none;
+  resize: none;
+  padding: 12px;
+  font-size: 15px;
+  line-height: 1.7;
+  font-family: inherit;
+}
+.pane textarea:focus { outline: none; }
+
+.pane .output {
+  flex: 1;
+  padding: 12px;
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  background: #fcfcfd;
+}
+
+@media (max-width: 900px) {
+  .editor-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, minmax(200px, 1fr));
+    height: auto;
+  }
+}

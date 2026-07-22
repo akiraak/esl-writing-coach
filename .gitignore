@@ -1,2 +1,6 @@
 vibeboard/dist/
 vibeboard/node_modules/
+backend/node_modules/
+backend/dist/
+backend/data/
+backend/.env
