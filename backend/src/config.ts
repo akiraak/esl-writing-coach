@@ -22,7 +22,7 @@ export const config = {
   },
   llm: {
     apiKey: optional('ANTHROPIC_API_KEY'),
-    model: withDefault('LLM_MODEL', 'claude-opus-4-8'),
+    model: withDefault('LLM_MODEL', 'claude-sonnet-5'),
   },
   publicDir: path.join(BACKEND_ROOT, 'public'),
 };
