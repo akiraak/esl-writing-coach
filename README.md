@@ -14,10 +14,11 @@ cp .env.example .env
 ## 起動
 
 ```bash
-cd backend
-npm run dev    # 開発（tsx watch）
-npm start      # 通常起動
+./run-server.sh        # 通常起動（ポート使用中のプロセスを停止してから起動）
+./run-server.sh dev    # 開発（tsx watch）
 ```
+
+または `cd backend` して `npm start` / `npm run dev` でも起動できる。
 
 `http://localhost:3013` で開く（ポートは `.env` の `PORT` で変更可）。
 
