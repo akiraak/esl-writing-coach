@@ -143,6 +143,9 @@ body {
 }
 
 .pane h3 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   margin: 0;
   padding: 8px 12px;
   font-size: 13px;
@@ -150,6 +153,12 @@ body {
   color: #555;
   background: #fafafa;
   border-bottom: 1px solid #eee;
+}
+
+.word-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: #999;
 }
 
 .pane-output { background: #f9fafc; }

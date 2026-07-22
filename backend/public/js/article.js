@@ -9,6 +9,8 @@ const draftEl = document.getElementById('draft');
 const correctedEl = document.getElementById('corrected');
 const adviceEl = document.getElementById('advice');
 const statusEl = document.getElementById('status');
+const draftWordsEl = document.getElementById('draft-words');
+const correctedWordsEl = document.getElementById('corrected-words');
 
 const AUTOSAVE_DELAY_MS = 2000;
 
@@ -29,6 +31,16 @@ function correctionKey() {
   return JSON.stringify([rulesEl.value, draftEl.value]);
 }
 
+// 空白区切りの非空トークン数（日本語の塊も 1 トークンと数える目安表示）
+function wordCount(text) {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function updateWordCount(el, text) {
+  const n = wordCount(text);
+  el.textContent = `${n} ${n === 1 ? 'word' : 'words'}`;
+}
+
 async function load() {
   const res = await fetch(`/api/articles/${articleId}`);
   if (!res.ok) {
@@ -40,6 +52,8 @@ async function load() {
   draftEl.value = a.draft;
   correctedEl.textContent = a.corrected;
   adviceEl.textContent = a.advice;
+  updateWordCount(draftWordsEl, a.draft);
+  updateWordCount(correctedWordsEl, a.corrected);
   if (a.corrected_at) {
     // 保存済み内容が最後の添削対象だったとみなし、変更がない限り再添削しない
     lastCorrectedDraft = correctionKey();
@@ -104,6 +118,7 @@ async function runCorrection() {
     const a = await res.json();
     correctedEl.textContent = a.corrected;
     adviceEl.textContent = a.advice;
+    updateWordCount(correctedWordsEl, a.corrected);
     lastCorrectedDraft = key;
     setStatus('添削しました');
   } catch (err) {
@@ -121,5 +136,6 @@ async function runCorrection() {
 for (const el of [rulesEl, draftEl]) {
   el.addEventListener('input', scheduleSave);
 }
+draftEl.addEventListener('input', () => updateWordCount(draftWordsEl, draftEl.value));
 
 load();
