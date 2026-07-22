@@ -2,7 +2,6 @@ import { getDb } from './index.js';
 
 export interface Article {
   id: number;
-  title: string;
   rules: string;
   draft: string;
   corrected: string;
@@ -14,7 +13,7 @@ export interface Article {
 
 export interface ArticleSummary {
   id: number;
-  title: string;
+  excerpt: string; // draft の冒頭（一覧表示用）
   updated_at: string;
   corrected_at: string | null;
 }
@@ -25,7 +24,9 @@ function now(): string {
 
 export function listArticles(): ArticleSummary[] {
   return getDb()
-    .prepare('SELECT id, title, updated_at, corrected_at FROM articles ORDER BY updated_at DESC')
+    .prepare(
+      'SELECT id, substr(draft, 1, 100) AS excerpt, updated_at, corrected_at FROM articles ORDER BY updated_at DESC',
+    )
     .all() as ArticleSummary[];
 }
 
@@ -43,19 +44,13 @@ export function createArticle(): Article {
 
 export function updateArticle(
   id: number,
-  fields: { title?: string; rules?: string; draft?: string },
+  fields: { rules?: string; draft?: string },
 ): Article | undefined {
   const existing = getArticle(id);
   if (!existing) return undefined;
   getDb()
-    .prepare('UPDATE articles SET title = ?, rules = ?, draft = ?, updated_at = ? WHERE id = ?')
-    .run(
-      fields.title ?? existing.title,
-      fields.rules ?? existing.rules,
-      fields.draft ?? existing.draft,
-      now(),
-      id,
-    );
+    .prepare('UPDATE articles SET rules = ?, draft = ?, updated_at = ? WHERE id = ?')
+    .run(fields.rules ?? existing.rules, fields.draft ?? existing.draft, now(), id);
   return getArticle(id);
 }
 

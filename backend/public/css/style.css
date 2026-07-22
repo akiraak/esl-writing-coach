@@ -21,13 +21,7 @@ body {
 .back-link { text-decoration: none; color: #555; white-space: nowrap; }
 .back-link:hover { color: #000; }
 
-.title-input {
-  flex: 1;
-  font-size: 16px;
-  padding: 6px 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-}
+.spacer { flex: 1; }
 
 .status { font-size: 13px; color: #888; min-width: 8em; text-align: right; }
 .status.busy { color: #c77400; }
@@ -62,8 +56,14 @@ body {
   cursor: pointer;
 }
 .article-list li:hover { border-color: #2563eb; }
-.article-list .article-title { flex: 1; font-weight: 600; }
-.article-list .article-title.untitled { color: #999; font-weight: 400; }
+.article-list .article-excerpt {
+  flex: 1;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.article-list .article-excerpt.untitled { color: #999; font-weight: 400; }
 .article-list .article-date { font-size: 12px; color: #888; }
 
 .empty-message { text-align: center; color: #888; margin-top: 48px; }

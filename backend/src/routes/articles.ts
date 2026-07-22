@@ -33,13 +33,8 @@ articlesRouter.get('/:id', (req, res) => {
 articlesRouter.put('/:id', (req, res) => {
   const id = parseId(req, res);
   if (id === undefined) return;
-  const { title, rules, draft } = (req.body ?? {}) as {
-    title?: unknown;
-    rules?: unknown;
-    draft?: unknown;
-  };
-  const fields: { title?: string; rules?: string; draft?: string } = {};
-  if (typeof title === 'string') fields.title = title;
+  const { rules, draft } = (req.body ?? {}) as { rules?: unknown; draft?: unknown };
+  const fields: { rules?: string; draft?: string } = {};
   if (typeof rules === 'string') fields.rules = rules;
   if (typeof draft === 'string') fields.draft = draft;
   const article = repo.updateArticle(id, fields);

@@ -19,8 +19,18 @@ export function getDb(): Database.Database {
   conn.pragma('foreign_keys = ON');
 
   conn.exec(fs.readFileSync(SCHEMA_PATH, 'utf8'));
+  migrate(conn);
   db = conn;
   return db;
+}
+
+/** 既存 DB への追いつきマイグレーション（何度呼んでも安全）。 */
+function migrate(conn: Database.Database): void {
+  // タイトル廃止: 旧スキーマの title カラムを削除
+  const columns = conn.prepare('PRAGMA table_info(articles)').all() as { name: string }[];
+  if (columns.some((c) => c.name === 'title')) {
+    conn.exec('ALTER TABLE articles DROP COLUMN title');
+  }
 }
 
 export function closeDb(): void {

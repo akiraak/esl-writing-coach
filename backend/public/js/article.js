@@ -4,7 +4,6 @@ if (!Number.isInteger(articleId) || articleId <= 0) {
   location.href = '/';
 }
 
-const titleEl = document.getElementById('title');
 const rulesEl = document.getElementById('rules');
 const draftEl = document.getElementById('draft');
 const correctedEl = document.getElementById('corrected');
@@ -37,7 +36,6 @@ async function load() {
     return;
   }
   const a = await res.json();
-  titleEl.value = a.title;
   rulesEl.value = a.rules;
   draftEl.value = a.draft;
   correctedEl.textContent = a.corrected;
@@ -66,7 +64,6 @@ async function save() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: titleEl.value,
         rules: rulesEl.value,
         draft: draftEl.value,
       }),
@@ -121,7 +118,7 @@ async function runCorrection() {
   }
 }
 
-for (const el of [titleEl, rulesEl, draftEl]) {
+for (const el of [rulesEl, draftEl]) {
   el.addEventListener('input', scheduleSave);
 }
 

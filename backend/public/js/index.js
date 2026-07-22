@@ -17,9 +17,10 @@ async function loadArticles() {
   for (const a of articles) {
     const li = document.createElement('li');
 
-    const title = document.createElement('span');
-    title.className = 'article-title' + (a.title ? '' : ' untitled');
-    title.textContent = a.title || '(無題)';
+    const excerptText = (a.excerpt || '').replace(/\s+/g, ' ').trim();
+    const excerpt = document.createElement('span');
+    excerpt.className = 'article-excerpt' + (excerptText ? '' : ' untitled');
+    excerpt.textContent = excerptText || '(本文なし)';
 
     const date = document.createElement('span');
     date.className = 'article-date';
@@ -30,12 +31,12 @@ async function loadArticles() {
     del.textContent = '削除';
     del.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!confirm(`「${a.title || '(無題)'}」を削除しますか？`)) return;
+      if (!confirm('この記事を削除しますか？')) return;
       await fetch(`/api/articles/${a.id}`, { method: 'DELETE' });
       loadArticles();
     });
 
-    li.append(title, date, del);
+    li.append(excerpt, date, del);
     li.addEventListener('click', () => {
       location.href = `/article.html?id=${a.id}`;
     });

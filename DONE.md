@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-22 タイトルは必要ない [plan](docs/plans/archive/remove-title.md)
+
 - [x] 2026-07-22 実 API キーでの添削動作確認（claude-sonnet-5 で POST /correct を実行し、添削済み英文と日本語アドバイスが保存されることを確認）
 
 - [x] 2026-07-22 webアプリの作成 [plan](docs/plans/archive/web-app.md)
