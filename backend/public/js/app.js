@@ -7,7 +7,9 @@ const emptyEl = document.getElementById('empty-message');
 const editorEl = document.getElementById('editor');
 const placeholderEl = document.getElementById('placeholder');
 
-const rulesPanelEl = document.getElementById('rules-panel');
+const rulesDialogEl = document.getElementById('rules-dialog');
+const rulesButtonEl = document.getElementById('rules-button');
+const rulesPreviewEl = document.getElementById('rules-preview');
 const rulesEl = document.getElementById('rules');
 const draftEl = document.getElementById('draft');
 const correctedEl = document.getElementById('corrected');
@@ -160,9 +162,8 @@ async function selectArticle(id) {
   }
   const a = await res.json();
   currentId = id;
-  rulesPanelEl.open = false; // 新規作成時の開き状態を別記事へ持ち越さない
-  rulesPanelEl.classList.remove('highlight');
   rulesEl.value = a.rules;
+  updateRulesPreview();
   draftEl.value = a.draft;
   correctedEl.textContent = a.corrected;
   adviceEl.textContent = a.advice;
@@ -268,18 +269,44 @@ for (const el of [rulesEl, draftEl]) {
 }
 draftEl.addEventListener('input', () => updateWordCount(draftWordsEl, draftEl.value));
 
+// ---- AIルールのダイアログ ----
+function updateRulesPreview() {
+  const firstLine = (rulesEl.value.trim().split('\n')[0] ?? '').trim();
+  rulesPreviewEl.textContent = firstLine || '未設定';
+  rulesPreviewEl.classList.toggle('empty', firstLine === '');
+}
+
+function openRulesDialog() {
+  rulesDialogEl.showModal();
+  rulesEl.focus();
+}
+
+rulesEl.addEventListener('input', updateRulesPreview);
+rulesButtonEl.addEventListener('click', openRulesDialog);
+document.getElementById('rules-close').addEventListener('click', () => rulesDialogEl.close());
+
+// backdrop クリックで閉じる（内側クリックは e.target が子要素になる）
+rulesDialogEl.addEventListener('click', (e) => {
+  if (e.target === rulesDialogEl) rulesDialogEl.close();
+});
+
+// 閉じたら（閉じるボタン・Esc・backdrop 共通）保留中の autosave を待たず即保存 → 添削
+rulesDialogEl.addEventListener('close', () => {
+  if (saveTimer !== null) {
+    clearTimeout(saveTimer);
+    save();
+  }
+});
+
 // ---- 新規作成 ----
 document.getElementById('new-article').addEventListener('click', async () => {
   const res = await fetch('/api/articles', { method: 'POST' });
   const article = await res.json();
   await loadArticles();
   await selectArticle(article.id);
-  // 新規作成直後はまずルールを設定してほしいので、パネルを開いて目立たせる
-  rulesPanelEl.open = true;
-  rulesPanelEl.classList.add('highlight');
-  rulesEl.focus();
+  // 新規作成直後はまずルールを設定してほしいので、ダイアログを開いておく
+  openRulesDialog();
 });
-rulesPanelEl.addEventListener('animationend', () => rulesPanelEl.classList.remove('highlight'));
 
 // ---- 初期化 ----
 applySidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1');

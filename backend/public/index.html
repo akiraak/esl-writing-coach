@@ -21,10 +21,6 @@
     </aside>
     <button id="sidebar-toggle" class="sidebar-divider" title="記事一覧を開閉"><span id="sidebar-toggle-icon">◀</span></button>
     <main id="editor" class="editor" hidden>
-      <details id="rules-panel" class="rules-panel">
-        <summary>文章生成のルール</summary>
-        <textarea id="rules" placeholder="添削時に AI へ渡すルールを書く（例: カジュアルな表現を使う、300 語以内、など）"></textarea>
-      </details>
       <div class="editor-grid">
         <section class="column">
           <h2 class="group-title">入力</h2>
@@ -35,6 +31,10 @@
         </section>
         <section class="column column-output">
           <h2 class="group-title">AI のアウトプット</h2>
+          <button id="rules-button" class="rules-button" title="AIルールを編集">
+            <span class="rules-button-label">✎ AIルール</span>
+            <span id="rules-preview" class="rules-preview empty">未設定</span>
+          </button>
           <div class="pane pane-output">
             <h3>添削済み英文 <span id="corrected-words" class="word-count"></span></h3>
             <div id="corrected" class="output"></div>
@@ -50,6 +50,14 @@
       <p>記事を選択するか、「新規作成」から始めてください。</p>
     </main>
   </div>
+  <dialog id="rules-dialog" class="rules-dialog">
+    <h2>AIルール</h2>
+    <p class="rules-help">ここに書いたルールに沿って、AI が添削とアドバイスを行います。文体・レベル・語数などを自由に指定できます。</p>
+    <textarea id="rules" placeholder="例: カジュアルな表現を使う / 300 語以内にまとめる / TOEIC 600 点レベルの語彙で"></textarea>
+    <div class="rules-dialog-footer">
+      <button id="rules-close" class="btn">閉じる</button>
+    </div>
+  </dialog>
   <script src="/js/app.js"></script>
 </body>
 </html>

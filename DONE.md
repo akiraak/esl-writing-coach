@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-22 文章生成ルールを「AIルール」として AI グループのボタン + ダイアログ形式にする（新規作成時は自動で開く。AI がルールに沿って添削・アドバイスすることを明記）[plan](docs/plans/archive/rules-dialog.md)
+
 - [x] 2026-07-22 文章生成ルールは新規作成直後は目立つように開いておく [plan](docs/plans/archive/open-rules-on-new-article.md)
 
 - [x] 2026-07-22 デザインをかっこよくする。入力と出力を分かりやすく色を変える [plan](docs/plans/archive/visual-redesign.md)
