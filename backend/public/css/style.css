@@ -35,7 +35,6 @@ body {
 .btn-primary:hover { background: #1d4ed8; }
 .btn-danger { color: #c0392b; border-color: #e5b4ae; }
 .btn-danger:hover { background: #fdeeec; }
-.btn-icon { padding: 6px 10px; font-size: 15px; line-height: 1; }
 .btn-small { padding: 3px 10px; font-size: 12px; }
 
 /* ---- 2 ペインレイアウト ---- */
@@ -50,10 +49,26 @@ body {
   width: 300px;
   flex-shrink: 0;
   background: #fff;
-  border-right: 1px solid #ddd;
   overflow: hidden;
 }
 .sidebar.collapsed { display: none; }
+
+.sidebar-divider {
+  flex-shrink: 0;
+  width: 22px;
+  padding: 0;
+  border: none;
+  border-left: 1px solid #ddd;
+  border-right: 1px solid #ddd;
+  background: #eceef2;
+  color: #666;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sidebar-divider:hover {
+  background: #dbe5fb;
+  color: #2563eb;
+}
 
 .sidebar-header {
   padding: 12px;

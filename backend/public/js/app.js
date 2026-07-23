@@ -1,6 +1,7 @@
 // ---- 要素 ----
 const sidebarEl = document.getElementById('sidebar');
 const sidebarToggleEl = document.getElementById('sidebar-toggle');
+const sidebarToggleIconEl = document.getElementById('sidebar-toggle-icon');
 const listEl = document.getElementById('article-list');
 const emptyEl = document.getElementById('empty-message');
 const editorEl = document.getElementById('editor');
@@ -57,6 +58,7 @@ function formatDate(iso) {
 // ---- サイドバー折りたたみ ----
 function applySidebarCollapsed(collapsed) {
   sidebarEl.classList.toggle('collapsed', collapsed);
+  sidebarToggleIconEl.textContent = collapsed ? '▶' : '◀';
   localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
 }
 

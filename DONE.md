@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-22 左ペインを閉じるボタンは２つのペインの間に分かるように入れる [plan](docs/plans/archive/sidebar-toggle-divider.md)
+
 - [x] 2026-07-22 画面を１つにする。左ペインに記事一覧で右に記事編集。左ペインは折りたためる [plan](docs/plans/archive/single-page-layout.md)
   - [x] HTML/CSS: index.html を単一画面（左サイドバー + 右エディタ）に書き換え、article.html を削除
   - [x] JS: index.js + article.js を app.js に統合（記事切り替え・折りたたみ・URL 同期）
