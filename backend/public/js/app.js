@@ -276,8 +276,22 @@ function updateRulesPreview() {
   rulesPreviewEl.classList.toggle('empty', firstLine === '');
 }
 
+let pulseRulesButtonOnClose = false; // 新規作成直後の初回クローズでボタンを強調する
+
+// ボタンの位置からダイアログ中心へ広がるアニメーション（開始座標が実行時依存なので JS で再生）
 function openRulesDialog() {
   rulesDialogEl.showModal();
+  const btn = rulesButtonEl.getBoundingClientRect();
+  const dlg = rulesDialogEl.getBoundingClientRect();
+  const dx = btn.left + btn.width / 2 - (dlg.left + dlg.width / 2);
+  const dy = btn.top + btn.height / 2 - (dlg.top + dlg.height / 2);
+  rulesDialogEl.animate(
+    [
+      { transform: `translate(${dx}px, ${dy}px) scale(${btn.width / dlg.width})`, opacity: 0.3 },
+      { transform: 'none', opacity: 1 },
+    ],
+    { duration: 240, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
+  );
   rulesEl.focus();
 }
 
@@ -292,11 +306,16 @@ rulesDialogEl.addEventListener('click', (e) => {
 
 // 閉じたら（閉じるボタン・Esc・backdrop 共通）保留中の autosave を待たず即保存 → 添削
 rulesDialogEl.addEventListener('close', () => {
+  if (pulseRulesButtonOnClose) {
+    pulseRulesButtonOnClose = false;
+    rulesButtonEl.classList.add('pulse');
+  }
   if (saveTimer !== null) {
     clearTimeout(saveTimer);
     save();
   }
 });
+rulesButtonEl.addEventListener('animationend', () => rulesButtonEl.classList.remove('pulse'));
 
 // ---- 新規作成 ----
 document.getElementById('new-article').addEventListener('click', async () => {
@@ -305,6 +324,8 @@ document.getElementById('new-article').addEventListener('click', async () => {
   await loadArticles();
   await selectArticle(article.id);
   // 新規作成直後はまずルールを設定してほしいので、ダイアログを開いておく
+  // 閉じたときはボタンをパルスさせて「ルールはここ」と場所を教える
+  pulseRulesButtonOnClose = true;
   openRulesDialog();
 });
 

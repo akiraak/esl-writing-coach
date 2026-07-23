@@ -252,8 +252,8 @@ body {
 .rules-preview.empty { color: var(--text-faint); }
 
 .rules-dialog {
-  width: calc(100vw - 48px);
-  height: calc(100vh - 48px);
+  width: min(880px, calc(100vw - 80px));
+  height: min(660px, calc(100vh - 80px));
   max-width: none;
   max-height: none;
   border: 1px solid var(--ai-border);
@@ -267,6 +267,21 @@ body {
   flex-direction: column;
 }
 .rules-dialog::backdrop { background: rgba(15, 23, 42, 0.35); }
+.rules-dialog[open]::backdrop { animation: backdrop-fade 0.24s ease; }
+
+@keyframes backdrop-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 新規作成後の初回クローズ時にボタンの場所を教えるパルス */
+.rules-button.pulse { animation: rules-btn-pulse 0.9s ease-out 2; }
+
+@keyframes rules-btn-pulse {
+  0% { box-shadow: var(--shadow), 0 0 0 0 rgba(124, 58, 237, 0.5); }
+  70% { box-shadow: var(--shadow), 0 0 0 10px rgba(124, 58, 237, 0); }
+  100% { box-shadow: var(--shadow), 0 0 0 0 rgba(124, 58, 237, 0); }
+}
 
 .rules-dialog h2 {
   margin: 0 0 6px;

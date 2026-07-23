@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-22 AIルールダイアログを少し小さくし、ボタンから開くアニメーション + 新規作成時のボタン強調を入れる [plan](docs/plans/archive/rules-dialog-animation.md)
+
 - [x] 2026-07-22 AIルールダイアログをできるだけ大きくする [plan](docs/plans/archive/rules-dialog-maximize.md)
 
 - [x] 2026-07-22 文章生成ルールを「AIルール」として AI グループのボタン + ダイアログ形式にする（新規作成時は自動で開く。AI がルールに沿って添削・アドバイスすることを明記）[plan](docs/plans/archive/rules-dialog.md)
