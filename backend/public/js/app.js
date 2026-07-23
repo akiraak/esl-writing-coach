@@ -7,6 +7,7 @@ const emptyEl = document.getElementById('empty-message');
 const editorEl = document.getElementById('editor');
 const placeholderEl = document.getElementById('placeholder');
 
+const rulesPanelEl = document.getElementById('rules-panel');
 const rulesEl = document.getElementById('rules');
 const draftEl = document.getElementById('draft');
 const correctedEl = document.getElementById('corrected');
@@ -159,6 +160,8 @@ async function selectArticle(id) {
   }
   const a = await res.json();
   currentId = id;
+  rulesPanelEl.open = false; // 新規作成時の開き状態を別記事へ持ち越さない
+  rulesPanelEl.classList.remove('highlight');
   rulesEl.value = a.rules;
   draftEl.value = a.draft;
   correctedEl.textContent = a.corrected;
@@ -271,8 +274,12 @@ document.getElementById('new-article').addEventListener('click', async () => {
   const article = await res.json();
   await loadArticles();
   await selectArticle(article.id);
-  draftEl.focus();
+  // 新規作成直後はまずルールを設定してほしいので、パネルを開いて目立たせる
+  rulesPanelEl.open = true;
+  rulesPanelEl.classList.add('highlight');
+  rulesEl.focus();
 });
+rulesPanelEl.addEventListener('animationend', () => rulesPanelEl.classList.remove('highlight'));
 
 // ---- 初期化 ----
 applySidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1');

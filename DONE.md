@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-22 文章生成ルールは新規作成直後は目立つように開いておく [plan](docs/plans/archive/open-rules-on-new-article.md)
+
 - [x] 2026-07-22 デザインをかっこよくする。入力と出力を分かりやすく色を変える [plan](docs/plans/archive/visual-redesign.md)
   - [x] style.css を CSS 変数ベースで全面刷新（slate ニュートラル + 入力=インディゴ / AI 出力=バイオレット）
   - [x] サイドバー開閉を width トランジションでアニメーション化

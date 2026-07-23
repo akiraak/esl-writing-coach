@@ -223,6 +223,17 @@ body {
   flex-shrink: 0;
 }
 
+/* 新規作成直後のハイライト（インディゴのリングを 2 回パルスさせて視線を誘導） */
+.rules-panel.highlight {
+  animation: rules-pulse 0.9s ease-out 2;
+}
+
+@keyframes rules-pulse {
+  0% { box-shadow: var(--shadow), 0 0 0 0 rgba(99, 102, 241, 0.45); border-color: var(--accent-border); }
+  70% { box-shadow: var(--shadow), 0 0 0 8px rgba(99, 102, 241, 0); border-color: var(--accent-border); }
+  100% { box-shadow: var(--shadow), 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+
 .rules-panel summary {
   cursor: pointer;
   padding: 9px 14px;
