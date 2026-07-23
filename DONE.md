@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-23 通信エラーの根本原因を特定（Access の Session Duration が「なし」= 即時失効）: 再認証リロードのループ防止ガード + 設定手順への Session Duration 注意書きを追加 [plan](docs/plans/archive/session-duration-guard.md)
+
 - [x] 2026-07-23 本番モバイルの「記事の作成に失敗しました（通信エラー）」を解明・対策（Cloudflare Access のセッション切れ。検知したら書きかけを退避して自動リロード → 再認証 → 復元）[plan](docs/plans/archive/access-session-expiry.md)
 
 - [x] 2026-07-23 削除確認を独自ダイアログ化 + 作成/削除の失敗理由を表示（confirm() の「ダイアログを表示しない」問題の解消、エラーに HTTP xxx / 通信エラーを付加）[plan](docs/plans/archive/custom-confirm-and-error-detail.md)

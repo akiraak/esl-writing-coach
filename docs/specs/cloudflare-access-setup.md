@@ -63,7 +63,12 @@ sudo systemctl enable --now cloudflared
 4. ポリシーを作成
    - Action: **Allow**
    - Include → Selector: **Emails** → 許可するメールアドレスを列挙（自分 + 家族など）
-5. 保存
+5. **Session Duration を必ず設定する**（推奨: **1 week**。最低でも 24 hours）
+   - **「No duration, expires immediately」にしてはいけない**。セッションが即時失効し、
+     リクエストごとに再認証が要求される。ページ遷移はリダイレクトで再認証できるが、
+     fetch（API 呼び出し）はクロスオリジンリダイレクトを辿れないため、
+     アプリの保存・添削・作成・削除が全て「通信エラー」で失敗する
+6. 保存
 
 ユーザーを増やすときは、このポリシーの Emails にアドレスを足すだけでよい
 （アプリ側は初回アクセス時に自動でユーザーを作成する）。

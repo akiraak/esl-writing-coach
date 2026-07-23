@@ -72,7 +72,18 @@ async function isAccessSessionExpired() {
   }
 }
 
+const REAUTH_RELOAD_AT_KEY = 'reauthReloadAt';
+
 function reloadForReauth() {
+  // 直前にもリロードしていたら、再認証してもセッションが即失効している
+  // （Access の Session Duration が「No duration, expires immediately」等）。
+  // リロードループにせず設定の問題として案内する
+  const last = Number(sessionStorage.getItem(REAUTH_RELOAD_AT_KEY) ?? '0');
+  if (Date.now() - last < 30_000) {
+    setStatus('ログインセッションが維持できません。Cloudflare Access の Session Duration 設定を確認してください', 'error');
+    return;
+  }
+  sessionStorage.setItem(REAUTH_RELOAD_AT_KEY, String(Date.now()));
   stashPendingEdits();
   setStatus('ログインの有効期限が切れたため再読み込みします…', 'busy');
   location.reload();
