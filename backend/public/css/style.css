@@ -256,12 +256,43 @@ body {
   padding: 14px 18px;
 }
 
+/* ---- AI カラム上部のツールバー（ルール + 添削ボタン） ---- */
+.ai-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.correct-button {
+  flex-shrink: 0;
+  padding: 9px 18px;
+  border: 1px solid var(--ai);
+  border-radius: var(--radius);
+  background: var(--ai);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.3);
+  transition: background 0.15s, border-color 0.15s;
+}
+.correct-button:hover { background: var(--ai-deep); border-color: var(--ai-deep); }
+.correct-button:disabled {
+  background: var(--ai-border);
+  border-color: var(--ai-border);
+  box-shadow: none;
+  cursor: default;
+}
+
 /* ---- AIルール（ボタン + ダイアログ） ---- */
 .rules-button {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   padding: 9px 14px;
   border: 1px solid var(--ai-border);
   border-radius: var(--radius);

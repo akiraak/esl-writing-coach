@@ -17,6 +17,7 @@ const draftEl = document.getElementById('draft');
 const correctedEl = document.getElementById('corrected');
 const adviceEl = document.getElementById('advice');
 const statusEl = document.getElementById('status');
+const correctButtonEl = document.getElementById('correct-button');
 const draftWordsEl = document.getElementById('draft-words');
 const correctedWordsEl = document.getElementById('corrected-words');
 
@@ -31,7 +32,7 @@ let saving = false;
 let dirtyWhileSaving = false;
 
 let correcting = false;
-let correctAgain = false; // 添削中に再度発火したら、完了後に最新内容で 1 回だけ再実行
+let correctRequested = false; // 添削ボタンが押されたが保存待ち。保存完了時に添削を実行する
 let lastCorrectedDraft = null; // 前回添削時の draft + rules（変化がなければ添削スキップ）
 
 function setStatus(text, cls = '') {
@@ -321,7 +322,7 @@ function closeArticle() {
   flushPendingSave();
   currentId = null;
   dirtyWhileSaving = false;
-  correctAgain = false;
+  correctRequested = false;
   lastCorrectedDraft = null;
   editorEl.hidden = true;
   placeholderEl.hidden = false;
@@ -334,7 +335,7 @@ async function selectArticle(id) {
   if (id === currentId) return;
   flushPendingSave();
   dirtyWhileSaving = false;
-  correctAgain = false;
+  correctRequested = false;
   lastCorrectedDraft = null;
 
   const res = await apiFetch(`/api/articles/${id}`);
@@ -409,22 +410,43 @@ async function save() {
   if (id !== currentId) return; // 保存中に記事が切り替わった
   if (dirtyWhileSaving) {
     dirtyWhileSaving = false;
-    scheduleSave();
+    scheduleSave(); // correctRequested は保持し、再保存の完了後に添削する
     return;
   }
+  if (correctRequested) {
+    correctRequested = false;
+    runCorrection();
+  }
+}
+
+// 添削ボタン押下時。未保存の内容があれば先に保存を確定させてから添削する
+// （保存前に添削すると、サーバは古い本文を添削してしまう）
+async function requestCorrection() {
+  if (currentId === null || correcting) return;
+  if (draftEl.value.trim() === '') {
+    setStatus('英作文が空です', 'error');
+    return;
+  }
+  if (correctionKey() === lastCorrectedDraft) {
+    setStatus('前回の添削から変更がありません');
+    return;
+  }
+  correctRequested = true;
+  if (saveTimer !== null) {
+    clearTimeout(saveTimer);
+    save(); // 保存完了時に correctRequested を見て添削が走る
+    return;
+  }
+  if (saving) return; // 進行中の保存完了時に添削が走る
+  correctRequested = false;
   runCorrection();
 }
 
 async function runCorrection() {
-  if (currentId === null) return;
-  if (draftEl.value.trim() === '') return;
-  if (correctionKey() === lastCorrectedDraft) return; // 前回添削から変化なし
-  if (correcting) {
-    correctAgain = true;
-    return;
-  }
+  if (currentId === null || correcting) return;
   const id = currentId;
   correcting = true;
+  correctButtonEl.disabled = true;
   setStatus('添削中…', 'busy');
   try {
     const key = correctionKey();
@@ -446,12 +468,10 @@ async function runCorrection() {
     if (id === currentId) setStatus(`添削に失敗しました（${failReason(err)}）`, 'error');
   }
   correcting = false;
-  if (correctAgain) {
-    correctAgain = false;
-    // 添削中に保存された最新内容で再実行（保存は済んでいる前提）
-    if (id === currentId) runCorrection();
-  }
+  correctButtonEl.disabled = false;
 }
+
+correctButtonEl.addEventListener('click', requestCorrection);
 
 for (const el of [rulesEl, draftEl]) {
   el.addEventListener('input', scheduleSave);
@@ -493,7 +513,7 @@ rulesDialogEl.addEventListener('click', (e) => {
   if (e.target === rulesDialogEl) rulesDialogEl.close();
 });
 
-// 閉じたら（閉じるボタン・Esc・backdrop 共通）保留中の autosave を待たず即保存 → 添削
+// 閉じたら（閉じるボタン・Esc・backdrop 共通）保留中の autosave を待たず即保存
 rulesDialogEl.addEventListener('close', () => {
   if (pulseRulesButtonOnClose) {
     pulseRulesButtonOnClose = false;

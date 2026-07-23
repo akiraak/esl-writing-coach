@@ -37,10 +37,13 @@
         </section>
         <section class="column column-output">
           <h2 class="group-title">AI</h2>
-          <button id="rules-button" class="rules-button" title="ルールを編集">
-            <span class="rules-button-label">✎ ルール</span>
-            <span id="rules-preview" class="rules-preview empty">未設定</span>
-          </button>
+          <div class="ai-toolbar">
+            <button id="rules-button" class="rules-button" title="ルールを編集">
+              <span class="rules-button-label">✎ ルール</span>
+              <span id="rules-preview" class="rules-preview empty">未設定</span>
+            </button>
+            <button id="correct-button" class="correct-button" title="現在の英作文を添削する">添削する</button>
+          </div>
           <div class="pane pane-output">
             <h3>添削済み英文 <span id="corrected-words" class="word-count"></span></h3>
             <div id="corrected" class="output"></div>
