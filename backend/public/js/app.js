@@ -48,6 +48,77 @@ function failReason(err) {
   return /^HTTP \d+$/.test(err?.message ?? '') ? err.message : '通信エラー';
 }
 
+// ---- Cloudflare Access セッション切れの自動リカバリ ----
+// セッションが切れると Access は API への fetch にも別オリジン
+// （cloudflareaccess.com）への 302 を返し、fetch は CORS エラー（TypeError）になる。
+// 検知したら編集中の内容を退避してリロードし、Access の再認証フローに乗せる
+const PENDING_EDITS_KEY = 'pendingEdits';
+
+function stashPendingEdits() {
+  if (currentId === null) return;
+  localStorage.setItem(PENDING_EDITS_KEY, JSON.stringify({
+    id: currentId,
+    rules: rulesEl.value,
+    draft: draftEl.value,
+  }));
+}
+
+async function isAccessSessionExpired() {
+  try {
+    const res = await fetch('/api/me', { redirect: 'manual', cache: 'no-store' });
+    return res.type === 'opaqueredirect';
+  } catch {
+    return false; // probe 自体が通らない = サーバ不達（本当の通信エラー）
+  }
+}
+
+function reloadForReauth() {
+  stashPendingEdits();
+  setStatus('ログインの有効期限が切れたため再読み込みします…', 'busy');
+  location.reload();
+}
+
+// API 呼び出しは全てこれを通す
+async function apiFetch(url, options) {
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch (err) {
+    if (await isAccessSessionExpired()) {
+      reloadForReauth();
+      return new Promise(() => {}); // リロードが始まるまで後続処理を止める
+    }
+    throw err;
+  }
+  if (res.redirected && new URL(res.url).origin !== location.origin) {
+    reloadForReauth();
+    return new Promise(() => {});
+  }
+  return res;
+}
+
+// bfcache から復元されたタブはセッションだけ切れていることがあるので先回りで確認
+window.addEventListener('pageshow', async (e) => {
+  if (!e.persisted) return;
+  if (await isAccessSessionExpired()) reloadForReauth();
+});
+
+// セッション切れリロード前に退避した編集内容を復元する（初期化の記事選択後に呼ぶ）
+function restorePendingEdits() {
+  const raw = localStorage.getItem(PENDING_EDITS_KEY);
+  if (!raw) return;
+  localStorage.removeItem(PENDING_EDITS_KEY);
+  let saved;
+  try { saved = JSON.parse(raw); } catch { return; }
+  if (saved.id !== currentId) return;
+  if (saved.rules === rulesEl.value && saved.draft === draftEl.value) return;
+  rulesEl.value = saved.rules;
+  updateRulesPreview();
+  draftEl.value = saved.draft;
+  updateWordCount(draftWordsEl, saved.draft);
+  scheduleSave();
+}
+
 // ---- 確認ダイアログ（confirm() の代替） ----
 // ブラウザ標準の confirm() は連続表示で「ダイアログを表示しない」チェックが付き、
 // 一度チェックされると以後常にキャンセル扱いになって削除が無反応になるため使わない
@@ -161,7 +232,7 @@ function buildArticleLi(id) {
     e.stopPropagation();
     if (!(await confirmDialog('この記事を削除しますか？'))) return;
     try {
-      const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/articles/${id}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
     } catch (err) {
       console.error(err);
@@ -191,7 +262,7 @@ function updateArticleLi(li, a) {
 // クリック（mousedown → mouseup）の途中で要素が消え、自動保存のタイミングと
 // 重なると「押しても反応しない」原因になる
 async function loadArticles() {
-  const res = await fetch('/api/articles');
+  const res = await apiFetch('/api/articles');
   const articles = await res.json();
   emptyEl.hidden = articles.length > 0;
 
@@ -226,7 +297,7 @@ function flushPendingSave() {
   if (currentId === null) return;
   const id = currentId;
   const body = JSON.stringify({ rules: rulesEl.value, draft: draftEl.value });
-  fetch(`/api/articles/${id}`, {
+  apiFetch(`/api/articles/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body,
@@ -253,7 +324,7 @@ async function selectArticle(id) {
   correctAgain = false;
   lastCorrectedDraft = null;
 
-  const res = await fetch(`/api/articles/${id}`);
+  const res = await apiFetch(`/api/articles/${id}`);
   if (!res.ok) {
     closeArticle();
     loadArticles();
@@ -299,7 +370,7 @@ async function save() {
   saving = true;
   setStatus('保存中…', 'busy');
   try {
-    const res = await fetch(`/api/articles/${id}`, {
+    const res = await apiFetch(`/api/articles/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -339,7 +410,7 @@ async function runCorrection() {
   setStatus('添削中…', 'busy');
   try {
     const key = correctionKey();
-    const res = await fetch(`/api/articles/${id}/correct`, { method: 'POST' });
+    const res = await apiFetch(`/api/articles/${id}/correct`, { method: 'POST' });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error || `correction failed: ${res.status}`);
@@ -421,7 +492,7 @@ rulesButtonEl.addEventListener('animationend', () => rulesButtonEl.classList.rem
 document.getElementById('new-article').addEventListener('click', async () => {
   let article;
   try {
-    const res = await fetch('/api/articles', { method: 'POST' });
+    const res = await apiFetch('/api/articles', { method: 'POST' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     article = await res.json();
   } catch (err) {
@@ -441,7 +512,7 @@ document.getElementById('new-article').addEventListener('click', async () => {
 // ---- ログイン中ユーザー ----
 async function loadMe() {
   try {
-    const res = await fetch('/api/me');
+    const res = await apiFetch('/api/me');
     if (!res.ok) return;
     const me = await res.json();
     const infoEl = document.getElementById('user-info');
@@ -466,6 +537,7 @@ loadMe();
   if (Number.isInteger(id) && id > 0) {
     await selectArticle(id);
   }
+  restorePendingEdits(); // セッション切れリロード前の書きかけがあれば復元
   // モバイルは常に「閉」で開始し、記事未選択のときだけ一覧を見せる
   if (mobileMedia.matches && currentId === null) openDrawer();
 })();
