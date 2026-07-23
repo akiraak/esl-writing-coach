@@ -1,7 +1,8 @@
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT NOT NULL UNIQUE,              -- Cloudflare Access が検証したメールアドレス
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  seeded_at TEXT                           -- サンプル記事を入れた日時（ユーザーごとに 1 回だけ入れる）
 );
 
 CREATE TABLE IF NOT EXISTS articles (

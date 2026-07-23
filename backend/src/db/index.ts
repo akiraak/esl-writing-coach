@@ -91,6 +91,13 @@ function migrate(conn: Database.Database): void {
       conn.exec('ALTER TABLE articles_new RENAME TO articles');
     })();
   }
+
+  // サンプル記事シード対応: users に seeded_at カラムが無ければ追加
+  // （既存ユーザーは NULL のままになり、次回アクセス時に 1 回だけシードされる）
+  const userColumns = conn.prepare('PRAGMA table_info(users)').all() as { name: string }[];
+  if (userColumns.length > 0 && !userColumns.some((c) => c.name === 'seeded_at')) {
+    conn.exec('ALTER TABLE users ADD COLUMN seeded_at TEXT');
+  }
 }
 
 export function closeDb(): void {

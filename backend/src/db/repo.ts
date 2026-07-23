@@ -1,9 +1,11 @@
 import { getDb } from './index.js';
+import { seedDefaultArticle } from './seed.js';
 
 export interface User {
   id: number;
   email: string;
   created_at: string;
+  seeded_at: string | null;
 }
 
 export interface Article {
@@ -36,7 +38,17 @@ export function getOrCreateUser(email: string): User {
     email,
     now(),
   );
-  return db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User;
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User;
+
+  // ユーザーごとに 1 回だけサンプル記事を入れる（削除されても再シードはしない）
+  if (user.seeded_at === null) {
+    db.transaction(() => {
+      seedDefaultArticle(db, user.id);
+      db.prepare('UPDATE users SET seeded_at = ? WHERE id = ?').run(now(), user.id);
+    })();
+    return db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User;
+  }
+  return user;
 }
 
 export function listArticles(userId: number): ArticleSummary[] {

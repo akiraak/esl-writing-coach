@@ -1,5 +1,9 @@
 # DONE
 
+- [x] 2026-07-23 シード記事に添削済み英文とアドバイスも入れる（初めて開いたときから出力欄を表示。中身は実際の添削 API の出力を焼き込み）[plan](docs/plans/archive/seed-with-correction-output.md)
+
+- [x] 2026-07-23 デフォルトで追加されてる記事を用意する。ルールとユーザー入力を事前に入れておく（新規・既存ユーザーとも 1 回だけシード）[plan](docs/plans/archive/default-article-seed.md)
+
 - [x] 2026-07-23 認証を入れる。Cloudflare Access で Google 認証。複数ユーザー対応 [plan](docs/plans/archive/google-auth-cloudflare-access.md)
   - [x] Phase 1: Cloudflare 側の設定手順のドキュメント化（[docs/specs/cloudflare-access-setup.md](docs/specs/cloudflare-access-setup.md)。実設定作業は TODO に残す）
   - [x] Phase 2: バックエンドの JWT 検証ミドルウェア（jose・DEV フォールバック）
