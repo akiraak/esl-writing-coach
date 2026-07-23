@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-22 AIルールの説明文の先頭に「空欄のままでも大丈夫」を明記 [plan](docs/plans/archive/rules-help-optional-note.md)
+
 - [x] 2026-07-22 AIルールダイアログを少し小さくし、ボタンから開くアニメーション + 新規作成時のボタン強調を入れる [plan](docs/plans/archive/rules-dialog-animation.md)
 
 - [x] 2026-07-22 AIルールダイアログをできるだけ大きくする [plan](docs/plans/archive/rules-dialog-maximize.md)
