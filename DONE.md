@@ -1,5 +1,10 @@
 # DONE
 
+- [x] 2026-07-22 画面を１つにする。左ペインに記事一覧で右に記事編集。左ペインは折りたためる [plan](docs/plans/archive/single-page-layout.md)
+  - [x] HTML/CSS: index.html を単一画面（左サイドバー + 右エディタ）に書き換え、article.html を削除
+  - [x] JS: index.js + article.js を app.js に統合（記事切り替え・折りたたみ・URL 同期）
+  - [x] 動作確認: typecheck + ヘッドレス Chromium で一覧選択・自動保存・折りたたみ・削除を確認
+
 - [x] 2026-07-22 出力ペインの見出しを短縮（AI の添削済み英文 → 添削済み英文 / AI からのアドバイス → アドバイス）[plan](docs/plans/archive/shorten-output-labels.md)
 
 - [x] 2026-07-22 入力欄と添削英文に word 数を表示 [plan](docs/plans/archive/word-count.md)
