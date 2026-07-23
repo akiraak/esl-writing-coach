@@ -20,7 +20,13 @@ Produce:
    Keep the user's intent and structure; fix grammar, vocabulary, and naturalness.
 2. "advice": an explanation in Japanese (日本語) of the main improvements — grammar,
    vocabulary, and naturalness. Point to concrete before/after examples from the draft.
-   Format as concise bullet points.`;
+
+   Format "advice" as Markdown (it is rendered as Markdown in the UI):
+   - Use a Markdown bullet list ("- "), never the Japanese bullet "・".
+   - Start each item with a short bold label naming the point, e.g. "- **時制**: ...",
+     "- **語彙**: ...", "- **自然さ**: ...".
+   - Show before/after as "before" → "after" (quoted, with an arrow).
+   - No headings; keep each item to a few sentences.`;
 
 const OUTPUT_SCHEMA = {
   type: 'object',

@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-23 AI アドバイスの Markdown 整形強化（読みやすさ改善）: AI 出力が「・」のプレーンテキストで Markdown 描画が活きていなかったため、プロンプトで advice の形式（`- ` リスト + 冒頭に `**太字**` の観点ラベル + before → after）を明示し、リスト項目間の余白 CSS を追加 [plan](docs/plans/archive/advice-markdown-readability.md)
+
 - [x] 2026-07-23 添削ボタンの設置: 添削は自動で走らせず「添削する」ボタン押下時のみ実行するように変更（保存は従来どおり自動。未保存内容があれば保存 → 添削の順で実行、空本文・変更なしはスキップ理由を表示）[plan](docs/plans/archive/manual-correction-button.md)
 
 - [x] 2026-07-23 「保存に失敗しました」の診断力強化: 保存・添削エラーへの理由表示（HTTP xxx / 通信エラー）、保存失敗時の 10 秒後自動リトライ、サーバ側の非 2xx レスポンスログを追加 [plan](docs/plans/archive/save-failure-diagnostics.md)

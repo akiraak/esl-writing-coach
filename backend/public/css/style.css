@@ -550,6 +550,9 @@ body {
   padding-left: 1.5em;
 }
 .output li { margin: 0.15em 0; }
+/* アドバイスは 1 項目が数行になるため、トップレベルの項目間は広めに取る */
+.output > ul > li,
+.output > ol > li { margin: 0.6em 0; }
 .output li > ul,
 .output li > ol { margin-bottom: 0; }
 
