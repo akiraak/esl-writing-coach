@@ -103,45 +103,68 @@ mobileMedia.addEventListener('change', (e) => {
 });
 
 // ---- 記事一覧 ----
+
+// li の生成は記事ごとに一度だけ。以降は updateArticleLi() で中身だけ差し替える
+function buildArticleLi(id) {
+  const li = document.createElement('li');
+  li.dataset.id = id;
+
+  const excerpt = document.createElement('span');
+  excerpt.className = 'article-excerpt';
+
+  const meta = document.createElement('span');
+  meta.className = 'article-meta';
+
+  const date = document.createElement('span');
+  date.className = 'article-date';
+
+  const del = document.createElement('button');
+  del.className = 'btn btn-danger btn-small';
+  del.textContent = '削除';
+  del.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (!confirm('この記事を削除しますか？')) return;
+    await fetch(`/api/articles/${id}`, { method: 'DELETE' });
+    if (id === currentId) closeArticle();
+    loadArticles();
+  });
+
+  meta.append(date, del);
+  li.append(excerpt, meta);
+  li.addEventListener('click', () => selectArticle(id));
+  return li;
+}
+
+function updateArticleLi(li, a) {
+  const excerptText = (a.excerpt || '').replace(/\s+/g, ' ').trim();
+  const excerpt = li.querySelector('.article-excerpt');
+  excerpt.textContent = excerptText || '(本文なし)';
+  excerpt.classList.toggle('untitled', excerptText === '');
+  li.querySelector('.article-date').textContent = `更新: ${formatDate(a.updated_at)}`;
+  li.classList.toggle('active', a.id === currentId);
+}
+
+// 一覧は全再構築せず id ベースの差分更新にする。innerHTML での作り直しは
+// クリック（mousedown → mouseup）の途中で要素が消え、自動保存のタイミングと
+// 重なると「押しても反応しない」原因になる
 async function loadArticles() {
   const res = await fetch('/api/articles');
   const articles = await res.json();
-  listEl.innerHTML = '';
   emptyEl.hidden = articles.length > 0;
 
-  for (const a of articles) {
-    const li = document.createElement('li');
-    li.dataset.id = a.id;
-    li.classList.toggle('active', a.id === currentId);
+  const existing = new Map();
+  for (const li of listEl.children) existing.set(li.dataset.id, li);
 
-    const excerptText = (a.excerpt || '').replace(/\s+/g, ' ').trim();
-    const excerpt = document.createElement('span');
-    excerpt.className = 'article-excerpt' + (excerptText ? '' : ' untitled');
-    excerpt.textContent = excerptText || '(本文なし)';
-
-    const meta = document.createElement('span');
-    meta.className = 'article-meta';
-
-    const date = document.createElement('span');
-    date.className = 'article-date';
-    date.textContent = `更新: ${formatDate(a.updated_at)}`;
-
-    const del = document.createElement('button');
-    del.className = 'btn btn-danger btn-small';
-    del.textContent = '削除';
-    del.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (!confirm('この記事を削除しますか？')) return;
-      await fetch(`/api/articles/${a.id}`, { method: 'DELETE' });
-      if (a.id === currentId) closeArticle();
-      loadArticles();
-    });
-
-    meta.append(date, del);
-    li.append(excerpt, meta);
-    li.addEventListener('click', () => selectArticle(a.id));
-    listEl.appendChild(li);
-  }
+  articles.forEach((a, i) => {
+    let li = existing.get(String(a.id));
+    if (li) existing.delete(String(a.id));
+    else li = buildArticleLi(a.id);
+    updateArticleLi(li, a);
+    // 位置が既に正しい li は動かさない（移動もクリックを失わせるため）
+    const ref = listEl.children[i] ?? null;
+    if (ref !== li) listEl.insertBefore(li, ref);
+  });
+  for (const li of existing.values()) li.remove();
 }
 
 function highlightActive() {
