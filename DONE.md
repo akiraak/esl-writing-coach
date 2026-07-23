@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-23 topbar の ✎ ロゴアイコンを削除（ボタンに見えるがタップしても反応しないため）[plan](docs/plans/archive/remove-topbar-logo.md)
+
 - [x] 2026-07-23 モバイル対応の実装（サイドバーのドロワー化・入力体験の調整。本番反映 + iPhone 実機確認は TODO に残す）[plan](docs/plans/archive/mobile-support.md)
   - [x] Phase 1: サイドバーのドロワー化（ハンバーガー + オーバーレイ、記事選択で自動クローズ）
   - [x] Phase 2: 入力体験・細部の調整（dvh・16px・ダイアログ全画面化・タップターゲット）

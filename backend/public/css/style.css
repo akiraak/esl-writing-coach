@@ -44,6 +44,7 @@ body {
   align-items: center;
   gap: 16px;
   padding: 10px 20px;
+  min-height: 57px; /* .layout の calc(100vh - 57px) と一致させる（旧ロゴが確保していた高さ） */
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
@@ -83,19 +84,6 @@ body {
   cursor: pointer;
 }
 .menu-button:active { background: var(--accent-soft); color: var(--accent); }
-
-.logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--accent), var(--ai));
-  color: #fff;
-  font-size: 15px;
-  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.35);
-}
 
 .status { font-size: 13px; color: var(--text-sub); min-width: 8em; text-align: right; }
 .status.busy { color: #b45309; }
