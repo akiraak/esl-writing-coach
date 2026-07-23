@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-23 「保存に失敗しました」の診断力強化: 保存・添削エラーへの理由表示（HTTP xxx / 通信エラー）、保存失敗時の 10 秒後自動リトライ、サーバ側の非 2xx レスポンスログを追加 [plan](docs/plans/archive/save-failure-diagnostics.md)
+
 - [x] 2026-07-23 通信エラーの根本原因を特定（Access の Session Duration が「なし」= 即時失効）: 再認証リロードのループ防止ガード + 設定手順への Session Duration 注意書きを追加 [plan](docs/plans/archive/session-duration-guard.md)
 
 - [x] 2026-07-23 本番モバイルの「記事の作成に失敗しました（通信エラー）」を解明・対策（Cloudflare Access のセッション切れ。検知したら書きかけを退避して自動リロード → 再認証 → 復元）[plan](docs/plans/archive/access-session-expiry.md)

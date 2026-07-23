@@ -45,7 +45,9 @@ function correctionKey() {
 
 // fetch 失敗の表示用の理由。原因特定できるようステータス欄に添える
 function failReason(err) {
-  return /^HTTP \d+$/.test(err?.message ?? '') ? err.message : '通信エラー';
+  if (err instanceof TypeError) return '通信エラー'; // fetch のネットワーク層の失敗
+  const msg = String(err?.message ?? '').trim();
+  return msg === '' ? '不明なエラー' : msg.slice(0, 60);
 }
 
 // ---- Cloudflare Access セッション切れの自動リカバリ ----
@@ -389,12 +391,17 @@ async function save() {
         draft: draftEl.value,
       }),
     });
-    if (!res.ok) throw new Error(`save failed: ${res.status}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     if (id === currentId) setStatus('保存しました');
   } catch (err) {
     console.error(err);
-    if (id === currentId) setStatus('保存に失敗しました', 'error');
     saving = false;
+    if (id === currentId) {
+      setStatus(`保存に失敗しました（${failReason(err)}）10 秒後に再試行します`, 'error');
+      // 未保存のまま次の入力を待たない。復旧したらリトライで保存される
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(save, 10_000);
+    }
     return;
   }
   saving = false;
@@ -424,7 +431,7 @@ async function runCorrection() {
     const res = await apiFetch(`/api/articles/${id}/correct`, { method: 'POST' });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `correction failed: ${res.status}`);
+      throw new Error(body.error || `HTTP ${res.status}`);
     }
     const a = await res.json();
     if (id === currentId) {
@@ -436,7 +443,7 @@ async function runCorrection() {
     }
   } catch (err) {
     console.error(err);
-    if (id === currentId) setStatus('添削に失敗しました', 'error');
+    if (id === currentId) setStatus(`添削に失敗しました（${failReason(err)}）`, 'error');
   }
   correcting = false;
   if (correctAgain) {
