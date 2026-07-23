@@ -353,8 +353,17 @@ rulesButtonEl.addEventListener('animationend', () => rulesButtonEl.classList.rem
 
 // ---- 新規作成 ----
 document.getElementById('new-article').addEventListener('click', async () => {
-  const res = await fetch('/api/articles', { method: 'POST' });
-  const article = await res.json();
+  let article;
+  try {
+    const res = await fetch('/api/articles', { method: 'POST' });
+    if (!res.ok) throw new Error(`create failed: ${res.status}`);
+    article = await res.json();
+  } catch (err) {
+    // サーバ停止・ネットワーク断などで無言のまま「反応しない」ように見えないようにする
+    console.error(err);
+    setStatus('記事の作成に失敗しました', 'error');
+    return;
+  }
   await loadArticles();
   await selectArticle(article.id);
   // 新規作成直後はまずルールを設定してほしいので、ダイアログを開いておく

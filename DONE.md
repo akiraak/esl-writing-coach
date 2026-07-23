@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-23 「新規作成ボタンが反応しない」の調査 + 失敗時のエラー表示を追加（ボタン自体は正常。API 不達時に無言で失敗していたため、ステータス欄に「記事の作成に失敗しました」を表示）[plan](docs/plans/archive/new-article-error-feedback.md)
+
 - [x] 2026-07-23 topbar の ✎ ロゴアイコンを削除（ボタンに見えるがタップしても反応しないため）[plan](docs/plans/archive/remove-topbar-logo.md)
 
 - [x] 2026-07-23 モバイル対応の実装（サイドバーのドロワー化・入力体験の調整。本番反映 + iPhone 実機確認は TODO に残す）[plan](docs/plans/archive/mobile-support.md)
