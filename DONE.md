@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-23 削除確認を独自ダイアログ化 + 作成/削除の失敗理由を表示（confirm() の「ダイアログを表示しない」問題の解消、エラーに HTTP xxx / 通信エラーを付加）[plan](docs/plans/archive/custom-confirm-and-error-detail.md)
+
 - [x] 2026-07-23 記事一覧のクリックがときどき効かない問題の修正（自動保存ごとの一覧全再構築でクリック中の要素が消えていた → id ベースの差分更新に変更）[plan](docs/plans/archive/article-list-click-loss.md)
 
 - [x] 2026-07-23 「新規作成ボタンが反応しない」の調査 + 失敗時のエラー表示を追加（ボタン自体は正常。API 不達時に無言で失敗していたため、ステータス欄に「記事の作成に失敗しました」を表示）[plan](docs/plans/archive/new-article-error-feedback.md)

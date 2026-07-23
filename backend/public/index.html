@@ -56,6 +56,13 @@
       <p>記事を選択するか、「新規作成」から始めてください。</p>
     </main>
   </div>
+  <dialog id="confirm-dialog" class="confirm-dialog">
+    <p id="confirm-message" class="confirm-message"></p>
+    <div class="confirm-footer">
+      <button id="confirm-cancel" class="btn">キャンセル</button>
+      <button id="confirm-ok" class="btn btn-danger">削除する</button>
+    </div>
+  </dialog>
   <dialog id="rules-dialog" class="rules-dialog">
     <h2>ルール</h2>
     <p class="rules-help">空欄のままでも大丈夫です。ルールを書くと、AI がそれに沿って添削とアドバイスを行います。文体・レベル・語数などを自由に指定できます。</p>

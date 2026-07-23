@@ -43,6 +43,42 @@ function correctionKey() {
   return JSON.stringify([rulesEl.value, draftEl.value]);
 }
 
+// fetch 失敗の表示用の理由。原因特定できるようステータス欄に添える
+function failReason(err) {
+  return /^HTTP \d+$/.test(err?.message ?? '') ? err.message : '通信エラー';
+}
+
+// ---- 確認ダイアログ（confirm() の代替） ----
+// ブラウザ標準の confirm() は連続表示で「ダイアログを表示しない」チェックが付き、
+// 一度チェックされると以後常にキャンセル扱いになって削除が無反応になるため使わない
+const confirmDialogEl = document.getElementById('confirm-dialog');
+const confirmMessageEl = document.getElementById('confirm-message');
+let confirmResolve = null;
+
+function confirmDialog(message) {
+  confirmMessageEl.textContent = message;
+  confirmDialogEl.showModal();
+  return new Promise((resolve) => { confirmResolve = resolve; });
+}
+
+function settleConfirm(result) {
+  if (confirmResolve === null) return;
+  const resolve = confirmResolve;
+  confirmResolve = null;
+  resolve(result);
+}
+
+document.getElementById('confirm-ok').addEventListener('click', () => {
+  settleConfirm(true);
+  confirmDialogEl.close();
+});
+document.getElementById('confirm-cancel').addEventListener('click', () => confirmDialogEl.close());
+// Esc・backdrop クリック・キャンセルボタン共通でキャンセル扱い
+confirmDialogEl.addEventListener('close', () => settleConfirm(false));
+confirmDialogEl.addEventListener('click', (e) => {
+  if (e.target === confirmDialogEl) confirmDialogEl.close();
+});
+
 // 空白区切りの非空トークン数（日本語の塊も 1 トークンと数える目安表示）
 function wordCount(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -123,8 +159,15 @@ function buildArticleLi(id) {
   del.textContent = '削除';
   del.addEventListener('click', async (e) => {
     e.stopPropagation();
-    if (!confirm('この記事を削除しますか？')) return;
-    await fetch(`/api/articles/${id}`, { method: 'DELETE' });
+    if (!(await confirmDialog('この記事を削除しますか？'))) return;
+    try {
+      const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      console.error(err);
+      setStatus(`削除に失敗しました（${failReason(err)}）`, 'error');
+      return;
+    }
     if (id === currentId) closeArticle();
     loadArticles();
   });
@@ -379,12 +422,12 @@ document.getElementById('new-article').addEventListener('click', async () => {
   let article;
   try {
     const res = await fetch('/api/articles', { method: 'POST' });
-    if (!res.ok) throw new Error(`create failed: ${res.status}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     article = await res.json();
   } catch (err) {
     // サーバ停止・ネットワーク断などで無言のまま「反応しない」ように見えないようにする
     console.error(err);
-    setStatus('記事の作成に失敗しました', 'error');
+    setStatus(`記事の作成に失敗しました（${failReason(err)}）`, 'error');
     return;
   }
   await loadArticles();
