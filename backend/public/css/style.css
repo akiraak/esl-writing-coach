@@ -423,8 +423,83 @@ body {
   font-size: 15px;
   line-height: 1.7;
   overflow-y: auto;
-  white-space: pre-wrap;
 }
+
+/* ---- AI 出力の Markdown 表示 ---- */
+.output > :first-child { margin-top: 0; }
+.output > :last-child { margin-bottom: 0; }
+
+.output p,
+.output ul,
+.output ol,
+.output pre,
+.output blockquote,
+.output table {
+  margin: 0 0 0.7em;
+}
+
+.output h1,
+.output h2,
+.output h3,
+.output h4 {
+  margin: 1em 0 0.4em;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ai-deep);
+}
+.output h1 { font-size: 17px; }
+.output h2 { font-size: 16px; }
+
+.output ul,
+.output ol {
+  padding-left: 1.5em;
+}
+.output li { margin: 0.15em 0; }
+.output li > ul,
+.output li > ol { margin-bottom: 0; }
+
+.output code {
+  padding: 1px 5px;
+  font-size: 13.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: rgba(124, 58, 237, 0.08);
+  border-radius: 4px;
+}
+.output pre {
+  padding: 10px 12px;
+  overflow-x: auto;
+  background: rgba(124, 58, 237, 0.06);
+  border-radius: 6px;
+}
+.output pre code {
+  padding: 0;
+  background: none;
+}
+
+.output blockquote {
+  padding: 2px 12px;
+  border-left: 3px solid var(--ai-border);
+  color: var(--text-sub);
+}
+
+.output table {
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.output th,
+.output td {
+  padding: 4px 10px;
+  border: 1px solid var(--ai-border);
+}
+.output th { background: var(--ai-head); }
+
+.output hr {
+  margin: 1em 0;
+  border: none;
+  border-top: 1px solid var(--ai-border);
+}
+
+.output a { color: var(--ai-deep); }
 
 @media (max-width: 900px) {
   :root { --sidebar-w: 240px; }

@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-22 添削済みとアドバイスをマークダウン形式で見やすく表示（コピペは表示テキストのみ）[plan](docs/plans/archive/markdown-output.md)
+
 - [x] 2026-07-22 「AIルール」の表記を「ルール」に短縮（グループ見出し「AI」との重複解消）[plan](docs/plans/archive/rename-rules-label.md)
 
 - [x] 2026-07-22 グループ見出し「AI のアウトプット」を「AI」に短縮 [plan](docs/plans/archive/shorten-ai-group-title.md)

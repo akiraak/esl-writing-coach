@@ -46,6 +46,14 @@ function wordCount(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
+// AI 出力を Markdown として整形表示する。コピペで拾えるのはレンダリング後の
+// 表示テキストのみ（** などの記法は残らない）。挿入前に DOMPurify を通す
+function renderMarkdown(el, text) {
+  const html = marked.parse(text ?? '', { breaks: true, gfm: true });
+  el.innerHTML = DOMPurify.sanitize(html);
+  return el.textContent; // 語数カウント用の表示テキスト
+}
+
 function updateWordCount(el, text) {
   const n = wordCount(text);
   el.textContent = `${n} ${n === 1 ? 'word' : 'words'}`;
@@ -165,10 +173,10 @@ async function selectArticle(id) {
   rulesEl.value = a.rules;
   updateRulesPreview();
   draftEl.value = a.draft;
-  correctedEl.textContent = a.corrected;
-  adviceEl.textContent = a.advice;
+  const correctedText = renderMarkdown(correctedEl, a.corrected);
+  renderMarkdown(adviceEl, a.advice);
   updateWordCount(draftWordsEl, a.draft);
-  updateWordCount(correctedWordsEl, a.corrected);
+  updateWordCount(correctedWordsEl, correctedText);
   if (a.corrected_at) {
     // 保存済み内容が最後の添削対象だったとみなし、変更がない限り再添削しない
     lastCorrectedDraft = correctionKey();
@@ -246,9 +254,9 @@ async function runCorrection() {
     }
     const a = await res.json();
     if (id === currentId) {
-      correctedEl.textContent = a.corrected;
-      adviceEl.textContent = a.advice;
-      updateWordCount(correctedWordsEl, a.corrected);
+      const correctedText = renderMarkdown(correctedEl, a.corrected);
+      renderMarkdown(adviceEl, a.advice);
+      updateWordCount(correctedWordsEl, correctedText);
       lastCorrectedDraft = key;
       setStatus('添削しました');
     }
