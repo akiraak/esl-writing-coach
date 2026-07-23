@@ -1,7 +1,14 @@
 import { getDb } from './index.js';
 
+export interface User {
+  id: number;
+  email: string;
+  created_at: string;
+}
+
 export interface Article {
   id: number;
+  user_id: number;
   rules: string;
   draft: string;
   corrected: string;
@@ -22,48 +29,70 @@ function now(): string {
   return new Date().toISOString();
 }
 
-export function listArticles(): ArticleSummary[] {
+/** メールアドレスでユーザーを upsert する（Access で許可された人だけが到達する前提の自動プロビジョニング）。 */
+export function getOrCreateUser(email: string): User {
+  const db = getDb();
+  db.prepare('INSERT INTO users (email, created_at) VALUES (?, ?) ON CONFLICT(email) DO NOTHING').run(
+    email,
+    now(),
+  );
+  return db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User;
+}
+
+export function listArticles(userId: number): ArticleSummary[] {
   return getDb()
     .prepare(
-      'SELECT id, substr(draft, 1, 100) AS excerpt, updated_at, corrected_at FROM articles ORDER BY updated_at DESC',
+      'SELECT id, substr(draft, 1, 100) AS excerpt, updated_at, corrected_at FROM articles WHERE user_id = ? ORDER BY updated_at DESC',
     )
-    .all() as ArticleSummary[];
+    .all(userId) as ArticleSummary[];
 }
 
-export function getArticle(id: number): Article | undefined {
-  return getDb().prepare('SELECT * FROM articles WHERE id = ?').get(id) as Article | undefined;
+export function getArticle(userId: number, id: number): Article | undefined {
+  return getDb()
+    .prepare('SELECT * FROM articles WHERE id = ? AND user_id = ?')
+    .get(id, userId) as Article | undefined;
 }
 
-export function createArticle(): Article {
+export function createArticle(userId: number): Article {
   const ts = now();
   const result = getDb()
-    .prepare('INSERT INTO articles (created_at, updated_at) VALUES (?, ?)')
-    .run(ts, ts);
-  return getArticle(Number(result.lastInsertRowid))!;
+    .prepare('INSERT INTO articles (user_id, created_at, updated_at) VALUES (?, ?, ?)')
+    .run(userId, ts, ts);
+  return getArticle(userId, Number(result.lastInsertRowid))!;
 }
 
 export function updateArticle(
+  userId: number,
   id: number,
   fields: { rules?: string; draft?: string },
 ): Article | undefined {
-  const existing = getArticle(id);
+  const existing = getArticle(userId, id);
   if (!existing) return undefined;
   getDb()
-    .prepare('UPDATE articles SET rules = ?, draft = ?, updated_at = ? WHERE id = ?')
-    .run(fields.rules ?? existing.rules, fields.draft ?? existing.draft, now(), id);
-  return getArticle(id);
+    .prepare('UPDATE articles SET rules = ?, draft = ?, updated_at = ? WHERE id = ? AND user_id = ?')
+    .run(fields.rules ?? existing.rules, fields.draft ?? existing.draft, now(), id, userId);
+  return getArticle(userId, id);
 }
 
 /** 添削結果（最新のみ保持）を上書きする。updated_at は変えない: 保存操作とは別物のため。 */
-export function saveCorrection(id: number, corrected: string, advice: string): Article | undefined {
-  const existing = getArticle(id);
+export function saveCorrection(
+  userId: number,
+  id: number,
+  corrected: string,
+  advice: string,
+): Article | undefined {
+  const existing = getArticle(userId, id);
   if (!existing) return undefined;
   getDb()
-    .prepare('UPDATE articles SET corrected = ?, advice = ?, corrected_at = ? WHERE id = ?')
-    .run(corrected, advice, now(), id);
-  return getArticle(id);
+    .prepare(
+      'UPDATE articles SET corrected = ?, advice = ?, corrected_at = ? WHERE id = ? AND user_id = ?',
+    )
+    .run(corrected, advice, now(), id, userId);
+  return getArticle(userId, id);
 }
 
-export function deleteArticle(id: number): boolean {
-  return getDb().prepare('DELETE FROM articles WHERE id = ?').run(id).changes > 0;
+export function deleteArticle(userId: number, id: number): boolean {
+  return (
+    getDb().prepare('DELETE FROM articles WHERE id = ? AND user_id = ?').run(id, userId).changes > 0
+  );
 }

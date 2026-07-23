@@ -17,7 +17,8 @@
     "@anthropic-ai/sdk": "^0.111.0",
     "better-sqlite3": "^11.8.1",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "jose": "^6.2.4"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

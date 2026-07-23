@@ -337,8 +337,27 @@ document.getElementById('new-article').addEventListener('click', async () => {
   openRulesDialog();
 });
 
+// ---- ログイン中ユーザー ----
+async function loadMe() {
+  try {
+    const res = await fetch('/api/me');
+    if (!res.ok) return;
+    const me = await res.json();
+    const infoEl = document.getElementById('user-info');
+    const emailEl = document.getElementById('user-email');
+    emailEl.textContent = me.email;
+    emailEl.title = me.email;
+    // ログアウトは Cloudflare 経由時のみ機能する（DEV フォールバック時は logoutUrl が null）
+    document.getElementById('logout-link').hidden = !me.logoutUrl;
+    infoEl.hidden = false;
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 // ---- 初期化 ----
 applySidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1');
+loadMe();
 
 (async () => {
   await loadArticles();

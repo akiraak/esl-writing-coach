@@ -1,5 +1,11 @@
 # DONE
 
+- [x] 2026-07-23 認証を入れる。Cloudflare Access で Google 認証。複数ユーザー対応 [plan](docs/plans/archive/google-auth-cloudflare-access.md)
+  - [x] Phase 1: Cloudflare 側の設定手順のドキュメント化（[docs/specs/cloudflare-access-setup.md](docs/specs/cloudflare-access-setup.md)。実設定作業は TODO に残す）
+  - [x] Phase 2: バックエンドの JWT 検証ミドルウェア（jose・DEV フォールバック）
+  - [x] Phase 3: DB のマルチユーザー化（users テーブル・articles.user_id・repo/API のスコープ化）
+  - [x] Phase 4: フロントエンド最小対応（/api/me・メール表示・ログアウトリンク）
+
 - [x] 2026-07-22 添削済みとアドバイスをマークダウン形式で見やすく表示（コピペは表示テキストのみ）[plan](docs/plans/archive/markdown-output.md)
 
 - [x] 2026-07-22 「AIルール」の表記を「ルール」に短縮（グループ見出し「AI」との重複解消）[plan](docs/plans/archive/rename-rules-label.md)
