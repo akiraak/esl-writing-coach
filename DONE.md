@@ -1,5 +1,10 @@
 # DONE
 
+- [x] 2026-07-23 モバイル対応（サイドバーのドロワー化・入力体験の調整・本番反映。iPhone 実機確認のみ TODO に残す）[plan](docs/plans/archive/mobile-support.md)
+  - [x] Phase 1: サイドバーのドロワー化（ハンバーガー + オーバーレイ、記事選択で自動クローズ）
+  - [x] Phase 2: 入力体験・細部の調整（dvh・16px・ダイアログ全画面化・タップターゲット）
+  - [x] Phase 3: 検証と本番反映（ヘッドレス Chromium + デプロイ。iPhone 実機確認は TODO）
+
 - [x] 2026-07-23 シード記事に添削済み英文とアドバイスも入れる（初めて開いたときから出力欄を表示。中身は実際の添削 API の出力を焼き込み）[plan](docs/plans/archive/seed-with-correction-output.md)
 
 - [x] 2026-07-23 デフォルトで追加されてる記事を用意する。ルールとユーザー入力を事前に入れておく（新規・既存ユーザーとも 1 回だけシード）[plan](docs/plans/archive/default-article-seed.md)

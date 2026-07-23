@@ -2,6 +2,8 @@
 const sidebarEl = document.getElementById('sidebar');
 const sidebarToggleEl = document.getElementById('sidebar-toggle');
 const sidebarToggleIconEl = document.getElementById('sidebar-toggle-icon');
+const menuButtonEl = document.getElementById('menu-button');
+const sidebarDimEl = document.getElementById('sidebar-dim');
 const listEl = document.getElementById('article-list');
 const emptyEl = document.getElementById('empty-message');
 const editorEl = document.getElementById('editor');
@@ -66,7 +68,9 @@ function formatDate(iso) {
     `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-// ---- サイドバー折りたたみ ----
+// ---- サイドバー折りたたみ（デスクトップ）----
+// collapsed（幅 0 化）と drawer-open（モバイルのドロワー）は独立したクラスで、
+// collapsed はモバイル幅では CSS 側で無効化される
 function applySidebarCollapsed(collapsed) {
   sidebarEl.classList.toggle('collapsed', collapsed);
   sidebarToggleIconEl.textContent = collapsed ? '▶' : '◀';
@@ -75,6 +79,27 @@ function applySidebarCollapsed(collapsed) {
 
 sidebarToggleEl.addEventListener('click', () => {
   applySidebarCollapsed(!sidebarEl.classList.contains('collapsed'));
+});
+
+// ---- サイドバーのドロワー（モバイル）----
+const mobileMedia = window.matchMedia('(max-width: 640px)');
+
+function openDrawer() {
+  sidebarEl.classList.add('drawer-open');
+  sidebarDimEl.classList.add('visible');
+}
+
+function closeDrawer() {
+  sidebarEl.classList.remove('drawer-open');
+  sidebarDimEl.classList.remove('visible');
+}
+
+menuButtonEl.addEventListener('click', openDrawer);
+sidebarDimEl.addEventListener('click', closeDrawer);
+
+// デスクトップ幅へ戻ったらドロワー状態をリセットする（状態が混ざらないように）
+mobileMedia.addEventListener('change', (e) => {
+  if (!e.matches) closeDrawer();
 });
 
 // ---- 記事一覧 ----
@@ -186,6 +211,7 @@ async function selectArticle(id) {
   setStatus('');
   history.replaceState(null, '', `/?id=${id}`);
   highlightActive();
+  closeDrawer(); // モバイルでは記事を開いたらドロワーを閉じてエディタを見せる
 }
 
 // ---- 自動保存・添削 ----
@@ -365,4 +391,6 @@ loadMe();
   if (Number.isInteger(id) && id > 0) {
     await selectArticle(id);
   }
+  // モバイルは常に「閉」で開始し、記事未選択のときだけ一覧を見せる
+  if (mobileMedia.matches && currentId === null) openDrawer();
 })();

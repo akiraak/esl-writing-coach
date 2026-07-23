@@ -57,7 +57,32 @@ body {
   letter-spacing: 0.01em;
   margin: 0;
   flex: 1;
+  min-width: 0;
 }
+
+.topbar-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- ハンバーガー（モバイルのみ表示） ---- */
+.menu-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 40px;
+  margin-left: -8px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-sub);
+  font-size: 20px;
+  cursor: pointer;
+}
+.menu-button:active { background: var(--accent-soft); color: var(--accent); }
 
 .logo {
   display: inline-flex;
@@ -105,6 +130,7 @@ body {
 .layout {
   display: flex;
   height: calc(100vh - 57px);
+  height: calc(100dvh - 57px);
 }
 
 .sidebar {
@@ -198,6 +224,9 @@ body {
 }
 .logout-link:hover { text-decoration: underline; }
 
+/* ---- ドロワー背景ディム（モバイルのみ使用） ---- */
+.sidebar-dim { display: none; }
+
 /* ---- ディバイダー（開閉ボタン） ---- */
 .sidebar-divider {
   flex-shrink: 0;
@@ -278,6 +307,7 @@ body {
 .rules-dialog {
   width: min(880px, calc(100vw - 80px));
   height: min(660px, calc(100vh - 80px));
+  height: min(660px, calc(100dvh - 80px));
   max-width: none;
   max-height: none;
   border: 1px solid var(--ai-border);
@@ -329,7 +359,7 @@ body {
   border-radius: 8px;
   resize: none;
   padding: 12px 14px;
-  font-size: 15px;
+  font-size: 16px; /* 16px 未満だと iOS Safari がフォーカス時に自動ズームする */
   line-height: 1.7;
   font-family: inherit;
   color: var(--text);
@@ -433,7 +463,7 @@ body {
   border: none;
   resize: none;
   padding: 12px 14px;
-  font-size: 15px;
+  font-size: 16px; /* 16px 未満だと iOS Safari がフォーカス時に自動ズームする */
   line-height: 1.7;
   font-family: inherit;
   color: var(--text);
@@ -444,7 +474,7 @@ body {
 .pane .output {
   flex: 1;
   padding: 12px 14px;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.7;
   overflow-y: auto;
 }
@@ -527,8 +557,68 @@ body {
 
 @media (max-width: 900px) {
   :root { --sidebar-w: 240px; }
-  .layout { height: auto; min-height: calc(100vh - 57px); }
+  .layout {
+    height: auto;
+    min-height: calc(100vh - 57px);
+    min-height: calc(100dvh - 57px);
+  }
   .editor-grid { grid-template-columns: 1fr; }
   .pane { min-height: 200px; }
   .pane textarea { min-height: 200px; }
+}
+
+/* ---- モバイル（サイドバーをオーバーレイのドロワーにする） ---- */
+@media (max-width: 640px) {
+  :root { --sidebar-w: min(85vw, 320px); }
+
+  .menu-button { display: inline-flex; }
+  .sidebar-divider { display: none; }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 30;
+    border-right: 1px solid var(--border);
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.25);
+    transform: translateX(-100%);
+    transition: transform 0.28s ease;
+  }
+  /* デスクトップの折りたたみ状態（localStorage 由来）はモバイルでは無効 */
+  .sidebar.collapsed { width: var(--sidebar-w); }
+  .sidebar.drawer-open { transform: translateX(0); }
+
+  .sidebar-dim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(15, 23, 42, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+  .sidebar-dim.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .editor { padding: 10px 12px; }
+
+  .topbar { padding: 8px 12px; gap: 10px; }
+  .status { min-width: 0; }
+
+  /* タップターゲット拡大 */
+  .btn-small { padding: 8px 14px; font-size: 13px; }
+  .article-list li { padding: 12px; }
+
+  /* ルールダイアログはほぼ全画面 */
+  .rules-dialog {
+    width: calc(100vw - 16px);
+    height: calc(100vh - 16px);
+    height: calc(100dvh - 16px);
+    padding: 16px;
+  }
 }

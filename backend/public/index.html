@@ -8,7 +8,8 @@
 </head>
 <body>
   <header class="topbar">
-    <h1><span class="logo" aria-hidden="true">✎</span>ESL Writing Coach</h1>
+    <button id="menu-button" class="menu-button" title="記事一覧" aria-label="記事一覧を開く">☰</button>
+    <h1><span class="logo" aria-hidden="true">✎</span><span class="topbar-title">ESL Writing Coach</span></h1>
     <span id="status" class="status"></span>
   </header>
   <div class="layout">
@@ -23,6 +24,7 @@
         <a id="logout-link" class="logout-link" href="/cdn-cgi/access/logout" hidden>ログアウト</a>
       </div>
     </aside>
+    <div id="sidebar-dim" class="sidebar-dim" aria-hidden="true"></div>
     <button id="sidebar-toggle" class="sidebar-divider" title="記事一覧を開閉"><span id="sidebar-toggle-icon">◀</span></button>
     <main id="editor" class="editor" hidden>
       <div class="editor-grid">
