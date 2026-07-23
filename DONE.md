@@ -1,5 +1,10 @@
 # DONE
 
+- [x] 2026-07-22 デザインをかっこよくする。入力と出力を分かりやすく色を変える [plan](docs/plans/archive/visual-redesign.md)
+  - [x] style.css を CSS 変数ベースで全面刷新（slate ニュートラル + 入力=インディゴ / AI 出力=バイオレット）
+  - [x] サイドバー開閉を width トランジションでアニメーション化
+  - [x] ヘッドレス Chromium で各状態のスクリーンショット確認
+
 - [x] 2026-07-22 左ペインを閉じるボタンは２つのペインの間に分かるように入れる [plan](docs/plans/archive/sidebar-toggle-divider.md)
 
 - [x] 2026-07-22 画面を１つにする。左ペインに記事一覧で右に記事編集。左ペインは折りたためる [plan](docs/plans/archive/single-page-layout.md)

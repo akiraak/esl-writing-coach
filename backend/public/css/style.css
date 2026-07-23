@@ -1,41 +1,105 @@
 * { box-sizing: border-box; }
 
-body {
-  margin: 0;
-  font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
-  background: #f5f6f8;
-  color: #222;
+:root {
+  /* ニュートラル (slate) */
+  --bg: #f1f4f9;
+  --surface: #fff;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #1e293b;
+  --text-sub: #64748b;
+  --text-faint: #94a3b8;
+  /* 入力系 (indigo) */
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-soft: #eef2ff;
+  --accent-border: #c7d2fe;
+  --accent-ring: rgba(99, 102, 241, 0.15);
+  /* AI 出力系 (violet) */
+  --ai: #7c3aed;
+  --ai-deep: #6d28d9;
+  --ai-soft: #faf9ff;
+  --ai-head: #f3effd;
+  --ai-border: #e6dff7;
+  /* 危険 */
+  --danger: #dc2626;
+  --danger-border: #fecaca;
+  --danger-soft: #fef2f2;
+
+  --sidebar-w: 300px;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ---- ヘッダー ---- */
 .topbar {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 10px 20px;
-  background: #fff;
-  border-bottom: 1px solid #ddd;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
-.topbar h1 { font-size: 18px; margin: 0; flex: 1; }
+.topbar h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin: 0;
+  flex: 1;
+}
 
-.status { font-size: 13px; color: #888; min-width: 8em; text-align: right; }
-.status.busy { color: #c77400; }
-.status.error { color: #c0392b; }
+.logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--ai));
+  color: #fff;
+  font-size: 15px;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.35);
+}
 
+.status { font-size: 13px; color: var(--text-sub); min-width: 8em; text-align: right; }
+.status.busy { color: #b45309; }
+.status.error { color: var(--danger); }
+
+/* ---- ボタン ---- */
 .btn {
   padding: 8px 16px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
   font-size: 14px;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
-.btn:hover { background: #f0f0f0; }
-.btn-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
-.btn-primary:hover { background: #1d4ed8; }
-.btn-danger { color: #c0392b; border-color: #e5b4ae; }
-.btn-danger:hover { background: #fdeeec; }
-.btn-small { padding: 3px 10px; font-size: 12px; }
+.btn:hover { background: #f8fafc; border-color: var(--text-faint); }
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3);
+}
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-danger { color: var(--danger); border-color: var(--danger-border); }
+.btn-danger:hover { background: var(--danger-soft); border-color: var(--danger); }
+.btn-small { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
 
 /* ---- 2 ペインレイアウト ---- */
 .layout {
@@ -46,40 +110,32 @@ body {
 .sidebar {
   display: flex;
   flex-direction: column;
-  width: 300px;
+  width: var(--sidebar-w);
   flex-shrink: 0;
-  background: #fff;
+  background: var(--surface);
   overflow: hidden;
+  transition: width 0.28s ease;
 }
-.sidebar.collapsed { display: none; }
+.sidebar.collapsed { width: 0; }
 
-.sidebar-divider {
+/* 開閉アニメーション中に中身が潰れないよう幅を固定し、overflow で切り取る */
+.sidebar-header,
+.article-list,
+.empty-message {
+  width: var(--sidebar-w);
   flex-shrink: 0;
-  width: 22px;
-  padding: 0;
-  border: none;
-  border-left: 1px solid #ddd;
-  border-right: 1px solid #ddd;
-  background: #eceef2;
-  color: #666;
-  font-size: 13px;
-  cursor: pointer;
-}
-.sidebar-divider:hover {
-  background: #dbe5fb;
-  color: #2563eb;
 }
 
 .sidebar-header {
   padding: 12px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
 }
 .sidebar-header .btn-primary { width: 100%; }
 
 .article-list {
   list-style: none;
   margin: 0;
-  padding: 8px;
+  padding: 10px;
   overflow-y: auto;
   flex: 1;
 }
@@ -87,39 +143,63 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
   padding: 10px 12px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   cursor: pointer;
-  background: #fff;
+  transition: background 0.15s, border-color 0.15s;
 }
-.article-list li:hover { border-color: #2563eb; }
-.article-list li.active { border-color: #2563eb; background: #eff4ff; }
+.article-list li:hover { background: #f1f5f9; }
+.article-list li.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+}
 .article-list .article-excerpt {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13.5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.article-list .article-excerpt.untitled { color: #999; font-weight: 400; }
+.article-list li.active .article-excerpt { color: var(--accent-hover); }
+.article-list .article-excerpt.untitled { color: var(--text-faint); font-weight: 400; }
 .article-list .article-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
-.article-list .article-date { font-size: 12px; color: #888; }
+.article-list .article-date { font-size: 11.5px; color: var(--text-faint); }
 
-.empty-message { text-align: center; color: #888; margin-top: 48px; padding: 0 16px; }
+.empty-message { text-align: center; color: var(--text-sub); margin-top: 48px; padding: 0 16px; }
 
+/* ---- ディバイダー（開閉ボタン） ---- */
+.sidebar-divider {
+  flex-shrink: 0;
+  width: 20px;
+  padding: 0;
+  border: none;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: #e8ecf3;
+  color: var(--text-faint);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.sidebar-divider:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---- プレースホルダ ---- */
 .placeholder {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #888;
+  color: var(--text-sub);
 }
 .placeholder[hidden] { display: none; }
 
@@ -132,44 +212,47 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 14px 18px;
 }
 
 .rules-panel {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
   flex-shrink: 0;
 }
 
 .rules-panel summary {
   cursor: pointer;
-  padding: 8px 12px;
+  padding: 9px 14px;
   font-size: 13px;
-  color: #555;
+  font-weight: 600;
+  color: var(--text-sub);
   user-select: none;
 }
-.rules-panel summary:hover { color: #000; }
+.rules-panel summary:hover { color: var(--text); }
 
 .rules-panel textarea {
   display: block;
   width: 100%;
   height: 160px;
   border: none;
-  border-top: 1px solid #eee;
-  border-radius: 0 0 8px 8px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--radius) var(--radius);
   resize: vertical;
-  padding: 12px;
+  padding: 12px 14px;
   font-size: 15px;
   line-height: 1.7;
   font-family: inherit;
+  color: var(--text);
 }
 .rules-panel textarea:focus { outline: none; }
 
 .editor-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 14px;
   flex: 1;
   min-height: 0;
 }
@@ -182,23 +265,39 @@ body {
 }
 
 .group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: #888;
-  text-transform: none;
-  letter-spacing: 0.05em;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-sub);
+  letter-spacing: 0.08em;
 }
+.group-title::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.column-output .group-title::before { background: var(--ai); }
 
 .pane {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
   overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pane:focus-within {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-ring), var(--shadow);
 }
 
 .pane h3 {
@@ -206,49 +305,57 @@ body {
   align-items: baseline;
   justify-content: space-between;
   margin: 0;
-  padding: 8px 12px;
+  padding: 8px 14px;
   font-size: 13px;
   font-weight: 600;
-  color: #555;
-  background: #fafafa;
-  border-bottom: 1px solid #eee;
+  color: var(--text-sub);
+  background: #f8fafc;
+  border-bottom: 1px solid var(--border);
 }
 
 .word-count {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 400;
-  color: #999;
+  color: var(--text-faint);
 }
 
-.pane-output { background: #f9fafc; }
-.pane-output h3 { background: #f3f5f9; }
+/* AI 出力ペインはバイオレット系で入力と区別する */
+.pane-output {
+  background: var(--ai-soft);
+  border-color: var(--ai-border);
+}
+.pane-output h3 {
+  background: var(--ai-head);
+  border-bottom-color: var(--ai-border);
+  color: var(--ai-deep);
+}
+.pane-output .word-count { color: #a78bfa; }
 
 .pane textarea {
   flex: 1;
   border: none;
   resize: none;
-  padding: 12px;
+  padding: 12px 14px;
   font-size: 15px;
   line-height: 1.7;
   font-family: inherit;
+  color: var(--text);
+  background: transparent;
 }
 .pane textarea:focus { outline: none; }
 
 .pane .output {
   flex: 1;
-  padding: 12px;
+  padding: 12px 14px;
   font-size: 15px;
   line-height: 1.7;
   overflow-y: auto;
   white-space: pre-wrap;
-  background: #fcfcfd;
 }
 
-.pane-output .output { background: transparent; }
-
 @media (max-width: 900px) {
+  :root { --sidebar-w: 240px; }
   .layout { height: auto; min-height: calc(100vh - 57px); }
-  .sidebar { width: 240px; }
   .editor-grid { grid-template-columns: 1fr; }
   .pane { min-height: 200px; }
   .pane textarea { min-height: 200px; }
