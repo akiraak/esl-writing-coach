@@ -1,3 +1,3 @@
 # TODO
 
-- [ ] モバイル対応: 本番反映（g3plus で pull + rebuild）と iPhone 実機での表示確認（実装は完了・main へ push 済み）
+- [ ] モバイル対応: iPhone 実機での表示・動作確認（https://esl-writing.chobi.me/ 。本番反映は 2026-07-23 に e3956a2 まで完了）
