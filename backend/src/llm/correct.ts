@@ -45,10 +45,13 @@ export async function correctDraft(rules: string, draft: string): Promise<Correc
   }
   const client = new Anthropic({ apiKey: config.llm.apiKey });
 
+  // adaptive thinking は Claude 4.6 以降専用（Haiku 4.5 に送ると 400）
+  const supportsAdaptiveThinking = !config.llm.model.includes('haiku');
+
   const stream = client.messages.stream({
     model: config.llm.model,
     max_tokens: 16000,
-    thinking: { type: 'adaptive' },
+    ...(supportsAdaptiveThinking ? { thinking: { type: 'adaptive' as const } } : {}),
     system: SYSTEM_PROMPT,
     output_config: {
       format: { type: 'json_schema', schema: OUTPUT_SCHEMA },

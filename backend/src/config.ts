@@ -48,7 +48,7 @@ export const config = {
   },
   llm: {
     apiKey: optional('ANTHROPIC_API_KEY'),
-    model: withDefault('LLM_MODEL', 'claude-sonnet-5'),
+    model: withDefault('LLM_MODEL', 'claude-haiku-4-5'),
   },
   auth: resolveAuth(),
   // user_id 追いつきマイグレーションで既存記事を割り当てるユーザー。移行後は不要

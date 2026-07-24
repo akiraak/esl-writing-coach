@@ -1,5 +1,7 @@
 # DONE
 
+- [x] 2026-07-23 添削モデルを claude-haiku-4-5 へ変更（コスト削減）: LLM_MODEL のデフォルト・.env を変更し、Haiku 4.5 非対応の adaptive thinking はモデル名で条件分岐（Sonnet/Opus に戻せば adaptive 復活）。json_schema 構造化出力は Haiku 対応のため不変 [plan](docs/plans/archive/switch-model-to-haiku.md)
+
 - [x] 2026-07-23 AI アドバイスの Markdown 整形強化（読みやすさ改善）: AI 出力が「・」のプレーンテキストで Markdown 描画が活きていなかったため、プロンプトで advice の形式（`- ` リスト + 冒頭に `**太字**` の観点ラベル + before → after）を明示し、リスト項目間の余白 CSS を追加 [plan](docs/plans/archive/advice-markdown-readability.md)
 
 - [x] 2026-07-23 添削ボタンの設置: 添削は自動で走らせず「添削する」ボタン押下時のみ実行するように変更（保存は従来どおり自動。未保存内容があれば保存 → 添削の順で実行、空本文・変更なしはスキップ理由を表示）[plan](docs/plans/archive/manual-correction-button.md)
