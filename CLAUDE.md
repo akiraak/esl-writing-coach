@@ -12,6 +12,22 @@ ESL（英語を第二言語として学ぶ）の授業で課されるパラグ�
 
 （未定。機能・画面構成が決まり次第ここに追記する）
 
+## データ保存
+
+`../daily-note` と同じく、**Dropbox 上のファイル**として保存する（2026-11-08 決定）。
+
+- サーバは PC のローカルファイルではなく、Dropbox API でクラウド上のファイルを読み書きする。各端末へは Dropbox 側が同期する
+- 実装は daily-note（`/home/ubuntu/daily-note`）の方式を参考にする
+  - Dropbox クライアント: `src/dropbox/client.ts`
+  - リフレッシュトークンの取得と接続確認: `src/scripts/dropbox-auth.ts` / `src/scripts/dropbox-check.ts`
+  - 仕様: daily-note の `CLAUDE.md` の「Dropbox API」「編集競合」の節
+- daily-note で決めた次の要点を踏襲する
+  - OAuth2 の `token_access_type=offline` でリフレッシュトークンを取り、アクセストークン（約 4 時間で失効）は自動で更新する
+  - `list_folder` は件数が少なくても `has_more` が付くことがあるので、必ず `list_folder/continue` で最後まで辿る
+  - 保存は `mode=update` に取得時の `rev` を付ける。`rev` が合わなければ上書きせずユーザーに知らせる（`mode=overwrite` は使わない）
+  - Dropbox のトークン類は環境変数で渡し、リポジトリに置かない
+- 未定: 保存先フォルダのパス、ファイル形式と配置、daily-note と Dropbox アプリ（トークン）を共用するか
+
 ## 技術スタック
 
 （未定。決まり次第ここに追記する）
