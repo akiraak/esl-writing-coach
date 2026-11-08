@@ -8,3 +8,4 @@
 - 2026-11-08 課題の入力（`assignment.md` の書式、課題の画面、自動保存の共通の仕組み、新規作成でテーマを書く API。[plan](docs/plans/archive/assignment-input.md)）
 - 2026-11-08 一覧画面（カードにテーマ・4 段階の進み具合・更新日、ダイアログでテーマを聞く新規作成、確認つきの削除。一覧の API にテーマを足し、rev で覚えて読み直しを省く。[plan](docs/plans/archive/list-screen.md)）
 - 2026-11-08 編集画面の骨組み（パラグラフを開いている間 4 つの段階の自動保存を持ち続け、段階の切り替えで読み直さない。タイルに状態の行と保存の印、ヘッダの保存の状態をまとめて表示、競合はその段階だけ読み直す、右ペインのタブ切り替え、ペインごとのスクロール。[plan](docs/plans/archive/edit-screen-frame.md)）
+- 2026-11-08 アイデアのメモ（`ideas.txt` の自由テキスト。上に課題のテーマと条件の帯を出す（下書きでも使う部品 `src/browser/views/brief.ts`）。[plan](docs/plans/archive/ideas-memo.md)）

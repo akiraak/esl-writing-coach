@@ -140,6 +140,28 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 }
 .theme-input:focus, .range-row input:focus, .conditions-input:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
 .preview { margin: 0; padding: 1rem 1.2rem; background: var(--card); border-radius: 12px; box-shadow: var(--shadow); white-space: pre-wrap; font-family: var(--serif); font-size: 16px; }
+/* --- 課題のテーマと条件の帯（アイデア・下書きの上） ----------------------- */
+.brief { display: flex; flex-direction: column; gap: .5rem; }
+.brief-theme { font-family: var(--serif); font-size: 18px; font-weight: 600; line-height: 1.45; }
+.brief-theme.empty { font-family: var(--sans); font-size: 13px; font-weight: 400; color: var(--soft); }
+.brief-theme.empty a { margin-left: .5rem; }
+.req {
+  font-size: 12.5px; color: var(--soft); background: var(--card); border-radius: 10px; padding: .5rem .85rem;
+  border-left: 4px solid var(--brand); display: flex; flex-wrap: wrap; gap: .2rem 1rem; align-items: baseline;
+}
+.req b { color: var(--ink); }
+.req-text { white-space: pre-wrap; }
+
+/* --- STEP 2 アイデア ------------------------------------------------------- */
+.ideas { display: flex; flex-direction: column; gap: .8rem; max-width: 860px; }
+.memo-input {
+  width: 100%; min-height: 440px; font: inherit; font-size: 15px; line-height: 1.85; padding: .9rem 1.1rem; resize: vertical;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); box-shadow: var(--shadow);
+}
+.memo-input:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
+.memo-input::placeholder { color: var(--faint); }
+.ideas .hint { margin-top: 0; }
+
 .guide { background: var(--card); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .seg { display: flex; margin: .8rem .9rem .3rem; background: var(--bg); border-radius: 9px; padding: 3px; }
 .seg button {

@@ -15,6 +15,7 @@ import {
 import { errorBox, header, STAGE_LABELS, STAGE_LANG } from '../ui.js'
 import type { View } from '../view.js'
 import { renderAssignmentView } from './assignment.js'
+import { renderIdeasView } from './ideas.js'
 
 /**
  * 編集画面（3 ペイン）。左 = 段階のタイル、中央 = 選んだ段階の編集欄、右 = 学習ガイド。
@@ -23,7 +24,7 @@ import { renderAssignmentView } from './assignment.js'
  *   **パラグラフを開いている間は持ち続ける**。同じパラグラフの中で段階を移るときは中央だけを描き直す（読み直さない）
  * - 段階を離れるときはその段階を待たずに保存する。rev は保存が終わったときに手元で新しくなるので、戻っても古い rev にはならない
  * - ヘッダの保存の状態は 4 つをまとめて出し、タイルには段階ごとの状態の行と保存の印を出す
- * - いま中身があるのは STEP 1（課題）だけ。ほかの段階は各タスクで作る（いまは保存されている内容を見せるだけ）
+ * - いま中身があるのは STEP 1（課題）・STEP 2（アイデア）。ほかの段階は各タスクで作る（いまは保存されている内容を見せるだけ）
  */
 
 interface Tile {
@@ -138,6 +139,12 @@ export function renderEdit(
     const editor = editors[stage]
     if (stage === 'assignment') {
       renderAssignmentView(body, { text: editor.text, editor, onThemeChange: setTheme })
+    } else if (stage === 'ideas') {
+      renderIdeasView(body, {
+        id,
+        editor,
+        assignment: parseAssignment(editors.assignment.text),
+      })
     } else {
       // 編集欄は各段階のタスクで作る。いまは保存されている内容を見せるだけ
       replace(
