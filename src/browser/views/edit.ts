@@ -5,6 +5,7 @@ import { summarizeStage } from '../../shared/stage-summary.js'
 import { STAGES, type Stage } from '../../shared/types.js'
 import { readStage } from '../api.js'
 import { h, replace } from '../dom.js'
+import { openExportDialog } from '../export-dialog.js'
 import { guidePane } from '../guide-pane.js'
 import {
   conflictBanner,
@@ -76,7 +77,7 @@ export function renderEdit(
   const title = h('h2', {})
   const banner = h('div', { class: 'banner' })
   const body = h('div', { class: 'stage-body' }, h('p', { class: 'muted' }, '読み込み中…'))
-  /** 中央の一番下の「次のステップへ」（STEP 4 には出さない）。 */
+  /** 中央の一番下の「次のステップへ」（STEP 4 は書き出し）。 */
   const footer = h('div', { class: 'stage-next' })
   const center = h('main', { class: 'center' }, title, banner, body, footer)
 
@@ -101,7 +102,7 @@ export function renderEdit(
 
   replace(
     app,
-    header([h('span', { class: 'crumb' }, '／ ', crumbTheme)], [status]),
+    header([h('span', { class: 'crumb' }, '／ ', crumbTheme)], [status, exportButton()]),
     h(
       'div',
       { class: 'panes' },
@@ -110,6 +111,14 @@ export function renderEdit(
       guidePane(),
     ),
   )
+
+  /** 書き出し（下書きの手元の最新。まだ保存していない分も含む）。読み込み中は何もしない。 */
+  function openExport(): void {
+    if (editors !== null) openExportDialog(app, { id, text: editors.draft.text })
+  }
+  function exportButton(label = '書き出し', className = 'btn'): HTMLButtonElement {
+    return h('button', { class: className, type: 'button', onclick: openExport }, label)
+  }
 
   const setTheme = (theme: string) => replace(crumbTheme, theme === '' ? id : theme)
 
@@ -195,7 +204,8 @@ export function renderEdit(
     const index = STAGES.indexOf(stage)
     const next = STAGES[index + 1]
     if (next === undefined) {
-      replace(footer)
+      // 最後の段階（下書き）は書き出し
+      replace(footer, exportButton('書き出し →', 'btn pri next-step'))
       return
     }
     replace(
