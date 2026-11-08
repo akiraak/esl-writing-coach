@@ -2,6 +2,7 @@ import { countSentences, countWords } from '../shared/counting.js'
 import { FLOW, MODEL, PHRASES, STRUCTURE } from '../shared/guide.js'
 import { outlineRoles } from '../shared/outline-roles.js'
 import { h, replace } from './dom.js'
+import { insertPhrase } from './phrase-target.js'
 import { ROLE_KEY, roleNodes } from './role-list.js'
 
 /**
@@ -75,40 +76,64 @@ function modelBody(): HTMLElement {
   )
 }
 
-function phrasesBody(): HTMLElement {
+/**
+ * 表現集。`insertable`（右ペイン）なら各表現を押せて、下書きを開いていればカーソルの位置に入る（`phrase-target.ts`）。
+ * 押しても本文の欄からフォーカスとカーソルの位置を奪わないよう、`mousedown` を止める。
+ */
+function phrasesBody(insertable: boolean): HTMLElement {
+  const notice = h('p', { class: 'phr-notice' })
+  let noticeTimer: ReturnType<typeof setTimeout> | undefined
+  const chip = (phrase: { en: string; ja: string }) => {
+    const parts = [h('code', { lang: 'en' }, phrase.en), h('small', {}, phrase.ja)]
+    if (!insertable) return h('span', { class: 'phrase' }, ...parts)
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: 'phrase',
+        title: '下書きのカーソルの位置に入れる',
+        onmousedown: (event: Event) => event.preventDefault(),
+        onclick: () => {
+          if (insertPhrase(phrase.en)) return
+          // 下書きを開いていなければ知らせる（段階を移ってから残らないよう、数秒で消す）
+          replace(notice, '下書き（STEP 4）を開くと、押して本文に入れられます。')
+          clearTimeout(noticeTimer)
+          noticeTimer = setTimeout(() => replace(notice), 4000)
+        },
+      },
+      ...parts,
+    )
+  }
   return h(
     'div',
-    { class: 'phr' },
-    ...PHRASES.map((group) =>
-      h(
-        'div',
-        { class: `pg${group.role === null ? '' : ` p-${ROLE_KEY[group.role]}`}` },
-        h('h3', {}, group.title),
+    {},
+    insertable
+      ? h('p', { class: 'muted phr-hint' }, '押すと下書きのカーソルの位置に入ります。')
+      : null,
+    insertable ? notice : null,
+    h(
+      'div',
+      { class: 'phr' },
+      ...PHRASES.map((group) =>
         h(
           'div',
-          { class: 'phrases' },
-          ...group.phrases.map((phrase) =>
-            h(
-              'span',
-              { class: 'phrase' },
-              h('code', { lang: 'en' }, phrase.en),
-              h('small', {}, phrase.ja),
-            ),
-          ),
+          { class: `pg${group.role === null ? '' : ` p-${ROLE_KEY[group.role]}`}` },
+          h('h3', {}, group.title),
+          h('div', { class: 'phrases' }, ...group.phrases.map(chip)),
         ),
       ),
     ),
   )
 }
 
-function bodyOf(tab: GuideTab): HTMLElement {
+function bodyOf(tab: GuideTab, compact: boolean): HTMLElement {
   switch (tab) {
     case 'structure':
       return structureBody()
     case 'model':
       return modelBody()
     case 'phrases':
-      return phrasesBody()
+      return phrasesBody(compact)
   }
 }
 
@@ -132,7 +157,7 @@ export function guideTabs(
     ...GUIDE_TABS.map((tab) => ({
       key: tab.key as string,
       label: compact ? tab.short : tab.label,
-      render: () => bodyOf(tab.key),
+      render: () => bodyOf(tab.key, compact),
     })),
     ...extra.map((tab) => ({ key: tab.key, label: tab.label, render: () => tab.el })),
   ]

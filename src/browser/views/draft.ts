@@ -1,9 +1,11 @@
 import type { Assignment, CountRange } from '../../shared/assignment.js'
 import { countSentences, countWords, hasJapanese } from '../../shared/counting.js'
+import { phraseToInsert } from '../../shared/insert.js'
 import { meterOf } from '../../shared/meter.js'
 import { outlineRoles } from '../../shared/outline-roles.js'
 import { routeHash } from '../../shared/route.js'
 import { h, replace } from '../dom.js'
+import { setPhraseTarget } from '../phrase-target.js'
 import { roleNodes } from '../role-list.js'
 import type { StageEditor } from '../stage-editor.js'
 import { assignmentBrief } from './brief.js'
@@ -82,7 +84,21 @@ function outlineList(id: string, outline: string): HTMLElement {
   )
 }
 
-export function renderDraftView(container: HTMLElement, options: DraftViewOptions): void {
+/** 本文の欄のカーソルの位置に表現を入れる（選んでいる文字があれば置き換え）。元に戻せるよう insertText で入れる。 */
+function insertAtCursor(paper: HTMLTextAreaElement, phrase: string): void {
+  const { selectionStart: start, selectionEnd: end, value } = paper
+  const text = phraseToInsert(value, start, end, phrase)
+  paper.focus()
+  // execCommand は古い API だが、ブラウザの「元に戻す」に乗る唯一の方法。使えなければ setRangeText
+  const done = document.execCommand('insertText', false, text)
+  if (!done) {
+    paper.setRangeText(text, start, end, 'end')
+    paper.dispatchEvent(new Event('input', { bubbles: true }))
+  }
+}
+
+/** 描いて、片付けの関数を返す（表現集から入れる先の登録を外す）。 */
+export function renderDraftView(container: HTMLElement, options: DraftViewOptions): () => void {
   const { assignment } = options
   const words = meterBox('語', assignment.words)
   const sentences = meterBox('文', assignment.sentences)
@@ -106,6 +122,8 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
   })
   paper.value = options.editor.text
   refresh(paper.value)
+  // 右ペインの表現集から、カーソルの位置に入れられるようにする
+  const unregister = setPhraseTarget((phrase) => insertAtCursor(paper, phrase))
 
   replace(
     container,
@@ -118,4 +136,5 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
       h('div', { class: 'work' }, paper, outlineList(options.id, options.outline)),
     ),
   )
+  return unregister
 }

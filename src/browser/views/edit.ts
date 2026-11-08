@@ -192,7 +192,7 @@ export function renderEdit(
         theme: parseAssignment(editors.assignment.text).theme,
       })
     } else {
-      renderDraftView(body, {
+      cleanupBody = renderDraftView(body, {
         id,
         editor,
         assignment: parseAssignment(editors.assignment.text),

@@ -355,6 +355,12 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .phrase { display: inline-flex; align-items: baseline; gap: .35rem; padding: .1rem .55rem; border-radius: 6px; background: var(--bg); }
 .phrase code { font-family: var(--serif); font-size: 14.5px; }
 .phrase small { font-size: 11px; color: var(--soft); }
+/* 右ペインでは押せる（下書きのカーソルの位置に入る） */
+button.phrase { font: inherit; border: 1px solid transparent; cursor: pointer; color: var(--ink); text-align: left; }
+button.phrase:hover { border-color: var(--brand); background: var(--brand-soft); }
+.phr-hint { margin: 0 0 .5rem; font-size: 12px; }
+.phr-notice { margin: 0 0 .5rem; font-size: 12px; color: var(--warn); font-weight: 600; }
+.phr-notice:empty { display: none; }
 
 /* 右ペイン（幅 340px）向けに 1 列・小さめに */
 .guide-content.compact .parts, .guide-content.compact .phr { grid-template-columns: 1fr; gap: .6rem; }
