@@ -31,7 +31,7 @@ ESL（英語を第二言語として学ぶ）の授業で課されるパラグ�
 - **一覧画面**: パラグラフの一覧（テーマ・更新日）、新規作成、削除
 - **課題の入力**: テーマ、語数・文数の指定、構成や表現の条件
 - **アイデアのメモ**: 自由テキスト
-- **アウトライン（マインドマップ）**: daily-note のマップ機能を移植する。正は字下げのテキストで、図はその見え方（座標は保存しない）。移植元は daily-note の `src/editor/outline.ts`・`src/editor/mindmap-layout.ts`・`src/browser/map.ts`
+- **アウトライン（マインドマップ）**: daily-note のマップ機能を移植する。正は字下げのテキストで、図はその見え方（座標は保存しない）。移植元は daily-note の `src/editor/outline.ts`・`src/editor/mindmap-layout.ts`・`src/browser/map.ts`（移植済み。移植先は `src/shared/outline.ts`・`src/shared/mindmap-layout.ts`・`src/browser/map.ts`）
 - **下書きエディタ**: 語数・文数を常に表示し、課題の指定に足りない／超えたことが分かるようにする。アウトラインを並べて見ながら書ける（図ではなく、構成の役割の色で並べたリスト）
 - **自動保存**: daily-note と同じく、打ち終わって数秒で Dropbox に保存する。`rev` が合わなければ止めて知らせる（「データ保存」の節）
 - **書き出し**: 下書きを**プレーンテキスト**で書き出す
@@ -138,7 +138,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
   - DOM は `src/browser/dom.ts` の `h()` で組み、本文などのデータは文字列ノードとして入れる（innerHTML は使わない）
   - 段階の切り替えはページ遷移なしで行う。4 つのファイルの `rev` と未保存の状態はブラウザ側で持ち、ファイルごとに自動保存する（`src/browser/views/edit.ts`。画面の入口は `View.navigate()` で作り直さずに済むかを聞く）
   - ヘッダの保存の状態は 4 つをまとめて 1 つ出し（競合 > 保存できません > 保存中 > 未保存 > 保存済み）、段階のタイルに段階ごとの状態の行（`src/shared/stage-summary.ts`）と保存の印を出す
-- **daily-note から流用するもの**: `src/editor/outline.ts`・`src/editor/mindmap-layout.ts`（DOM を使わない純関数）、`src/browser/map.ts`（素の TS のマップ。綴りの確認・画像の書き出しは外す）、`src/dropbox/client.ts`
+- **daily-note から流用するもの**: `src/editor/outline.ts`・`src/editor/mindmap-layout.ts`（DOM を使わない純関数。ここでは `src/shared/` に置き、テストも移した）、`src/browser/map.ts`（素の TS のマップ。綴りの確認・画像の書き出し・AI に送る範囲の知らせ・タッチ操作は外し、`mountMap()` の部品にした。段階を移るたびに作り直すので `document` のリスナは `destroy()` で外す）、`src/dropbox/client.ts`
 - **書き直すもの**: 画面の描画と自動保存（daily-note はサーバで HTML を組む方式なので流用しない）
 - **テスト**: `node --test`。DOM を使わない部分（アウトライン・語数／文数の数え方・API の入出力など）を node で直接確かめる
 - **lint / 整形**: Biome
@@ -149,8 +149,8 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 - `src/config.ts`（環境変数）/ `src/log.ts`（トークンを伏せるログ）/ `src/dropbox/client.ts`（Dropbox API。daily-note から移植）
 - `src/paragraphs/`: 保存層。`store.ts`（一覧・段階のファイルの読み書き・作成・削除。競合は `StageConflictError`）、`naming.ts`、`text.ts`、`themes.ts`（一覧のテーマ）
 - `src/server/`: `server.ts`（HTTP サーバ・画面のファイル）、`api.ts`（JSON API）、`guard.ts`（安全チェック・CSP）。起動は `src/main.ts`
-- `src/shared/`: サーバとブラウザで共有する型と定数（`types.ts`）、画面の切り替え（`route.ts`）、`assignment.md` の書式（`assignment.ts`）、自動保存（`autosave.ts`）、タイルの状態の行（`stage-summary.ts`）。Node にも DOM にも依存しない
-- `src/browser/`: 画面（`main.ts`・`api.ts`・`dom.ts`・`stage-editor.ts`・`guide-pane.ts`（編集画面の右ペイン）・`views/`）。`tsconfig.web.json` で型チェックし、esbuild で `dist/browser/app.js` に束ねる
+- `src/shared/`: サーバとブラウザで共有する型と定数（`types.ts`）、画面の切り替え（`route.ts`）、`assignment.md` の書式（`assignment.ts`）、自動保存（`autosave.ts`）、タイルの状態の行（`stage-summary.ts`）、アウトライン（`outline.ts`・`mindmap-layout.ts`。daily-note から移植）。Node にも DOM にも依存しない
+- `src/browser/`: 画面（`main.ts`・`api.ts`・`dom.ts`・`stage-editor.ts`・`guide-pane.ts`（編集画面の右ペイン）・`map.ts`（マインドマップ）・`views/`）。`tsconfig.web.json` で型チェックし、esbuild で `dist/browser/app.js` に束ねる
 - `web/`: `index.html`（外枠）と `style.css`（決定版のデザインの色・フォントを CSS 変数に）
 - `src/scripts/`: `dropbox-check.ts`・`dropbox-smoke.ts`
 - `test/`: `node --test`。Dropbox は偽の `fetch` / 偽のクライアントに差し替え、実 API は叩かない

@@ -16,6 +16,7 @@ import { errorBox, header, STAGE_LABELS, STAGE_LANG } from '../ui.js'
 import type { View } from '../view.js'
 import { renderAssignmentView } from './assignment.js'
 import { renderIdeasView } from './ideas.js'
+import { renderOutlineView } from './outline.js'
 
 /**
  * 編集画面（3 ペイン）。左 = 段階のタイル、中央 = 選んだ段階の編集欄、右 = 学習ガイド。
@@ -24,7 +25,7 @@ import { renderIdeasView } from './ideas.js'
  *   **パラグラフを開いている間は持ち続ける**。同じパラグラフの中で段階を移るときは中央だけを描き直す（読み直さない）
  * - 段階を離れるときはその段階を待たずに保存する。rev は保存が終わったときに手元で新しくなるので、戻っても古い rev にはならない
  * - ヘッダの保存の状態は 4 つをまとめて出し、タイルには段階ごとの状態の行と保存の印を出す
- * - いま中身があるのは STEP 1（課題）・STEP 2（アイデア）。ほかの段階は各タスクで作る（いまは保存されている内容を見せるだけ）
+ * - いま中身があるのは STEP 1（課題）・STEP 2（アイデア）・STEP 3（アウトライン）。ほかの段階は各タスクで作る（いまは保存されている内容を見せるだけ）
  */
 
 interface Tile {
@@ -62,6 +63,12 @@ export function renderEdit(
   let stage = initialStage
   let editors: Record<Stage, StageEditor> | null = null
   let closed = false
+  /** 中央の段階の画面の片付け（マップのリスナを外す・打ちかけの名前を確定する）。 */
+  let cleanupBody: (() => void) | null = null
+  const clearBody = () => {
+    cleanupBody?.()
+    cleanupBody = null
+  }
 
   const crumbTheme = h('b', {}, id)
   const status = h('span', { class: 'save-status' })
@@ -136,6 +143,7 @@ export function renderEdit(
 
   function renderBody(): void {
     if (editors === null) return
+    clearBody()
     const editor = editors[stage]
     if (stage === 'assignment') {
       renderAssignmentView(body, { text: editor.text, editor, onThemeChange: setTheme })
@@ -144,6 +152,11 @@ export function renderEdit(
         id,
         editor,
         assignment: parseAssignment(editors.assignment.text),
+      })
+    } else if (stage === 'outline') {
+      cleanupBody = renderOutlineView(body, {
+        editor,
+        theme: parseAssignment(editors.assignment.text).theme,
       })
     } else {
       // 編集欄は各段階のタスクで作る。いまは保存されている内容を見せるだけ
@@ -158,7 +171,11 @@ export function renderEdit(
 
   /** 段階を選ぶ（中央だけを描き直す）。 */
   function show(next: Stage): void {
-    if (editors !== null && next !== stage) void editors[stage].flush()
+    if (editors !== null && next !== stage) {
+      // 先に片付ける（打ちかけの名前を確定してから保存する）
+      clearBody()
+      void editors[stage].flush()
+    }
     stage = next
     for (const s of STAGES) tiles[s].el.classList.toggle('on', s === stage)
     replace(title, STAGE_LABELS[stage])
@@ -177,6 +194,7 @@ export function renderEdit(
     if (editors === null) return
     const content = await readStage(id, s)
     if (closed || editors === null) return
+    if (s === stage) clearBody()
     editors[s].discard()
     const editor = openStageEditor(id, s, content)
     editors[s] = editor
@@ -218,6 +236,7 @@ export function renderEdit(
       return true
     },
     async dispose() {
+      clearBody()
       closed = true
       await Promise.all(all().map((editor) => editor.close()))
     },

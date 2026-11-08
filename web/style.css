@@ -162,6 +162,54 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .memo-input::placeholder { color: var(--faint); }
 .ideas .hint { margin-top: 0; }
 
+/* --- STEP 3 アウトライン（マインドマップ。daily-note の map から移植） ------- */
+/* 中央のペインの高さいっぱいに図を出す */
+.stage-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.outline-view { flex: 1; min-height: 460px; display: flex; flex-direction: column; gap: .6rem; }
+.outline-legend { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; font-size: 12.5px; color: var(--soft); }
+.outline-legend b { color: var(--ink); margin-right: .25rem; }
+.map-host {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative;
+  background: var(--card); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
+}
+.map-scroll { flex: 1; min-height: 0; overflow: auto; position: relative; outline: none; font-family: var(--sans); font-size: 14px; cursor: default; }
+.map-scroll.panning, .map-scroll.drag { cursor: grabbing; }
+.map-svg { display: block; user-select: none; }
+.map-edge { fill: none; stroke: var(--soft); stroke-width: 1.5; opacity: .5; }
+.map-box { fill: #fff; stroke: var(--line); stroke-width: 1; }
+.map-node { cursor: pointer; }
+.map-node.root .map-box { fill: var(--brand-soft); stroke: var(--brand); }
+.map-node.root .map-label { font-weight: 700; fill: var(--ink); }
+.map-node.virtual .map-label { fill: var(--soft); }
+.map-node.virtual .map-box { stroke-dasharray: 4 3; }
+.map-label { fill: var(--ink); }
+.map-badge { fill: var(--brand); font-size: .85em; }
+.map-node.sel .map-box { stroke: var(--brand); stroke-width: 2; }
+.map-scroll:focus .map-node.sel .map-box { fill: var(--brand-soft); }
+.map-node.drafting { opacity: 0; }
+/* 付け替えのドラッグ: 掴んだノードはポインタの下のノードを拾えるよう pointer-events を切る。落とせる先に印 */
+.map-node.dragging { opacity: .75; pointer-events: none; }
+.map-node.drop .map-box { stroke: var(--ex); stroke-width: 2.5; stroke-dasharray: 5 3; }
+/* 名前の入力欄。高さ・行の高さ・上下の余白はスクリプトがノードに合わせて入れる */
+.map-input {
+  position: absolute; box-sizing: border-box; padding: 0 10px; margin: 0;
+  width: auto; resize: none; overflow: hidden; white-space: pre-wrap;
+  border: 2px solid var(--brand); border-radius: 6px; background: #fff; color: var(--ink);
+  font-family: inherit; outline: none;
+}
+.map-input::placeholder { color: var(--faint); }
+.map-bar {
+  flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .3rem;
+  padding: .4rem .8rem; border-top: 1px solid var(--line-soft); background: var(--card);
+}
+.map-act {
+  font: inherit; font-size: 12px; padding: .15rem .55rem; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--card); color: var(--ink);
+}
+.map-act:hover:not(:disabled) { background: var(--brand-soft); }
+.map-act:disabled { opacity: .4; cursor: default; }
+.map-hint { margin-left: auto; font-size: 11px; color: var(--faint); }
+
 .guide { background: var(--card); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .seg { display: flex; margin: .8rem .9rem .3rem; background: var(--bg); border-radius: 9px; padding: 3px; }
 .seg button {
