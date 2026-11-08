@@ -7,6 +7,7 @@ import {
   IDEAS_SYSTEM,
   parseIdeas,
   parseThemes,
+  stripOrdinal,
   THEMES_SYSTEM,
 } from '../src/ai/ideas.js'
 import { appendToMemo, memoBlock } from '../src/shared/ideas.js'
@@ -72,6 +73,18 @@ describe('理由・例の候補', () => {
       () => parseIdeas(JSON.stringify({ for: side(1), against: side(0) })),
       AiOutputError,
     )
+  })
+})
+
+describe('stripOrdinal', () => {
+  it('理由の頭の順番の言葉を落とす', () => {
+    assert.equal(stripOrdinal('First：人間関係が広がる'), '人間関係が広がる')
+    assert.equal(stripOrdinal('Second: 体力がつく'), '体力がつく')
+    assert.equal(stripOrdinal('finally、時間が減る'), '時間が減る')
+    assert.equal(stripOrdinal('1つ目：お金がかかる'), 'お金がかかる')
+    assert.equal(stripOrdinal('２. 疲れる'), '疲れる')
+    assert.equal(stripOrdinal('ファーストフードが増える'), 'ファーストフードが増える')
+    assert.equal(stripOrdinal('Firstly the cost'), 'Firstly the cost')
   })
 })
 

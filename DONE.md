@@ -17,3 +17,4 @@
 - 2026-11-08 AI の採点と指摘（右ペインの「採点」タブ。固定基準 100 点・観点ごとの点数と一言・よかった点・指摘（直した文は出さない、本文に無い引用は消す）。Claude Opus 5.5・fallbacks: "default"。feedback.json に最新 1 回分。API キーは daily-note と共用。本物の API で 2 回確かめた。[plan](docs/plans/archive/ai-scoring.md)）
 - 2026-11-08 ./run-server.sh をシェルに戻るようにする（既定はバックグラウンドで起動し、待ち受けるまで待って戻る。出力は logs/server.log。--foreground で今までどおり、--stop で止める。[plan](docs/plans/archive/run-server-background.md)）
 - 2026-11-08 表現集から下書きへの挿入（右ペインの表現集の表現を押すと下書きのカーソルの位置に入る。前後の空白を整え、Ctrl+Z で戻せる。下書き以外では知らせる。[plan](docs/plans/archive/insert-phrase.md)）
+- 2026-11-08 AI のアイデア出し（右ペインの「AI案」タブ。テーマの候補（英語の問いと日本語訳。「課題のテーマにする」）と、賛成・反対の理由と例の候補（日本語。「メモに足す」）。結果は保存しない。本物の API で 2 回確かめ、理由の頭の First などを落とすようにした。[plan](docs/plans/archive/ai-ideas.md)）

@@ -94,6 +94,7 @@ export const IDEAS_SYSTEM = [
   `- 賛成側（for）・反対側（against）それぞれ、意見を 1 文（opinion）と、理由を ${REASON_COUNT} つ（reason）。`,
   `- 各理由に、具体的な例・場面・数字・体験などを 1〜${EXAMPLE_COUNT} つ（examples）。それぞれ短いメモの形（1 行ずつ）で。`,
   '- 理由どうしが重ならないようにし、生徒が自分の経験に結び付けやすいものにします。',
+  '- 理由の頭に First / Second / Finally や「1つ目」などの順番の言葉は付けません（順番は生徒が並べます）。',
   '- 課題の条件が渡されたら、それに合う候補にします（例: 理由の数の指定）。',
 ].join('\n')
 
@@ -141,6 +142,14 @@ export const IDEAS_SCHEMA = {
   additionalProperties: false,
 } as const
 
+/** 理由の頭の順番の言葉（First: / Second、/ 1つ目： など）を落とす。並べ方は生徒が決めるため。 */
+export function stripOrdinal(reason: string): string {
+  return reason
+    .replace(/^(first|second|third|finally|lastly|next)\s*[:：,、.．]\s*/i, '')
+    .replace(/^([0-9０-９]+|[一二三])\s*(つ目|番目)?\s*[:：.．、)）]\s*/, '')
+    .trim()
+}
+
 function parseSide(value: unknown, stance: Stance): SideSuggestion {
   if (!isRecord(value)) throw new AiOutputError(`理由・例の候補に ${stance} がありません`)
   const reasons = Array.isArray(value['reasons'])
@@ -149,7 +158,7 @@ function parseSide(value: unknown, stance: Stance): SideSuggestion {
           isRecord(r) && text(r['reason']) !== ''
             ? [
                 {
-                  reason: text(r['reason']),
+                  reason: stripOrdinal(text(r['reason'])),
                   examples: (Array.isArray(r['examples']) ? r['examples'] : [])
                     .map(text)
                     .filter((e) => e !== '')
