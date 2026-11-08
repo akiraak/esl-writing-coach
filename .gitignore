@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-test/
+
+# 認証情報（Dropbox のトークン等）。絶対にコミットしない
+.env
+.env.*
+!.env.example
+
+# Claude Code のローカル状態（worktree 等）
+.claude/

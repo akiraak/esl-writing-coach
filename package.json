@@ -1,0 +1,25 @@
+{
+  "name": "esl-writing-coach",
+  "version": "0.1.0",
+  "description": "ESL の授業の opinion paragraph を、学びながら書くためのツール（自分専用・ローカル）",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test \"dist-test/test/**/*.test.js\"",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "dropbox:check": "npm run build --silent && node --env-file-if-exists=.env dist/scripts/dropbox-check.js",
+    "dropbox:smoke": "npm run build --silent && node --env-file-if-exists=.env dist/scripts/dropbox-smoke.js"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.6",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

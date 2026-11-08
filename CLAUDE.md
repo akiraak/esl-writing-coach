@@ -102,6 +102,9 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 - ファイルを分けるのは、段階ごとに別々に自動保存でき、`rev` による競合の判定もファイル単位で済むため。`outline.txt` は daily-note のマップでも開ける
 - AI の採点を足すときに、最新の採点結果を入れる `feedback.json` を同じフォルダに加える
 - 学習ガイドの中身（解説・モデル文・表現集）は固定コンテンツなので、Dropbox ではなくリポジトリに置く
+- **フォルダ名はパラグラフの id**: `作成日-テーマのスラッグ`（英数字以外は `-`、40 文字まで、英字が無ければ `paragraph`、同名は `-2`…）。テーマを後で変えてもフォルダ名は変えない。API から来た id は `YYYY-MM-DD-[a-z0-9-]+` だけ受け付ける（`src/paragraphs/naming.ts`）
+- **新規作成はフォルダだけを作る**（空のファイルは作らない）。段階のファイルが「無い・0 バイト」なら未着手で、一覧の進み具合はこれで判定する（`list_folder` のメタデータだけで分かる）
+- 段階のファイルは、読み込み時に改行コード・BOM・末尾の改行を控え、保存時に戻す（`outline.txt` は daily-note のマップなど他でも開くため。`src/paragraphs/text.ts`）
 
 ## 技術スタック
 
@@ -117,6 +120,26 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 - **テスト**: `node --test`。DOM を使わない部分（アウトライン・語数／文数の数え方・API の入出力など）を node で直接確かめる
 - **lint / 整形**: Biome
 - **AI を足すとき**: `@anthropic-ai/sdk` をサーバ側で使い、API を足して右ペインに結果を描く
+
+### コードの置き場所
+
+- `src/config.ts`（環境変数）/ `src/log.ts`（トークンを伏せるログ）/ `src/dropbox/client.ts`（Dropbox API。daily-note から移植）
+- `src/paragraphs/`: 保存層。`store.ts`（一覧・段階のファイルの読み書き・作成・削除。競合は `StageConflictError`）、`naming.ts`、`text.ts`
+- `src/scripts/`: `dropbox-check.ts`・`dropbox-smoke.ts`
+- `test/`: `node --test`。Dropbox は偽の `fetch` / 偽のクライアントに差し替え、実 API は叩かない
+
+### 開発コマンド
+
+| コマンド | 内容 |
+|---|---|
+| `npm run build` | `tsc` で `dist/` へ出力 |
+| `npm test` | `tsc -p tsconfig.test.json` → `node --test`（`dist-test/`） |
+| `npm run typecheck` | 型チェックのみ（`src` と `test`） |
+| `npm run lint` / `npm run lint:fix` | Biome |
+| `npm run dropbox:check` | Dropbox に繋がるか確かめる（**読むだけ**。パラグラフの件数と着手済みの件数だけ出す） |
+| `npm run dropbox:smoke` | 本物の Dropbox で保存層を一通り動かす（**書く**。`<保存先>/.smoke-test/` だけを使い、最後に消す） |
+
+環境変数は `.env.example` を参照。`.env` はコミットしない。Dropbox の 3 つの値は daily-note の `.env` から写す（リフレッシュトークンを取り直すときは daily-note の `npm run dropbox:auth`）。
 
 ## 開発管理画面
 
