@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { createAutosave, type SaveState, type Timer } from '../src/shared/autosave.js'
+import {
+  combineSaveStates,
+  createAutosave,
+  type SaveState,
+  type Timer,
+} from '../src/shared/autosave.js'
 import type { SaveBase, SavedStage } from '../src/shared/types.js'
 
 /** 手で進める偽のタイマー。 */
@@ -246,5 +251,32 @@ describe('createAutosave', () => {
     t.advance(5000)
     await tick()
     assert.equal(s.calls.length, 0)
+  })
+})
+
+describe('combineSaveStates', () => {
+  it('競合 > 保存できません > 保存中 > 未保存 > 保存済み', () => {
+    const saved: SaveState = { kind: 'saved', at: null }
+    assert.deepEqual(combineSaveStates([saved, { kind: 'dirty' }]), { kind: 'dirty' })
+    assert.deepEqual(combineSaveStates([{ kind: 'dirty' }, { kind: 'saving' }]), { kind: 'saving' })
+    assert.deepEqual(
+      combineSaveStates([{ kind: 'saving' }, { kind: 'error', message: 'x' }, saved]),
+      { kind: 'error', message: 'x' },
+    )
+    assert.deepEqual(combineSaveStates([{ kind: 'conflict' }, { kind: 'error', message: 'x' }]), {
+      kind: 'conflict',
+    })
+  })
+
+  it('全部が保存済みなら、いちばん新しい保存の時刻', () => {
+    assert.deepEqual(
+      combineSaveStates([
+        { kind: 'saved', at: '2026-11-08T01:00:00Z' },
+        { kind: 'saved', at: null },
+        { kind: 'saved', at: '2026-11-08T03:00:00Z' },
+      ]),
+      { kind: 'saved', at: '2026-11-08T03:00:00Z' },
+    )
+    assert.deepEqual(combineSaveStates([]), { kind: 'saved', at: null })
   })
 })

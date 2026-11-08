@@ -20,7 +20,8 @@ body {
   margin: 0; background: var(--bg); color: var(--ink); min-width: 1200px;
   font-family: var(--sans); font-size: 14px; line-height: 1.6;
 }
-#app { min-height: 100vh; display: flex; flex-direction: column; }
+/* 画面の高さに収め、ペインごとにスクロールする（決定版のモックと同じ） */
+#app { height: 100vh; display: flex; flex-direction: column; }
 a { color: var(--brand); }
 .muted { color: var(--soft); }
 .error { color: var(--danger); }
@@ -46,7 +47,7 @@ a { color: var(--brand); }
 .btn.pri { background: var(--brand); border-color: var(--brand); color: #fff; }
 
 /* --- 一覧 ------------------------------------------------------------------ */
-.lwrap { flex: 1; padding: 1.8rem 2.6rem 4rem; }
+.lwrap { flex: 1; overflow: auto; padding: 1.8rem 2.6rem 4rem; }
 .lhead { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.3rem; }
 .lhead h1 { margin: 0; font-size: 21px; }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
@@ -89,20 +90,25 @@ a { color: var(--brand); }
 .btn:disabled { opacity: .6; cursor: default; }
 
 /* --- 編集（3 ペイン） ------------------------------------------------------ */
-.panes { flex: 1; display: grid; grid-template-columns: 200px 1fr 340px; min-height: 0; }
-.stages { padding: 1rem .8rem; display: flex; flex-direction: column; gap: .55rem; border-right: 1px solid var(--line); }
+.panes { flex: 1; display: grid; grid-template-columns: 200px 1fr 340px; min-height: 0; overflow: hidden; }
+.stages { padding: 1rem .8rem; display: flex; flex-direction: column; gap: .55rem; border-right: 1px solid var(--line); overflow: auto; }
 .tile {
   position: relative; background: var(--card); border-radius: 12px; padding: .7rem .85rem;
   border: 1.5px solid var(--line-soft); color: inherit; text-decoration: none;
 }
 .tile .k { font-size: 11px; color: var(--faint); font-weight: 700; letter-spacing: .06em; }
-.tile .t { font-weight: 700; font-size: 14.5px; }
+.tile .t { font-weight: 700; font-size: 14.5px; display: flex; align-items: center; gap: .4rem; }
+.tile .s { font-size: 12px; color: var(--soft); }
+.tile .mark { font-size: 10px; font-weight: 700; }
+.tile .mark.dirty { color: var(--warn); }
+.tile .mark.error { color: var(--danger); }
+.tile .mark.conflict { font-size: 10.5px; color: #fff; background: var(--danger); border-radius: 4px; padding: 0 .35rem; }
 .tile.on { border-color: var(--brand); background: var(--brand-soft); }
 .tile.on .k { color: var(--brand); }
 .tile .lang { position: absolute; top: .65rem; right: .7rem; font-size: 10.5px; padding: 0 .35rem; border-radius: 4px; }
 .tile .lang.ja { background: var(--line-soft); color: var(--soft); }
 .tile .lang.en { background: var(--brand); color: #fff; }
-.center { display: flex; flex-direction: column; min-width: 0; padding: 1rem 1.2rem 4rem; gap: .8rem; }
+.center { display: flex; flex-direction: column; min-width: 0; padding: 1rem 1.2rem 4rem; gap: .8rem; overflow: auto; }
 .center h2 { margin: 0; font-size: 17px; }
 .banner:empty { display: none; }
 .conflict-banner { background: #fdf0e1; border: 1px solid #f0c890; color: #6b4000; border-radius: 10px; padding: .75rem 1rem; }
@@ -136,10 +142,13 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .preview { margin: 0; padding: 1rem 1.2rem; background: var(--card); border-radius: 12px; box-shadow: var(--shadow); white-space: pre-wrap; font-family: var(--serif); font-size: 16px; }
 .guide { background: var(--card); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .seg { display: flex; margin: .8rem .9rem .3rem; background: var(--bg); border-radius: 9px; padding: 3px; }
-.seg span { flex: 1; text-align: center; padding: .3rem 0; border-radius: 7px; font-size: 12.5px; color: var(--soft); font-weight: 600; }
-.seg span.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
-.gbody { padding: .6rem 1rem 4rem; }
+.seg button {
+  flex: 1; font: inherit; text-align: center; padding: .3rem 0; border: 0; border-radius: 7px; background: none;
+  font-size: 12.5px; color: var(--soft); font-weight: 600; cursor: pointer;
+}
+.seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+.gbody { padding: .6rem 1rem 4rem; overflow: auto; flex: 1; }
 
 /* --- 学習ガイド画面 -------------------------------------------------------- */
-.gpage { flex: 1; max-width: 900px; width: 100%; margin: 0 auto; padding: 1.6rem 1.5rem 5rem; }
+.gpage { flex: 1; overflow: auto; max-width: 900px; width: 100%; margin: 0 auto; padding: 1.6rem 1.5rem 5rem; }
 .gpage h1 { margin: 0 0 1rem; font-size: 21px; }

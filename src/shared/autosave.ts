@@ -162,3 +162,29 @@ export function createAutosave(options: AutosaveOptions): Autosave {
     },
   }
 }
+
+/** まとめるときの重さ（大きいほど先に知らせる）。 */
+const SEVERITY: Readonly<Record<SaveState['kind'], number>> = {
+  saved: 0,
+  dirty: 1,
+  saving: 2,
+  error: 3,
+  conflict: 4,
+}
+
+/**
+ * いくつかのファイルの保存の状態を 1 つにまとめる（編集画面のヘッダ）。
+ * 競合 > 保存できません > 保存中 > 未保存 > 保存済み。全部が保存済みなら、いちばん新しい保存の時刻を出す。
+ */
+export function combineSaveStates(states: readonly SaveState[]): SaveState {
+  let worst: SaveState = { kind: 'saved', at: null }
+  let latest: string | null = null
+  for (const state of states) {
+    if (SEVERITY[state.kind] > SEVERITY[worst.kind]) worst = state
+    // ISO8601（UTC・同じ桁数）なので文字列の大小で比べられる
+    if (state.kind === 'saved' && state.at !== null && (latest === null || state.at > latest)) {
+      latest = state.at
+    }
+  }
+  return worst.kind === 'saved' ? { kind: 'saved', at: latest } : worst
+}

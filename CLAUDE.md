@@ -119,7 +119,8 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
   手で書き換えて形が崩れても内容は消さない（読み取れなかった行は条件の先頭に回す）
 - **自動保存**（`src/shared/autosave.ts`・`src/browser/stage-editor.ts`）: 打ち終わって 3 秒で保存。保存中に打てば終わってからもう一度。
   **競合（409）を 1 度でも見たら自動保存を止め**、手元の内容は残したまま知らせる（「手元の内容をコピー」「読み直す（手元の変更は捨てる）」）。
-  画面を移るときは待たずに保存し、新しい画面は**まだ終わっていない保存を全部待ってから**読み込む（古い rev で編集を始めないため）。タブを閉じるときに未保存があれば確認を出す
+  編集画面はパラグラフを開いている間 4 つの段階の自動保存を持ち続け、同じパラグラフの中で段階を移るときは読み直さない（離れる段階は待たずに保存する）。
+  一覧などほかの画面へ移るときは待たずに保存し、新しい画面は**まだ終わっていない保存を全部待ってから**読み込む（古い rev で編集を始めないため）。タブを閉じるときに未保存があれば確認を出す
 - 段階のファイルは、読み込み時に改行コード・BOM・末尾の改行を控え、保存時に戻す（`outline.txt` は daily-note のマップなど他でも開くため。`src/paragraphs/text.ts`）
 
 ## 技術スタック
@@ -135,7 +136,8 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 - **画面**: ブラウザ側の素の TypeScript で描く 1 ページ（一覧・編集・学習ガイドを切り替える）。フレームワークは使わず、esbuild で束ねる
   - 画面の切り替えは URL のハッシュ（`#/` = 一覧、`#/p/<id>/<stage>` = 編集、`#/guide` = 学習ガイド。`src/shared/route.ts`）。サーバが返すページは `/` だけ
   - DOM は `src/browser/dom.ts` の `h()` で組み、本文などのデータは文字列ノードとして入れる（innerHTML は使わない）
-  - 段階の切り替えはページ遷移なしで行う。4 つのファイルの `rev` と未保存の状態はブラウザ側で持ち、ファイルごとに自動保存する
+  - 段階の切り替えはページ遷移なしで行う。4 つのファイルの `rev` と未保存の状態はブラウザ側で持ち、ファイルごとに自動保存する（`src/browser/views/edit.ts`。画面の入口は `View.navigate()` で作り直さずに済むかを聞く）
+  - ヘッダの保存の状態は 4 つをまとめて 1 つ出し（競合 > 保存できません > 保存中 > 未保存 > 保存済み）、段階のタイルに段階ごとの状態の行（`src/shared/stage-summary.ts`）と保存の印を出す
 - **daily-note から流用するもの**: `src/editor/outline.ts`・`src/editor/mindmap-layout.ts`（DOM を使わない純関数）、`src/browser/map.ts`（素の TS のマップ。綴りの確認・画像の書き出しは外す）、`src/dropbox/client.ts`
 - **書き直すもの**: 画面の描画と自動保存（daily-note はサーバで HTML を組む方式なので流用しない）
 - **テスト**: `node --test`。DOM を使わない部分（アウトライン・語数／文数の数え方・API の入出力など）を node で直接確かめる
@@ -147,8 +149,8 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 - `src/config.ts`（環境変数）/ `src/log.ts`（トークンを伏せるログ）/ `src/dropbox/client.ts`（Dropbox API。daily-note から移植）
 - `src/paragraphs/`: 保存層。`store.ts`（一覧・段階のファイルの読み書き・作成・削除。競合は `StageConflictError`）、`naming.ts`、`text.ts`、`themes.ts`（一覧のテーマ）
 - `src/server/`: `server.ts`（HTTP サーバ・画面のファイル）、`api.ts`（JSON API）、`guard.ts`（安全チェック・CSP）。起動は `src/main.ts`
-- `src/shared/`: サーバとブラウザで共有する型と定数（`types.ts`）、画面の切り替え（`route.ts`）。Node にも DOM にも依存しない
-- `src/browser/`: 画面（`main.ts`・`api.ts`・`dom.ts`）。`tsconfig.web.json` で型チェックし、esbuild で `dist/browser/app.js` に束ねる
+- `src/shared/`: サーバとブラウザで共有する型と定数（`types.ts`）、画面の切り替え（`route.ts`）、`assignment.md` の書式（`assignment.ts`）、自動保存（`autosave.ts`）、タイルの状態の行（`stage-summary.ts`）。Node にも DOM にも依存しない
+- `src/browser/`: 画面（`main.ts`・`api.ts`・`dom.ts`・`stage-editor.ts`・`guide-pane.ts`（編集画面の右ペイン）・`views/`）。`tsconfig.web.json` で型チェックし、esbuild で `dist/browser/app.js` に束ねる
 - `web/`: `index.html`（外枠）と `style.css`（決定版のデザインの色・フォントを CSS 変数に）
 - `src/scripts/`: `dropbox-check.ts`・`dropbox-smoke.ts`
 - `test/`: `node --test`。Dropbox は偽の `fetch` / 偽のクライアントに差し替え、実 API は叩かない
