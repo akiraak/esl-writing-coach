@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>D: フォーカス — ESL Writing デザイン案</title>
+<style>
+/* ===========================================================================
+   案 D「フォーカス」— 書く面を一番広く。ほかは細く・畳める
+   ・左 = 数字だけの細いレール（ホバーで名前）
+   ・中央 = 大きな字の本文を中央寄せ。アウトラインは本文の左に細い「目次」として並べる（畳める）
+   ・語数・文数は本文の下に 1 行。足りない分だけ色が付く
+   ・右 = 学習ガイドは閉じられる引き出し（×）
+   ・一覧 = 1 列のリスト（日付が左）
+   =========================================================================== */
+:root {
+  --bg: #fbfbfa; --ink: #1d1d1b; --soft: #6b6b66; --faint: #a9a9a3; --line: #e8e8e4; --hover: #f1f1ee;
+  --accent: #c2410c; --accent-soft: #fdeee6; --ok: #3f7d4e;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); min-width: 1200px;
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif; font-size: 14px; line-height: 1.65;
+}
+input[name=screen], input[name=gtab] { position: absolute; opacity: 0; pointer-events: none; }
+.view { display: none; height: 100vh; }
+#v1:checked ~ .v-list, #v2:checked ~ .v-edit, #v3:checked ~ .v-guide { display: flex; }
+.serif { font-family: "Iowan Old Style", Georgia, "Times New Roman", serif; }
+
+/* --- レール ---------------------------------------------------------------- */
+.rail { width: 60px; border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: .9rem 0; gap: .45rem; }
+.rail .home { font-weight: 800; font-size: 13px; margin-bottom: .8rem; letter-spacing: -.02em; }
+.rail .st { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; color: var(--soft); border: 1px solid var(--line); position: relative; font-size: 13px; }
+.rail .st.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.rail .st::after { content: attr(data-name); position: absolute; left: 44px; white-space: nowrap; background: var(--ink); color: #fff; font-size: 11.5px; padding: .1rem .5rem; border-radius: 5px; opacity: 0; }
+.rail .st:hover::after { opacity: 1; z-index: 5; }
+.rail .gap { flex: 1; }
+.rail .ic { color: var(--faint); font-size: 16px; }
+
+/* --- 一覧 ------------------------------------------------------------------ */
+.lmain { flex: 1; overflow: auto; }
+.lin { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+.lin header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1.6rem; }
+.lin h1 { margin: 0; font-size: 26px; font-weight: 600; }
+.lin header .sp { flex: 1; }
+.lbtn { font: inherit; font-size: 13px; padding: .35rem 1rem; border-radius: 6px; border: 1px solid var(--ink); background: var(--ink); color: #fff; }
+.lbtn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.item { display: grid; grid-template-columns: 110px 1fr auto; gap: 1rem; align-items: baseline; padding: .95rem .4rem; border-top: 1px solid var(--line); }
+.item:last-child { border-bottom: 1px solid var(--line); }
+.item .d { color: var(--faint); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.item .t { font-size: 18px; }
+.item .x { color: var(--faint); font-size: 12px; opacity: 0; }
+.item:hover { background: var(--hover); } .item:hover .x { opacity: 1; }
+
+/* --- 編集 ------------------------------------------------------------------ */
+.ework { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ebar { height: 46px; display: flex; align-items: center; gap: 1rem; padding: 0 1.3rem; color: var(--soft); font-size: 13px; }
+.ebar b { color: var(--ink); font-weight: 600; }
+.ebar .sp { flex: 1; }
+.ebar .lk { color: var(--soft); }
+.ebar .lk.on { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+.ebody { flex: 1; display: grid; grid-template-columns: 220px 1fr; min-height: 0; }
+.toc { padding: 1.6rem 0 2rem 1.3rem; font-size: 12.5px; color: var(--soft); overflow: auto; }
+.toc h4 { margin: 0 0 .6rem; font-size: 11px; letter-spacing: .08em; color: var(--faint); font-weight: 600; display: flex; justify-content: space-between; padding-right: 1rem; }
+.toc ul { list-style: none; margin: 0; padding: 0; }
+.toc li { padding: .18rem 0; line-height: 1.45; }
+.toc .l0 { color: var(--ink); font-weight: 600; }
+.toc .l1 { padding-left: .9rem; color: var(--ink); }
+.toc .l2 { padding-left: 1.8rem; }
+.toc .l1::before { content: "— "; color: var(--faint); }
+.toc .l2::before { content: "· "; color: var(--faint); }
+.page { overflow: auto; padding: 1.4rem 2rem 6rem; }
+.page-in { max-width: 680px; margin: 0 auto; }
+.req { font-size: 12.5px; color: var(--soft); margin-bottom: 1.6rem; padding-bottom: .9rem; border-bottom: 1px solid var(--line); }
+.req b { color: var(--ink); font-weight: 600; }
+.text { font-size: 20px; line-height: 2; min-height: 360px; }
+.caret { display: inline-block; width: 2px; height: 1.1em; background: var(--accent); vertical-align: -4px; }
+.counts { margin-top: 1.4rem; display: flex; gap: 1.6rem; align-items: center; font-size: 13px; color: var(--soft); font-variant-numeric: tabular-nums; }
+.counts .c b { color: var(--ink); font-weight: 600; font-size: 15px; }
+.counts .c em { font-style: normal; color: var(--accent); margin-left: .4rem; font-weight: 600; }
+.mini { display: inline-block; width: 90px; height: 4px; background: var(--line); position: relative; vertical-align: middle; margin-left: .5rem; border-radius: 2px; }
+.mini i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 2px; }
+.mini s { position: absolute; top: -3px; bottom: -3px; border-left: 1.5px solid var(--ink); }
+.counts .sp { flex: 1; }
+.counts .saved { color: var(--faint); }
+
+.drawer { width: 340px; border-left: 1px solid var(--line); background: #fff; display: flex; flex-direction: column; }
+.dh { height: 46px; display: flex; align-items: center; padding: 0 .6rem 0 1rem; gap: .2rem; border-bottom: 1px solid var(--line); }
+.dh span { padding: .25rem .65rem; border-radius: 6px; color: var(--soft); font-size: 13px; }
+.dh span.on { background: var(--hover); color: var(--ink); font-weight: 600; }
+.dh .sp { flex: 1; }
+.dh .close { color: var(--faint); font-size: 18px; padding: 0 .5rem; }
+.db { padding: 1.1rem 1.2rem 4rem; overflow: auto; }
+.db .s { margin-bottom: 1.1rem; }
+.db .s b { display: block; font-size: 13.5px; }
+.db .s b small { color: var(--faint); font-weight: 400; margin-left: .35rem; }
+.db .s p { margin: .15rem 0 0; color: var(--soft); font-size: 13px; }
+.db .s .eg { font-size: 14px; color: var(--ink); margin-top: .3rem; padding-left: .7rem; border-left: 2px solid var(--line); }
+
+/* --- 学習ガイド画面 -------------------------------------------------------- */
+.gmain { flex: 1; overflow: auto; }
+.gin { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+.gin h1 { margin: 0 0 1.2rem; font-size: 26px; font-weight: 600; }
+.gtabs { display: flex; gap: 1.6rem; margin-bottom: 2rem; font-size: 15px; }
+.gtabs label { cursor: pointer; color: var(--faint); padding-bottom: .2rem; }
+#g1:checked ~ .v-guide label[for=g1], #g2:checked ~ .v-guide label[for=g2], #g3:checked ~ .v-guide label[for=g3] { color: var(--ink); border-bottom: 2px solid var(--ink); }
+.gpanel { display: none; }
+#g1:checked ~ .v-guide .gp1, #g2:checked ~ .v-guide .gp2, #g3:checked ~ .v-guide .gp3 { display: block; }
+.sec { padding: 1.1rem 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: 40px 1fr; }
+.sec .no { color: var(--faint); font-size: 22px; font-weight: 300; }
+.sec h3 { margin: 0; font-size: 17px; } .sec h3 small { color: var(--faint); font-weight: 400; margin-left: .5rem; font-size: 13px; }
+.sec p { margin: .2rem 0 0; color: var(--soft); }
+.model { font-size: 20px; line-height: 2.05; }
+.model span { padding: 0 1px; }
+.model .ts { text-decoration: underline 2px #2f6fd6; text-underline-offset: 6px; }
+.model .rs { text-decoration: underline 2px #2e9a5b; text-underline-offset: 6px; }
+.model .ex { text-decoration: underline 2px #d9822b; text-underline-offset: 6px; text-decoration-style: dotted; }
+.model .cs { text-decoration: underline 2px #8a4fc7; text-underline-offset: 6px; }
+.legend { margin-top: 1.3rem; display: flex; gap: 1.3rem; font-size: 12.5px; color: var(--soft); }
+.legend i { display: inline-block; width: 16px; border-bottom: 2px solid; margin-right: .4rem; vertical-align: 3px; }
+.pl { padding: 1rem 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: 150px 1fr; }
+.pl h3 { margin: 0; font-size: 14px; color: var(--soft); font-weight: 500; }
+.pl div { font-size: 17px; line-height: 1.9; }
+.pl div span::after { content: "  /  "; color: var(--faint); white-space: pre; }
+.pl div span:last-child::after { content: ""; }
+
+/* --- モックの切り替え（実物には無い） ------------------------------------- */
+.switch { position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: .2rem; padding: .25rem; border-radius: 8px; background: #1d1d1b; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+.switch label, .switch a { color: #cfcfca; padding: .25rem .75rem; border-radius: 5px; cursor: pointer; text-decoration: none; }
+.switch a { color: #8d8d88; }
+#v1:checked ~ .switch label[for=v1], #v2:checked ~ .switch label[for=v2], #v3:checked ~ .switch label[for=v3] { background: #fff; color: #1d1d1b; }
+</style>
+</head>
+<body>
+<input type="radio" name="screen" id="v1"><input type="radio" name="screen" id="v2" checked><input type="radio" name="screen" id="v3">
+<input type="radio" name="gtab" id="g1" checked><input type="radio" name="gtab" id="g2"><input type="radio" name="gtab" id="g3">
+
+<!-- ===================== 一覧 ===================== -->
+<div class="view v-list">
+  <nav class="rail"><div class="home">ESL</div><span class="gap"></span><span class="ic">?</span></nav>
+  <main class="lmain"><div class="lin">
+    <header><h1>Paragraphs</h1><span class="sp"></span><button class="lbtn ghost">学習ガイド</button><button class="lbtn">新規作成</button></header>
+    <div class="item"><span class="d">2026-11-08</span><span class="t serif">Should students wear school uniforms?</span><span class="x">削除</span></div>
+    <div class="item"><span class="d">2026-11-02</span><span class="t serif">Is it better to live in a city or in the countryside?</span><span class="x">削除</span></div>
+    <div class="item"><span class="d">2026-10-26</span><span class="t serif">Should smartphones be allowed in class?</span><span class="x">削除</span></div>
+    <div class="item"><span class="d">2026-10-19</span><span class="t serif">Is homework necessary?</span><span class="x">削除</span></div>
+    <div class="item"><span class="d">2026-10-12</span><span class="t serif">Should people eat less meat?</span><span class="x">削除</span></div>
+  </div></main>
+</div>
+
+<!-- ===================== 編集 ===================== -->
+<div class="view v-edit">
+  <nav class="rail">
+    <div class="home">ESL</div>
+    <span class="st" data-name="課題">1</span>
+    <span class="st" data-name="アイデア">2</span>
+    <span class="st" data-name="アウトライン">3</span>
+    <span class="st on" data-name="下書き・推敲">4</span>
+    <span class="gap"></span><span class="ic">?</span>
+  </nav>
+  <div class="ework">
+    <div class="ebar"><span>Paragraphs ／ <b class="serif">Should students wear school uniforms?</b>　<span style="color:var(--faint)">4. 下書き・推敲</span></span><span class="sp"></span><span>書き出し</span></div>
+    <div class="ebody">
+      <aside class="toc">
+        <h4>OUTLINE <span>«</span></h4>
+        <ul>
+          <li class="l0">制服は義務にすべきではない</li>
+          <li class="l1">個性を表現できない</li>
+          <li class="l2">自分で服を選ぶと自分らしくいられる</li>
+          <li class="l1">お金がかかる</li>
+          <li class="l2">一式 5 万円以上、成長で買い替え</li>
+          <li class="l1">季節に合わない</li>
+          <li class="l2">夏は暑く、冬は寒い</li>
+          <li class="l1">結論: 服は自分で選べるほうがよい</li>
+        </ul>
+      </aside>
+      <div class="page"><div class="page-in">
+        <div class="req"><b>条件</b>　120–150 語・8–10 文 ・ 理由を 3 つ挙げ First / Second / Finally を使う ・ 結論で topic sentence を言い換える</div>
+        <div class="text serif">In my opinion, students should not have to wear school uniforms. First, uniforms take away a chance to show personality. For example, I feel more like myself when I choose my own clothes in the morning. Second, uniforms are expensive for families. A full set often costs more than 50,000 yen, and growing students need new ones every few years. Finally, uniforms are not comfortable in every season.<span class="caret"></span></div>
+        <div class="counts">
+          <span class="c"><b>68</b> words <span class="mini"><i style="width:45%"></i><s style="left:80%"></s></span><em>あと 52</em></span>
+          <span class="c"><b>6</b> sentences <span class="mini"><i style="width:60%"></i><s style="left:80%"></s></span><em>あと 2</em></span>
+          <span class="sp"></span><span class="saved">保存済み</span>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <aside class="drawer">
+    <div class="dh"><span>構成</span><span>モデル文</span><span class="on">表現集</span><span class="sp"></span><span class="close">×</span></div>
+    <div class="db">
+      <div class="s"><b>意見<small>Topic sentence</small></b><p class="eg serif">In my opinion, … / I believe that …</p></div>
+      <div class="s"><b>理由<small>Reasons</small></b><p class="eg serif">First, … / Second, … / Finally, … / Another reason is that …</p></div>
+      <div class="s"><b>例<small>Examples</small></b><p class="eg serif">For example, … / For instance, … / In fact, …</p></div>
+      <div class="s"><b>結論<small>Concluding sentence</small></b><p class="eg serif">In conclusion, … / For these reasons, … / To sum up, …</p></div>
+      <div class="s"><b>つなぎ<small>Transition words</small></b><p class="eg serif">However, / In addition, / Also, / As a result, / On the other hand,</p></div>
+    </div>
+  </aside>
+</div>
+
+<!-- ===================== 学習ガイド ===================== -->
+<div class="view v-guide">
+  <nav class="rail"><div class="home">ESL</div><span class="gap"></span><span class="ic" style="color:var(--ink)">?</span></nav>
+  <main class="gmain"><div class="gin">
+    <h1>Opinion paragraph</h1>
+    <div class="gtabs"><label for="g1">構成の解説</label><label for="g2">モデル文</label><label for="g3">表現集</label></div>
+    <div class="gpanel gp1">
+      <div class="sec"><span class="no">1</span><div><h3>Topic sentence<small>意見</small></h3><p>段落の最初の 1 文。テーマに対する自分の意見をはっきり書く。「賛成か反対か」が読み手にすぐ分かるようにする。</p></div></div>
+      <div class="sec"><span class="no">2</span><div><h3>Reasons<small>理由</small></h3><p>意見を支える理由を 2〜3 つ。First, / Second, / Finally, などの transition words で始める。</p></div></div>
+      <div class="sec"><span class="no">3</span><div><h3>Examples / Details<small>例・詳細</small></h3><p>理由ごとに、具体的な例・数字・体験を 1〜2 文添える。理由だけでは説得力が弱い。</p></div></div>
+      <div class="sec"><span class="no">4</span><div><h3>Concluding sentence<small>結論</small></h3><p>最後の 1 文。topic sentence の意見を別の言葉で言い換えて締める。新しい理由は出さない。</p></div></div>
+    </div>
+    <div class="gpanel gp2">
+      <div class="model serif"><span class="ts">I believe that high school students should have part-time jobs.</span> <span class="rs">First, working teaches students how to manage money.</span> <span class="ex">For example, when they earn their own money, they start to think carefully before they buy something.</span> <span class="rs">Second, a part-time job helps students learn social skills.</span> <span class="ex">At work, they talk with customers and coworkers of different ages, so they learn how to communicate politely.</span> <span class="rs">Finally, students can discover what kind of work they enjoy.</span> <span class="ex">This experience can help them choose a future career.</span> <span class="cs">For these reasons, I think that having a part-time job is a valuable experience for high school students.</span></div>
+      <div class="legend"><span><i style="border-color:#2f6fd6"></i>Topic sentence</span><span><i style="border-color:#2e9a5b"></i>Reason</span><span><i style="border-color:#d9822b;border-bottom-style:dotted"></i>Example</span><span><i style="border-color:#8a4fc7"></i>Concluding sentence</span></div>
+    </div>
+    <div class="gpanel gp3">
+      <div class="pl"><h3>意見を述べる</h3><div class="serif"><span>In my opinion,</span><span>I believe that</span><span>I strongly feel that</span></div></div>
+      <div class="pl"><h3>理由を並べる</h3><div class="serif"><span>First,</span><span>Second,</span><span>Finally,</span><span>Another reason is that</span><span>The main reason is that</span></div></div>
+      <div class="pl"><h3>例を挙げる</h3><div class="serif"><span>For example,</span><span>For instance,</span><span>In fact,</span><span>such as</span></div></div>
+      <div class="pl"><h3>結論で締める</h3><div class="serif"><span>In conclusion,</span><span>For these reasons,</span><span>To sum up,</span><span>That is why</span></div></div>
+      <div class="pl"><h3>つなぎ</h3><div class="serif"><span>However,</span><span>In addition,</span><span>Also,</span><span>As a result,</span><span>On the other hand,</span></div></div>
+    </div>
+  </div></main>
+</div>
+
+<div class="switch">
+  <a href="index.html">← 案の一覧</a>
+  <label for="v1">一覧</label><label for="v2">編集（下書き）</label><label for="v3">学習ガイド</label>
+</div>
+</body>
+</html>
