@@ -1,6 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { type Scorer, ScoringApiError, ScoringRefusedError } from '../ai/client.js'
+import { ScoringOutputError } from '../ai/scoring.js'
 import { describeError, log } from '../log.js'
 import {
+  FeedbackConflictError,
   InvalidParagraphIdError,
   NEW_FILE_FORMAT,
   type ParagraphStore,
@@ -10,7 +13,8 @@ import {
 } from '../paragraphs/store.js'
 import { StageTextError, type StageTextFormat } from '../paragraphs/text.js'
 import { createThemeReader, type ThemeReader } from '../paragraphs/themes.js'
-import { emptyAssignment, serializeAssignment } from '../shared/assignment.js'
+import { emptyAssignment, parseAssignment, serializeAssignment } from '../shared/assignment.js'
+import { type Feedback, parseFeedback, totalOf } from '../shared/feedback.js'
 
 /**
  * JSON の API（`/api/...`）。保存層（`src/paragraphs/store.ts`）をそのまま呼ぶ。
@@ -22,6 +26,10 @@ import { emptyAssignment, serializeAssignment } from '../shared/assignment.js'
  * | `DELETE /api/paragraphs/:id` | 削除 |
  * | `GET /api/paragraphs/:id/stages/:stage` | 段階のファイル → `{ text, rev, format }` |
  * | `PUT /api/paragraphs/:id/stages/:stage` `{ text, rev, format }` | 保存 → `{ rev, size, serverModified }`。競合は 409 |
+ * | `GET /api/paragraphs/:id/feedback` | AI の採点の結果 → `{ feedback, aiConfigured }`（無ければ `feedback: null`） |
+ * | `POST /api/paragraphs/:id/feedback` | 保存されている下書きを AI で採点し、`feedback.json` に書いて返す → `{ feedback }` |
+ *
+ * 採点のエラー: 下書きが空 400 `empty_draft` / キーが無い 503 `ai_not_configured` / 拒否 422 `ai_refusal` / API の失敗 502 `ai_error`
  *
  * **本文はログに出さない**（パス・ステータスまで）。
  */
@@ -103,6 +111,10 @@ export interface ApiOptions {
   store: ParagraphStore
   /** 一覧のテーマを読む（rev で覚えておくので、サーバで 1 つを使い回す）。無ければリクエストごとに作る。 */
   themes?: ThemeReader
+  /** AI の採点。`ANTHROPIC_API_KEY` が無ければ null。 */
+  scorer?: Scorer | null
+  /** 採点の時刻。差し替えられるのはテストのため。 */
+  now?: () => string
   /** 新規作成の作成日。差し替えられるのはテストのため。 */
   today?: () => string
 }
@@ -110,6 +122,45 @@ export interface ApiOptions {
 const PARAGRAPHS = /^\/api\/paragraphs$/
 const PARAGRAPH = /^\/api\/paragraphs\/([^/]+)$/
 const STAGE = /^\/api\/paragraphs\/([^/]+)\/stages\/([^/]+)$/
+const FEEDBACK = /^\/api\/paragraphs\/([^/]+)\/feedback$/
+
+/** 保存されている下書きを採点して `feedback.json` に書く。 */
+async function scoreParagraph(id: string, options: ApiOptions): Promise<Feedback> {
+  const { store } = options
+  const scorer = options.scorer ?? null
+  if (scorer === null) {
+    throw new HttpError(503, 'ai_not_configured', 'ANTHROPIC_API_KEY が設定されていません')
+  }
+  const [assignment, draft] = await Promise.all([
+    store.readStage(id, 'assignment'),
+    store.readStage(id, 'draft'),
+  ])
+  if (draft.text.trim() === '') throw new HttpError(400, 'empty_draft', '下書きが空です')
+  const { output, model } = await scorer.score({
+    assignment: parseAssignment(assignment.text),
+    draft: draft.text,
+  })
+  const feedback: Feedback = {
+    version: 1,
+    scoredAt: (options.now ?? (() => new Date().toISOString()))(),
+    model,
+    draft: draft.text,
+    total: totalOf(output.scores),
+    ...output,
+  }
+  const text = `${JSON.stringify(feedback, null, 2)}\n`
+  // 最新の 1 回分だけを持つ。他の端末が同時に採点していたら、読み直した rev でもう一度だけ書く
+  const write = async () =>
+    store.saveFeedback(id, text, (await store.readFeedback(id))?.rev ?? null)
+  try {
+    await write()
+  } catch (error) {
+    if (!(error instanceof FeedbackConflictError)) throw error
+    await write()
+  }
+  log.info(`採点: ${id}（${feedback.total} 点・${model}）`)
+  return feedback
+}
 
 /** `/api/` のリクエストを処理する。 */
 export async function handleApi(
@@ -198,6 +249,25 @@ export async function handleApi(
       throw new HttpError(405, 'method_not_allowed', '使えないメソッドです')
     }
 
+    m = FEEDBACK.exec(pathname)
+    if (m !== null) {
+      const id = decodeURIComponent(m[1] ?? '')
+      if (method === 'GET') {
+        const file = await store.readFeedback(id)
+        sendJson(res, 200, {
+          feedback: file === null ? null : parseFeedback(file.text),
+          aiConfigured: (options.scorer ?? null) !== null,
+        })
+        return
+      }
+      if (method === 'POST') {
+        await readJson(req)
+        sendJson(res, 200, { feedback: await scoreParagraph(id, options) })
+        return
+      }
+      throw new HttpError(405, 'method_not_allowed', '使えないメソッドです')
+    }
+
     throw new HttpError(404, 'not_found', 'ありません')
   } catch (error) {
     if (error instanceof HttpError) {
@@ -207,6 +277,12 @@ export async function handleApi(
     } else if (error instanceof StageConflictError) {
       log.warn(`競合: ${error.id}/${error.stage}`)
       sendJson(res, 409, { error: 'conflict', message: error.message })
+    } else if (error instanceof ScoringRefusedError) {
+      log.warn(`採点を断られました: ${pathname}`)
+      sendJson(res, 422, { error: 'ai_refusal', message: error.message })
+    } else if (error instanceof ScoringApiError || error instanceof ScoringOutputError) {
+      log.error(`採点に失敗: ${pathname}: ${error.message}`)
+      sendJson(res, 502, { error: 'ai_error', message: error.message })
     } else if (error instanceof StageTextError) {
       sendJson(res, 422, { error: 'not_utf8', message: error.message })
     } else {

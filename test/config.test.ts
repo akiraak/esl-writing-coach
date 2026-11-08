@@ -4,6 +4,7 @@ import {
   ConfigError,
   DEFAULT_DROPBOX_ROOT,
   DEFAULT_PORT,
+  loadAiConfig,
   loadDropboxConfig,
   parsePort,
 } from '../src/config.js'
@@ -50,5 +51,15 @@ describe('loadDropboxConfig', () => {
     assert.equal(loadDropboxConfig({ ...DROPBOX_ENV, DROPBOX_ROOT: '/x/y/' }).root, '/x/y')
     assert.throws(() => loadDropboxConfig({ ...DROPBOX_ENV, DROPBOX_ROOT: 'x/y' }), ConfigError)
     assert.throws(() => loadDropboxConfig({ ...DROPBOX_ENV, DROPBOX_ROOT: '/' }), ConfigError)
+  })
+})
+
+describe('loadAiConfig', () => {
+  it('ANTHROPIC_API_KEY があれば読み、無い・空なら null', () => {
+    assert.deepEqual(loadAiConfig({ ANTHROPIC_API_KEY: ' sk-ant-test ' }), {
+      apiKey: 'sk-ant-test',
+    })
+    assert.equal(loadAiConfig({}), null)
+    assert.equal(loadAiConfig({ ANTHROPIC_API_KEY: '  ' }), null)
   })
 })

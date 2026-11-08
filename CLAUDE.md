@@ -45,7 +45,10 @@ ESL（英語を第二言語として学ぶ）の授業で課されるパラグ�
 ### 後で足すもの
 
 - **AI の採点と指摘**: 「採点する」ボタンで実行する（自動では走らせない）。アプリ内の固定基準で 100 点満点を付け、観点ごとの内訳も出す。指摘には観点ラベルとヒントを付け、**直した文そのものは出さない**（課題として自分で書くため）。本文に日本語が混じっていれば指摘する。結果は最新の 1 回分だけを持つ
-  - 固定基準の案: 構成 30 / 内容 25 / 文法 20 / 語彙・表現 15 / 課題の条件 10
+  - 固定基準: 構成 30 / 内容 25 / 文法 20 / 語彙・表現 15 / 課題の条件 10（観点ごとに見ることは `src/ai/scoring.ts` のプロンプト。合計はアプリが足す）
+  - 実装（2026-11-08。`docs/plans/archive/ai-scoring.md`）: 編集画面の右ペインの「採点」タブ。モデルは `claude-opus-5-5`・effort `high`、拒否されたらサーバ側の `fallbacks: "default"` で別のモデル。
+    押したら手元の未保存を保存し終えてから、サーバが Dropbox の下書きと課題を読んで採点し `feedback.json` に書く（採点した本文も入れ、後で本文が変わったら知らせる）。
+    送るのは下書き・課題・アプリが数えた語数と文数だけ（アイデア・アウトラインは送らない）。`ANTHROPIC_API_KEY` が無ければ採点だけ使えない
 - **AI のアイデア出し**: テーマ候補、理由・例の候補を出す。メモへは自動で書き込まない
 - **`.docx` / PDF の書き出し**と体裁
 - **間違いの振り返り**: 全パラグラフの最新の指摘・点数を観点別に集める
@@ -102,7 +105,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 ```
 
 - ファイルを分けるのは、段階ごとに別々に自動保存でき、`rev` による競合の判定もファイル単位で済むため。`outline.txt` は daily-note のマップでも開ける
-- AI の採点を足すときに、最新の採点結果を入れる `feedback.json` を同じフォルダに加える
+- AI の採点の最新の結果は `feedback.json`（同じフォルダ。形は `src/shared/feedback.ts`。`rev` 付きで書く）
 - 学習ガイドの中身（解説・モデル文・表現集）は固定コンテンツなので、Dropbox ではなくリポジトリに置く（`src/shared/guide.ts`。描き方は `src/browser/guide-content.ts` で、学習ガイド画面と右ペインで共用。中身の食い違いは `test/guide.test.ts` で防ぐ）
 - **フォルダ名はパラグラフの id**: `作成日-テーマのスラッグ`（英数字以外は `-`、40 文字まで、英字が無ければ `paragraph`、同名は `-2`…）。テーマを後で変えてもフォルダ名は変えない。API から来た id は `YYYY-MM-DD-[a-z0-9-]+` だけ受け付ける（`src/paragraphs/naming.ts`）
 - **新規作成はフォルダと、テーマだけを入れた `assignment.md` を作る**（ほかの段階の空のファイルは作らない）。段階のファイルが「無い・0 バイト」なら未着手で、一覧の進み具合はこれで判定する（`list_folder` のメタデータだけで分かる）
@@ -133,7 +136,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
   - 認証は付けないので、`127.0.0.1`（と `::1`）だけで待ち受ける
   - **開く名前は `http://esl-writing.localhost:3016`**（2026-11-08。project-manager の `project-manager.localhost:8200` にならう）。`*.localhost` はブラウザが自分の PC に向けるので設定は要らない。`127.0.0.1:3016` でも開ける
   - **安全チェック**（`src/server/guard.ts`。project-manager の `guard.ts` と同じ考え方）: Host が `127.0.0.1` / `localhost` / `esl-writing.localhost` のこのポートのときだけ受ける（DNS rebinding 対策）、Origin があれば同じオリジンだけ、書き込みは `X-ESL-Request: 1` と JSON が必須。CSP はインラインのスクリプト・スタイルを許さない
-  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`。一覧の各項目には `assignment.md` のテーマ `theme` を足す（`src/paragraphs/themes.ts`。id + rev で覚えておき、変わっていなければ読み直さない）
+  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`。一覧の各項目には `assignment.md` のテーマ `theme` を足す（`src/paragraphs/themes.ts`。id + rev で覚えておき、変わっていなければ読み直さない）。AI の採点は `GET/POST /api/paragraphs/:id/feedback`（下書きが空 400 `empty_draft`・キーが無い 503 `ai_not_configured`・拒否 422 `ai_refusal`・API の失敗 502 `ai_error`）
   - Dropbox のトークン類は `.env` に置き、`node --env-file-if-exists=.env` で読む（daily-note と同じ）
 - **画面**: ブラウザ側の素の TypeScript で描く 1 ページ（一覧・編集・学習ガイドを切り替える）。フレームワークは使わず、esbuild で束ねる
   - 画面の切り替えは URL のハッシュ（`#/` = 一覧、`#/p/<id>/<stage>` = 編集、`#/guide` = 学習ガイド。`src/shared/route.ts`）。サーバが返すページは `/` だけ
@@ -144,11 +147,12 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 - **書き直すもの**: 画面の描画と自動保存（daily-note はサーバで HTML を組む方式なので流用しない）
 - **テスト**: `node --test`。DOM を使わない部分（アウトライン・語数／文数の数え方・API の入出力など）を node で直接確かめる
 - **lint / 整形**: Biome
-- **AI を足すとき**: `@anthropic-ai/sdk` をサーバ側で使い、API を足して右ペインに結果を描く
+- **AI**: `@anthropic-ai/sdk` をサーバ側で使い、API を足して右ペインに結果を描く（`src/ai/`。テストは偽の採点器で、実 API は叩かない）
 
 ### コードの置き場所
 
 - `src/config.ts`（環境変数）/ `src/log.ts`（トークンを伏せるログ）/ `src/dropbox/client.ts`（Dropbox API。daily-note から移植）
+- `src/ai/`: AI の採点（`scoring.ts` = プロンプト・出力のスキーマと検証の純関数、`client.ts` = SDK の呼び出し）
 - `src/paragraphs/`: 保存層。`store.ts`（一覧・段階のファイルの読み書き・作成・削除。競合は `StageConflictError`）、`naming.ts`、`text.ts`、`themes.ts`（一覧のテーマ）
 - `src/server/`: `server.ts`（HTTP サーバ・画面のファイル）、`api.ts`（JSON API）、`guard.ts`（安全チェック・CSP）。起動は `src/main.ts`
 - `src/shared/`: サーバとブラウザで共有する型と定数（`types.ts`）、画面の切り替え（`route.ts`）、`assignment.md` の書式（`assignment.ts`）、自動保存（`autosave.ts`）、タイルの状態の行（`stage-summary.ts`）、アウトライン（`outline.ts`・`mindmap-layout.ts`。daily-note から移植）。Node にも DOM にも依存しない
@@ -170,7 +174,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 | `npm run dropbox:check` | Dropbox に繋がるか確かめる（**読むだけ**。パラグラフの件数と着手済みの件数だけ出す） |
 | `npm run dropbox:smoke` | 本物の Dropbox で保存層を一通り動かす（**書く**。`<保存先>/.smoke-test/` だけを使い、最後に消す） |
 
-環境変数は `.env.example` を参照。`.env` はコミットしない。Dropbox の 3 つの値は daily-note の `.env` から写す（リフレッシュトークンを取り直すときは daily-note の `npm run dropbox:auth`）。
+環境変数は `.env.example` を参照。`.env` はコミットしない。Dropbox の 3 つの値は daily-note の `.env` から写す（リフレッシュトークンを取り直すときは daily-note の `npm run dropbox:auth`）。AI の採点には `ANTHROPIC_API_KEY`。
 
 ## 開発管理画面
 

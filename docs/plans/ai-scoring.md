@@ -1,0 +1,66 @@
+# AI の採点と指摘
+
+## 目的・背景
+
+「後で足すもの」の最初。下書きを AI に採点させ、観点ごとの点数と、直すためのヒントを右ペインに出す（`CLAUDE.md` の「後で足すもの」）。
+
+決まっていること（CLAUDE.md）:
+- 「採点する」ボタンで実行する（自動では走らせない）
+- アプリ内の固定基準で 100 点満点、観点ごとの内訳も出す。案: 構成 30 / 内容 25 / 文法 20 / 語彙・表現 15 / 課題の条件 10
+- 指摘には観点ラベルとヒントを付け、**直した文そのものは出さない**（課題として自分で書くため）
+- 本文に日本語が混じっていれば指摘する
+- 結果は最新の 1 回分だけを持つ（`feedback.json`）
+- `@anthropic-ai/sdk` をサーバ側で使い、API を足して右ペインに結果を描く
+
+## この作業で決めたこと（2026-11-08。ユーザーの指定が無いので既定で進め、見直せるようにする）
+
+- **モデル**: `claude-opus-5-5`（Claude Opus 5.5）、effort `high`。採点のぶれを抑えるため。1 回はパラグラフ 1 本ぶんで小さい
+- **拒否のときの代わりのモデル**: サーバ側の `fallbacks: "default"`（beta `server-side-fallback-2026-07-01`）を付ける。拒否されたら別のモデルで採点し直す
+- **API キー**: 環境変数 `ANTHROPIC_API_KEY`（`.env`）。無ければ採点のボタンの所に「API キーが設定されていません」と出す（ほかの機能は動く）
+- **送るもの**: 押したときの下書き・課題（テーマ・語数／文数の指定・条件）・アプリが数えた語数と文数。アウトライン・アイデアは送らない。送るのはボタンを押したときだけ
+- **採点の前に保存を済ませる**: 押したら手元の未保存を保存し終えてから、サーバが Dropbox の下書きを読んで採点する（採点した本文と保存された本文を一致させる）
+- **観点ごとに見ること**（プロンプトに書く。`src/ai/scoring.ts`）
+  - 構成 30: topic sentence が最初にあり意見がはっきりしている／理由が transition words で示されている／各理由に例・詳細がある／concluding sentence が意見を言い換えて締めている／1 つの段落としてまとまっている
+  - 内容 25: 理由に説得力がある／例が具体的で理由を支えている／テーマからそれていない／論理の飛躍が無い
+  - 文法 20: 時制・主語と動詞の一致・冠詞・単数と複数・文の組み立て（run-on・fragment）・句読点
+  - 語彙・表現 15: 語の選び方・同じ語の繰り返し・transition words の使い方・自然な語の組み合わせ
+  - 課題の条件 10: 語数・文数の指定（アプリが数えた値で判断）・構成や表現の条件・英語だけで書いているか
+- **結果の形**: 観点ごとの点数と一言、よかった点（1〜3 個）、指摘（観点・本文からの短い引用・ヒント）。
+  合計はアプリが観点の点数を足して出す（AI の合計は使わない）。点数は 0〜満点に収める
+- **feedback.json**: 最新の 1 回分。採点した下書きの本文も入れておき、採点の後に本文を直したら「採点した後に本文が変わっています」と出す
+
+## 対応方針
+
+### Phase 1: 型・基準・プロンプト・出力の検証（純関数）
+
+- `src/shared/feedback.ts`: 観点（キー・名前・満点）、feedback.json の型、読み取り（壊れていたら null）
+- `src/ai/scoring.ts`: プロンプトを組む関数と、出力の JSON スキーマ、AI の出力を検証して点数を収める関数
+
+### Phase 2: サーバ
+
+- `src/ai/client.ts`: SDK で 1 回呼ぶ（構造化出力 `output_config.format` の JSON スキーマ）。拒否・途中で切れた・API の失敗を分けて返す
+- 保存層: `feedback.json` の読み書き（`rev` 付きの `update`。無ければ `add`）
+- API: `GET /api/paragraphs/:id/feedback`（無ければ `null`）、`POST /api/paragraphs/:id/feedback`（採点して保存して返す）
+  - 下書きが空 → 400 `empty_draft`、キーが無い → 503 `ai_not_configured`、拒否 → 422 `ai_refusal`、API の失敗 → 502 `ai_error`
+- 本文はログに出さない。API キーはログで伏せる
+
+### Phase 3: 画面（右ペインの「採点」タブ）
+
+- 編集画面の右ペインのタブに「採点」を足す（学習ガイド画面には出さない）
+- 合計（`72 / 100`）・観点ごとの棒と一言・よかった点・指摘（観点のラベル・引用・ヒント）。採点した日時
+- 「採点する」/「もう一度採点する」。採点中は押せない（数十秒かかる）。送る内容の説明を添える
+- 採点の後に本文が変わっていれば知らせる
+
+### Phase 4: 本物の API で確かめる（ユーザーの了承と API キーが要る）
+
+## 影響範囲
+
+- 新規: `src/shared/feedback.ts`・`src/ai/scoring.ts`・`src/ai/client.ts`・`src/browser/feedback-pane.ts`・テスト
+- `src/config.ts`・`src/main.ts`・`src/paragraphs/store.ts`・`src/server/api.ts`・`src/server/server.ts`・`src/browser/guide-content.ts`・`src/browser/guide-pane.ts`・`src/browser/views/edit.ts`・`src/browser/api.ts`・`web/style.css`・`package.json`・`.env.example`・`CLAUDE.md`
+
+## テスト方針
+
+- `test/feedback.test.ts`・`test/scoring.test.ts`: プロンプトに条件・数が入る／直した文を出さない指示がある／出力の検証（点数を収める・観点の欠け・壊れた JSON）
+- `test/server.test.ts`: 偽の採点器で POST / GET、各エラー
+- `test/paragraph-store.test.ts`: feedback.json の読み書きと競合
+- 画面は 3017 番で、偽の結果を返すようにはしない（実 API が要る）。表示は保存済みの feedback.json を置いて確かめる

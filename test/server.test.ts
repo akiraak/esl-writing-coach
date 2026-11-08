@@ -5,7 +5,9 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, before, beforeEach, describe, it } from 'node:test'
+import { type Scorer, ScoringApiError, ScoringRefusedError } from '../src/ai/client.js'
 import {
+  FeedbackConflictError,
   InvalidParagraphIdError,
   NEW_FILE_FORMAT,
   type ParagraphStore,
@@ -16,6 +18,7 @@ import {
 } from '../src/paragraphs/store.js'
 import { CONTENT_SECURITY_POLICY } from '../src/server/guard.js'
 import { createAppHandler, listen } from '../src/server/server.js'
+import type { Feedback } from '../src/shared/feedback.js'
 import type { ParagraphListItem } from '../src/shared/types.js'
 
 /**
@@ -75,7 +78,20 @@ function fakeStore() {
       check(id)
       calls.push({ op: 'delete', args: [id] })
     },
+    async readFeedback(id: string) {
+      check(id)
+      calls.push({ op: 'readFeedback', args: [id] })
+      return feedback
+    },
+    async saveFeedback(id: string, text: string, rev: string | null) {
+      check(id)
+      calls.push({ op: 'saveFeedback', args: [id, rev] })
+      if ((feedback?.rev ?? null) !== rev) throw new FeedbackConflictError(id)
+      revs += 1
+      feedback = { text, rev: `f${revs}` }
+    },
   }
+  let feedback: { text: string; rev: string } | null = null
   return { store, calls }
 }
 
@@ -84,6 +100,8 @@ let base: string
 let port: number
 let fake: ReturnType<typeof fakeStore>
 let webDir: string
+/** 偽の採点器（テストごとに差し替える。null ならキーが無い扱い）。 */
+let scorer: Scorer | null = null
 
 before(async () => {
   webDir = await mkdtemp(path.join(tmpdir(), 'esl-web-'))
@@ -102,6 +120,8 @@ before(async () => {
       webDir,
       bundleDir: webDir,
       today: () => '2026-11-08',
+      scorer,
+      now: () => '2026-11-08T03:00:00.000Z',
     })(req, res)
 })
 
@@ -111,6 +131,7 @@ after(() => {
 
 beforeEach(() => {
   fake = fakeStore()
+  scorer = null
 })
 
 const WRITE = { 'content-type': 'application/json', 'x-esl-request': '1' }
@@ -228,6 +249,105 @@ describe('API', () => {
       (await fetch(`${base}/api/paragraphs`, { method: 'PUT', headers: WRITE, body: '{}' })).status,
       405,
     )
+  })
+})
+
+const SCORES = {
+  structure: { score: 24, comment: '' },
+  content: { score: 20, comment: '' },
+  grammar: { score: 15, comment: '' },
+  vocabulary: { score: 11, comment: '' },
+  requirements: { score: 8, comment: '' },
+}
+
+describe('採点の API', () => {
+  const putDraft = (text: string) =>
+    fake.store.saveStage('2026-11-08-a', 'draft', text, { rev: null, format: NEW_FILE_FORMAT })
+  const post = () =>
+    fetch(`${base}/api/paragraphs/2026-11-08-a/feedback`, {
+      method: 'POST',
+      headers: WRITE,
+      body: '{}',
+    })
+
+  it('GET は無ければ feedback: null と、キーがあるか', async () => {
+    const res = await fetch(`${base}/api/paragraphs/2026-11-08-a/feedback`)
+    assert.deepEqual(await res.json(), { feedback: null, aiConfigured: false })
+  })
+
+  it('POST は保存されている下書きと課題で採点し、feedback.json に書いて返す。合計はアプリが足す', async () => {
+    let received: unknown = null
+    scorer = {
+      async score(input) {
+        received = input
+        return {
+          output: { scores: SCORES, strengths: ['よい'], findings: [] },
+          model: 'claude-opus-5-5',
+        }
+      },
+    }
+    await fake.store.saveStage('2026-11-08-a', 'assignment', '# Uniforms\n\n- 語数: 100-\n', {
+      rev: null,
+      format: NEW_FILE_FORMAT,
+    })
+    await putDraft('I agree.')
+    const res = await post()
+    assert.equal(res.status, 200)
+    const { feedback } = (await res.json()) as { feedback: Feedback }
+    assert.equal(feedback.total, 78)
+    assert.equal(feedback.draft, 'I agree.')
+    assert.equal(feedback.scoredAt, '2026-11-08T03:00:00.000Z')
+    assert.deepEqual((received as { assignment: { words: unknown } }).assignment.words, {
+      min: 100,
+      max: null,
+    })
+    // 2 回目は読んだ rev で update（最新の 1 回分だけ）
+    assert.equal((await post()).status, 200)
+    const saves = fake.calls.filter((c) => c.op === 'saveFeedback').map((c) => c.args[1])
+    assert.deepEqual(saves, [null, 'f3'])
+    const got = await (await fetch(`${base}/api/paragraphs/2026-11-08-a/feedback`)).json()
+    assert.equal((got as { feedback: Feedback; aiConfigured: boolean }).feedback.total, 78)
+    assert.equal((got as { aiConfigured: boolean }).aiConfigured, true)
+  })
+
+  it('キーが無ければ 503、下書きが空なら 400（採点器を呼ばない）', async () => {
+    assert.equal((await post()).status, 503)
+    let called = false
+    scorer = {
+      async score() {
+        called = true
+        throw new Error('呼ばれないはず')
+      },
+    }
+    await putDraft('  \n')
+    const res = await post()
+    assert.equal(res.status, 400)
+    assert.equal(((await res.json()) as { error: string }).error, 'empty_draft')
+    assert.equal(called, false)
+  })
+
+  it('拒否は 422 ai_refusal、API の失敗は 502 ai_error（feedback.json は書かない）', async () => {
+    await putDraft('I agree.')
+    scorer = {
+      async score() {
+        throw new ScoringRefusedError('断られました')
+      },
+    }
+    const refused = await post()
+    assert.equal(refused.status, 422)
+    assert.equal(((await refused.json()) as { error: string }).error, 'ai_refusal')
+    scorer = {
+      async score() {
+        throw new ScoringApiError('API キーが正しくありません')
+      },
+    }
+    const failed = await post()
+    assert.equal(failed.status, 502)
+    assert.deepEqual(await failed.json(), {
+      error: 'ai_error',
+      message: 'API キーが正しくありません',
+    })
+    assert.equal(fake.calls.filter((c) => c.op === 'saveFeedback').length, 0)
   })
 })
 

@@ -9,6 +9,7 @@ import {
 } from '../src/dropbox/client.js'
 import {
   createParagraphStore,
+  FeedbackConflictError,
   InvalidParagraphIdError,
   NEW_FILE_FORMAT,
   StageConflictError,
@@ -217,6 +218,22 @@ describe('createParagraphStore', () => {
     })
     assert.equal(calls.at(-1), `upload ${BASE}/${id}/ideas.txt update:${first.rev}`)
     assert.notEqual(second.rev, first.rev)
+  })
+
+  it('feedback.json: 無ければ null、add で書き、読んだ rev で update。合わなければ FeedbackConflictError', async () => {
+    const { client, calls } = fakeDropbox()
+    const store = createParagraphStore(client, ROOT)
+    const id = await store.createParagraph('2026-11-08', 'a')
+    assert.equal(await store.readFeedback(id), null)
+    await store.saveFeedback(id, '{"version":1}\n', null)
+    assert.equal(calls.at(-1), `upload ${BASE}/${id}/feedback.json add`)
+    const first = await store.readFeedback(id)
+    assert.equal(first?.text, '{"version":1}\n')
+    await store.saveFeedback(id, '{"version":1,"x":2}\n', first?.rev ?? null)
+    assert.equal(calls.at(-1), `upload ${BASE}/${id}/feedback.json update:${first?.rev}`)
+    await assert.rejects(store.saveFeedback(id, '{}', first?.rev ?? null), FeedbackConflictError)
+    await assert.rejects(store.saveFeedback(id, '{}', null), FeedbackConflictError)
+    await assert.rejects(store.readFeedback('../x'), InvalidParagraphIdError)
   })
 
   it('rev が合わなければ上書きせず StageConflictError（他の端末が先に保存した）', async () => {

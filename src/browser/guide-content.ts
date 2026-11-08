@@ -16,7 +16,8 @@ export const GUIDE_TABS = [
 ] as const
 export type GuideTab = (typeof GUIDE_TABS)[number]['key']
 
-let selected: GuideTab = 'structure'
+/** 選んだタブ（学習ガイド画面と右ペインで共有。右ペインだけの「採点」も入る）。 */
+let selected: string = 'structure'
 
 const legend = () =>
   h(
@@ -111,10 +112,32 @@ function bodyOf(tab: GuideTab): HTMLElement {
   }
 }
 
-/** タブと中身。`compact` は右ペイン向け（タブの名前を短く、タブの見た目は `seg`。学習ガイド画面は `gtabs`）。 */
-export function guideTabs(compact: boolean): { tabs: HTMLElement; body: HTMLElement } {
+/** 学習ガイドのほかに足すタブ（編集画面の右ペインの「採点」）。中身の要素は作り置きを使い回す。 */
+export interface ExtraTab {
+  key: string
+  label: string
+  el: HTMLElement
+}
+
+/**
+ * タブと中身。`compact` は右ペイン向け（タブの名前を短く、タブの見た目は `seg`。学習ガイド画面は `gtabs`）。
+ * `extra` のタブは右ペインだけのもの。選んだタブが無い画面（学習ガイド画面で「採点」を選んでいた）では構成を出す。
+ */
+export function guideTabs(
+  compact: boolean,
+  extra: readonly ExtraTab[] = [],
+): { tabs: HTMLElement; body: HTMLElement } {
   const body = h('div', { class: `guide-content${compact ? ' compact' : ''}` })
-  const buttons = GUIDE_TABS.map((tab) =>
+  const tabs = [
+    ...GUIDE_TABS.map((tab) => ({
+      key: tab.key as string,
+      label: compact ? tab.short : tab.label,
+      render: () => bodyOf(tab.key),
+    })),
+    ...extra.map((tab) => ({ key: tab.key, label: tab.label, render: () => tab.el })),
+  ]
+  const current = () => (tabs.some((t) => t.key === selected) ? selected : GUIDE_TABS[0].key)
+  const buttons = tabs.map((tab) =>
     h(
       'button',
       {
@@ -124,15 +147,16 @@ export function guideTabs(compact: boolean): { tabs: HTMLElement; body: HTMLElem
           show()
         },
       },
-      compact ? tab.short : tab.label,
+      tab.label,
     ),
   )
   const show = () => {
-    GUIDE_TABS.forEach((tab, i) => {
-      buttons[i]?.classList.toggle('on', tab.key === selected)
-      buttons[i]?.setAttribute('aria-pressed', String(tab.key === selected))
+    const key = current()
+    tabs.forEach((tab, i) => {
+      buttons[i]?.classList.toggle('on', tab.key === key)
+      buttons[i]?.setAttribute('aria-pressed', String(tab.key === key))
     })
-    replace(body, bodyOf(selected))
+    replace(body, tabs.find((t) => t.key === key)?.render() ?? null)
   }
   show()
   return { tabs: h('div', { class: compact ? 'seg' : 'gtabs' }, ...buttons), body }

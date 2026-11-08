@@ -76,3 +76,16 @@ export function loadDropboxConfig(env: Env = process.env): DropboxSettings {
     root: parseRoot(read(env, 'DROPBOX_ROOT')),
   }
 }
+
+export interface AiSettings {
+  apiKey: string
+}
+
+/**
+ * AI の採点の設定（`ANTHROPIC_API_KEY`）。無ければ null（AI の機能だけが使えず、ほかは動く）。
+ * キーはログで伏せるよう呼び出し側で `registerSecret` する。
+ */
+export function loadAiConfig(env: Env = process.env): AiSettings | null {
+  const apiKey = read(env, 'ANTHROPIC_API_KEY')
+  return apiKey === undefined ? null : { apiKey }
+}

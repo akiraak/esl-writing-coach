@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import path from 'node:path'
+import type { Scorer } from '../ai/client.js'
 import { describeError, log } from '../log.js'
 import type { ParagraphStore } from '../paragraphs/store.js'
 import { createThemeReader } from '../paragraphs/themes.js'
@@ -22,6 +23,9 @@ export interface AppOptions {
   /** esbuild の出力（app.js）の場所。 */
   bundleDir: string
   today?: () => string
+  /** AI の採点（`ANTHROPIC_API_KEY` が無ければ null）。 */
+  scorer?: Scorer | null
+  now?: () => string
 }
 
 /** 配るファイル（URL のパス → どこの何か）。これ以外は 404。 */

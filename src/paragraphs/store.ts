@@ -1,4 +1,5 @@
 import { type DropboxClient, isConflictError, isNotFoundError } from '../dropbox/client.js'
+import { FEEDBACK_FILE } from '../shared/feedback.js'
 import {
   type ParagraphSummary,
   type SaveBase,
@@ -66,6 +67,11 @@ export class StageConflictError extends Error {
   }
 }
 
+/** `feedback.json` を書こうとしたら、他が先に書いていた。 */
+export class FeedbackConflictError extends Error {
+  override name = 'FeedbackConflictError'
+}
+
 export interface ParagraphStore {
   listParagraphs(): Promise<ParagraphSummary[]>
   readStage(id: string, stage: Stage): Promise<StageContent>
@@ -74,6 +80,10 @@ export interface ParagraphStore {
   createParagraph(date: string, theme: string): Promise<string>
   /** フォルダごと消す（Dropbox の削除済みファイルから戻せる）。既に無ければ何もしない。 */
   deleteParagraph(id: string): Promise<void>
+  /** AI の採点の結果（`feedback.json`）。無ければ null。中身の解釈は呼び出し側（`parseFeedback`）。 */
+  readFeedback(id: string): Promise<{ text: string; rev: string } | null>
+  /** `feedback.json` を書く（`rev` があれば `update`、無ければ `add`）。合わなければ `FeedbackConflictError`。 */
+  saveFeedback(id: string, text: string, rev: string | null): Promise<void>
 }
 
 interface ListFolderEntry {
@@ -257,5 +267,41 @@ export function createParagraphStore(client: DropboxClient, root: string): Parag
     }
   }
 
-  return { listParagraphs, readStage, saveStage, createParagraph, deleteParagraph }
+  const feedbackPath = (id: string) => `${base}/${id}/${FEEDBACK_FILE}`
+
+  async function readFeedback(id: string): Promise<{ text: string; rev: string } | null> {
+    assertId(id)
+    try {
+      const file = await client.download(feedbackPath(id))
+      return { text: new TextDecoder().decode(file.bytes), rev: file.rev }
+    } catch (error) {
+      if (isNotFoundError(error)) return null
+      throw error
+    }
+  }
+
+  async function saveFeedback(id: string, text: string, rev: string | null): Promise<void> {
+    assertId(id)
+    try {
+      await client.upload(
+        feedbackPath(id),
+        new TextEncoder().encode(text),
+        rev === null ? { tag: 'add' } : { tag: 'update', rev },
+      )
+    } catch (error) {
+      if (isConflictError(error))
+        throw new FeedbackConflictError(`${id} の ${FEEDBACK_FILE} は他で更新されています`)
+      throw error
+    }
+  }
+
+  return {
+    listParagraphs,
+    readStage,
+    saveStage,
+    createParagraph,
+    deleteParagraph,
+    readFeedback,
+    saveFeedback,
+  }
 }

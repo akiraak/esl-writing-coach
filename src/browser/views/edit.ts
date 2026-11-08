@@ -6,6 +6,7 @@ import { STAGES, type Stage } from '../../shared/types.js'
 import { readStage } from '../api.js'
 import { h, replace } from '../dom.js'
 import { openExportDialog } from '../export-dialog.js'
+import { createFeedbackPanel } from '../feedback-pane.js'
 import { guidePane } from '../guide-pane.js'
 import {
   conflictBanner,
@@ -81,6 +82,23 @@ export function renderEdit(
   const footer = h('div', { class: 'stage-next' })
   const center = h('main', { class: 'center' }, title, banner, body, footer)
 
+  /** 右ペインの「採点」。採点の前に全部の段階を保存し終え、下書きが保存できていなければ採点しない。 */
+  const feedback = createFeedbackPanel({
+    id,
+    draftText: () => editors?.draft.text ?? '',
+    async prepare() {
+      if (editors === null) return '読み込み中です'
+      const all = editors
+      await Promise.all(STAGES.map((s) => all[s].flush()))
+      const state = all.draft.state.kind
+      if (state === 'conflict')
+        return '下書きが他で更新されています（自動保存を止めています）。読み直してから採点してください'
+      if (state === 'error' || all.draft.hasUnsavedChanges)
+        return '下書きを保存できていません。保存できてから採点してください'
+      return null
+    },
+  })
+
   const tiles = {} as Record<Stage, Tile>
   STAGES.forEach((s, i) => {
     const summary = h('div', { class: 's' }, '…')
@@ -108,7 +126,7 @@ export function renderEdit(
       { class: 'panes' },
       h('nav', { class: 'stages' }, ...STAGES.map((s) => tiles[s].el)),
       center,
-      guidePane(),
+      guidePane([{ key: 'feedback', label: '採点', el: feedback.el }]),
     ),
   )
 
@@ -140,6 +158,7 @@ export function renderEdit(
     renderSaveStatus(status, combineSaveStates(STAGES.map((x) => all[x].state)), retryAll)
     // 競合の知らせは、その段階を開いているときだけ出す
     if (s === stage) renderBanner()
+    if (s === 'draft') feedback.sync()
   }
 
   function renderBanner(): void {

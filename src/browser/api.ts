@@ -1,3 +1,4 @@
+import type { Feedback } from '../shared/feedback.js'
 import type {
   ApiErrorBody,
   ParagraphListItem,
@@ -68,4 +69,24 @@ export async function saveStage(
   base: SaveBase,
 ): Promise<SavedStage> {
   return request<SavedStage>('PUT', stagePath(id, stage), { text, ...base })
+}
+
+export interface FeedbackState {
+  feedback: Feedback | null
+  /** サーバに ANTHROPIC_API_KEY があるか。 */
+  aiConfigured: boolean
+}
+
+export async function readFeedback(id: string): Promise<FeedbackState> {
+  return request<FeedbackState>('GET', `/api/paragraphs/${encodeURIComponent(id)}/feedback`)
+}
+
+/** 保存されている下書きを採点する（数十秒かかる）。失敗は `ApiError`（`code` が `ai_refusal` など）。 */
+export async function scoreParagraph(id: string): Promise<Feedback> {
+  return (
+    await request<{ feedback: Feedback }>(
+      'POST',
+      `/api/paragraphs/${encodeURIComponent(id)}/feedback`,
+    )
+  ).feedback
 }
