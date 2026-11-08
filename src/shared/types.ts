@@ -50,6 +50,12 @@ export interface ParagraphSummary {
   started: Record<Stage, boolean>
 }
 
+/** 一覧の 1 件（`GET /api/paragraphs`）。 */
+export interface ParagraphListItem extends ParagraphSummary {
+  /** `assignment.md` のテーマ。無い・読めなければ空文字。 */
+  theme: string
+}
+
 export interface StageContent {
   /** LF に正規化した本文。ファイルが無ければ空文字。 */
   text: string

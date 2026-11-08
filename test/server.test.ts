@@ -16,6 +16,7 @@ import {
 } from '../src/paragraphs/store.js'
 import { CONTENT_SECURITY_POLICY } from '../src/server/guard.js'
 import { createAppHandler, listen } from '../src/server/server.js'
+import type { ParagraphListItem } from '../src/shared/types.js'
 
 /**
  * サーバを空きポートで立て、`fetch` で叩く。保存層は偽物（Dropbox は叩かない）。
@@ -42,8 +43,10 @@ function fakeStore() {
           id: '2026-11-08-a',
           createdOn: '2026-11-08',
           updatedAt: '2026-11-08T01:00:00Z',
-          files: {},
-          started: { assignment: false, ideas: false, outline: false, draft: false },
+          files: {
+            assignment: { rev: 'a1', size: 10, serverModified: '2026-11-08T01:00:00Z' },
+          },
+          started: { assignment: true, ideas: false, outline: false, draft: false },
         },
       ]
     },
@@ -113,11 +116,16 @@ beforeEach(() => {
 const WRITE = { 'content-type': 'application/json', 'x-esl-request': '1' }
 
 describe('API', () => {
-  it('GET /api/paragraphs は一覧', async () => {
+  it('GET /api/paragraphs は一覧（assignment.md のテーマ付き）', async () => {
+    await fake.store.saveStage('2026-11-08-a', 'assignment', '# Uniforms\n', {
+      rev: null,
+      format: NEW_FILE_FORMAT,
+    })
     const res = await fetch(`${base}/api/paragraphs`)
     assert.equal(res.status, 200)
-    const body = (await res.json()) as { paragraphs: ParagraphSummary[] }
+    const body = (await res.json()) as { paragraphs: ParagraphListItem[] }
     assert.equal(body.paragraphs[0]?.id, '2026-11-08-a')
+    assert.equal(body.paragraphs[0]?.theme, 'Uniforms')
   })
 
   it('POST /api/paragraphs はサーバの今日の日付で作り、テーマ入りの assignment.md を書く（前後の空白は落とす）', async () => {

@@ -130,7 +130,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
   - 認証は付けないので、`127.0.0.1`（と `::1`）だけで待ち受ける
   - **開く名前は `http://esl-writing.localhost:3016`**（2026-11-08。project-manager の `project-manager.localhost:8200` にならう）。`*.localhost` はブラウザが自分の PC に向けるので設定は要らない。`127.0.0.1:3016` でも開ける
   - **安全チェック**（`src/server/guard.ts`。project-manager の `guard.ts` と同じ考え方）: Host が `127.0.0.1` / `localhost` / `esl-writing.localhost` のこのポートのときだけ受ける（DNS rebinding 対策）、Origin があれば同じオリジンだけ、書き込みは `X-ESL-Request: 1` と JSON が必須。CSP はインラインのスクリプト・スタイルを許さない
-  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`
+  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`。一覧の各項目には `assignment.md` のテーマ `theme` を足す（`src/paragraphs/themes.ts`。id + rev で覚えておき、変わっていなければ読み直さない）
   - Dropbox のトークン類は `.env` に置き、`node --env-file-if-exists=.env` で読む（daily-note と同じ）
 - **画面**: ブラウザ側の素の TypeScript で描く 1 ページ（一覧・編集・学習ガイドを切り替える）。フレームワークは使わず、esbuild で束ねる
   - 画面の切り替えは URL のハッシュ（`#/` = 一覧、`#/p/<id>/<stage>` = 編集、`#/guide` = 学習ガイド。`src/shared/route.ts`）。サーバが返すページは `/` だけ
@@ -145,7 +145,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 ### コードの置き場所
 
 - `src/config.ts`（環境変数）/ `src/log.ts`（トークンを伏せるログ）/ `src/dropbox/client.ts`（Dropbox API。daily-note から移植）
-- `src/paragraphs/`: 保存層。`store.ts`（一覧・段階のファイルの読み書き・作成・削除。競合は `StageConflictError`）、`naming.ts`、`text.ts`
+- `src/paragraphs/`: 保存層。`store.ts`（一覧・段階のファイルの読み書き・作成・削除。競合は `StageConflictError`）、`naming.ts`、`text.ts`、`themes.ts`（一覧のテーマ）
 - `src/server/`: `server.ts`（HTTP サーバ・画面のファイル）、`api.ts`（JSON API）、`guard.ts`（安全チェック・CSP）。起動は `src/main.ts`
 - `src/shared/`: サーバとブラウザで共有する型と定数（`types.ts`）、画面の切り替え（`route.ts`）。Node にも DOM にも依存しない
 - `src/browser/`: 画面（`main.ts`・`api.ts`・`dom.ts`）。`tsconfig.web.json` で型チェックし、esbuild で `dist/browser/app.js` に束ねる

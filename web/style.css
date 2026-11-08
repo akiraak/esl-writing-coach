@@ -60,7 +60,33 @@ a { color: var(--brand); }
 .prog span { height: 6px; border-radius: 3px; background: var(--line-soft); }
 .prog span.f { background: var(--brand); }
 .plabels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; font-size: 11px; color: var(--faint); margin-top: -.45rem; }
-.pc .meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--soft); }
+.pc .meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--soft); }
+/* カード全体をリンクに（タイトルの <a> を広げる）。削除ボタンはその上に出す */
+.pc { position: relative; }
+.pc:focus-within { border-color: var(--brand); }
+.pc-link { color: inherit; text-decoration: none; outline: none; }
+.pc-link::after { content: ""; position: absolute; inset: 0; border-radius: 14px; }
+.pc h2.untitled { font-family: var(--sans); font-weight: 600; color: var(--faint); }
+.pc .x {
+  position: relative; z-index: 1; font: inherit; font-size: 12px; background: none; border: 0; padding: .1rem .3rem;
+  border-radius: 6px; color: var(--faint); cursor: pointer;
+}
+.pc .x:hover { color: var(--danger); background: #fbeceb; }
+.pc.new {
+  border: 2px dashed var(--line); box-shadow: none; background: transparent; align-items: center; justify-content: center;
+  color: var(--brand); font: inherit; font-weight: 700; min-height: 140px; cursor: pointer;
+}
+.pc.new:hover { border-color: var(--brand); background: var(--brand-soft); }
+.grid > .empty { grid-column: 1 / -1; margin: 0; }
+
+/* --- 新規作成のダイアログ -------------------------------------------------- */
+.create-dialog { border: 0; border-radius: 14px; padding: 0; width: 560px; background: var(--card); color: var(--ink); box-shadow: 0 12px 40px rgba(42, 38, 32, .25); }
+.create-dialog::backdrop { background: rgba(42, 38, 32, .35); }
+.create-form { padding: 1.2rem 1.4rem 1.1rem; }
+.create-form h2 { margin: 0 0 .9rem; font-size: 17px; }
+.create-form .error:empty { display: none; }
+.create-form .actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
+.btn:disabled { opacity: .6; cursor: default; }
 
 /* --- 編集（3 ペイン） ------------------------------------------------------ */
 .panes { flex: 1; display: grid; grid-template-columns: 200px 1fr 340px; min-height: 0; }

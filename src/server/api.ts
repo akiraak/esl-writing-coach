@@ -9,6 +9,7 @@ import {
   StageConflictError,
 } from '../paragraphs/store.js'
 import { StageTextError, type StageTextFormat } from '../paragraphs/text.js'
+import { createThemeReader, type ThemeReader } from '../paragraphs/themes.js'
 import { emptyAssignment, serializeAssignment } from '../shared/assignment.js'
 
 /**
@@ -16,7 +17,7 @@ import { emptyAssignment, serializeAssignment } from '../shared/assignment.js'
  *
  * | メソッド・パス | 内容 |
  * |---|---|
- * | `GET /api/paragraphs` | 一覧 |
+ * | `GET /api/paragraphs` | 一覧（各項目に `assignment.md` のテーマ `theme` を足す） |
  * | `POST /api/paragraphs` `{ theme }` | 新規作成（テーマだけを入れた `assignment.md` も書く）→ `{ id }` |
  * | `DELETE /api/paragraphs/:id` | 削除 |
  * | `GET /api/paragraphs/:id/stages/:stage` | 段階のファイル → `{ text, rev, format }` |
@@ -100,6 +101,8 @@ export function localDate(now: Date = new Date()): string {
 
 export interface ApiOptions {
   store: ParagraphStore
+  /** 一覧のテーマを読む（rev で覚えておくので、サーバで 1 つを使い回す）。無ければリクエストごとに作る。 */
+  themes?: ThemeReader
   /** 新規作成の作成日。差し替えられるのはテストのため。 */
   today?: () => string
 }
@@ -122,7 +125,8 @@ export async function handleApi(
     let m: RegExpExecArray | null
     if (PARAGRAPHS.test(pathname)) {
       if (method === 'GET') {
-        sendJson(res, 200, { paragraphs: await store.listParagraphs() })
+        const themes = options.themes ?? createThemeReader(store)
+        sendJson(res, 200, { paragraphs: await themes.withThemes(await store.listParagraphs()) })
         return
       }
       if (method === 'POST') {

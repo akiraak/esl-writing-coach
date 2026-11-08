@@ -1,6 +1,6 @@
 import type {
   ApiErrorBody,
-  ParagraphSummary,
+  ParagraphListItem,
   SaveBase,
   SavedStage,
   Stage,
@@ -44,8 +44,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 const stagePath = (id: string, stage: Stage) =>
   `/api/paragraphs/${encodeURIComponent(id)}/stages/${stage}`
 
-export async function listParagraphs(): Promise<ParagraphSummary[]> {
-  return (await request<{ paragraphs: ParagraphSummary[] }>('GET', '/api/paragraphs')).paragraphs
+export async function listParagraphs(): Promise<ParagraphListItem[]> {
+  return (await request<{ paragraphs: ParagraphListItem[] }>('GET', '/api/paragraphs')).paragraphs
 }
 
 export async function createParagraph(theme: string): Promise<string> {

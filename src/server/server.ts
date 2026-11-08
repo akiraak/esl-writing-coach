@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import path from 'node:path'
 import { describeError, log } from '../log.js'
 import type { ParagraphStore } from '../paragraphs/store.js'
+import { createThemeReader } from '../paragraphs/themes.js'
 import { handleApi, sendJson } from './api.js'
 import { CONTENT_SECURITY_POLICY, checkRequest, REQUEST_HEADER } from './guard.js'
 
@@ -10,7 +11,7 @@ import { CONTENT_SECURITY_POLICY, checkRequest, REQUEST_HEADER } from './guard.j
  * HTTP サーバ。安全チェック（`guard.ts`）→ `/api/` は JSON の API、ほかは画面のファイル。
  *
  * 画面は 1 ページ（`web/index.html`）だけで、一覧・編集・学習ガイドの切り替えは URL のハッシュで行う
- * （`src/browser/router.ts`）。なのでサーバが返すページは `/` だけ。
+ * （`src/shared/route.ts`）。なのでサーバが返すページは `/` だけ。
  */
 
 export interface AppOptions {
@@ -73,7 +74,9 @@ async function serveStatic(
   res.end(method === 'HEAD' ? undefined : body)
 }
 
-export function createAppHandler(options: AppOptions) {
+export function createAppHandler(appOptions: AppOptions) {
+  // 一覧のテーマは rev で覚えておくので、サーバで 1 つを使い回す
+  const options = { ...appOptions, themes: createThemeReader(appOptions.store) }
   return (req: IncomingMessage, res: ServerResponse): void => {
     const method = req.method ?? 'GET'
     const rejection = checkRequest(

@@ -6,9 +6,6 @@
 
 ## 実装（MVP）
 
-- [ ] 一覧画面: パラグラフのカード一覧（テーマ・更新日・4 段階の進み具合）・新規作成・削除
-  - 新規作成ではテーマを聞き、作ったら課題の画面を開く（API の `POST /api/paragraphs { theme }` がフォルダとテーマ入りの `assignment.md` を作る。対応済み）
-  - 進み具合は `listParagraphs()` の `started`。テーマは各 `assignment.md` を読んで `parseAssignment()`（`src/shared/assignment.ts`）で取る
 - [ ] 編集画面の骨組み: 3 ペインと段階の切り替えの仕上げ（自動保存の共通の仕組みは「課題の入力」で作る）
 - [ ] アイデアのメモ
 - [ ] アウトライン: daily-note のマインドマップを移植
