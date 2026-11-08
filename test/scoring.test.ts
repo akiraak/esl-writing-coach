@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   buildUserPrompt,
+  dropUnquotable,
   OUTPUT_SCHEMA,
   parseScoringOutput,
   ScoringOutputError,
@@ -138,5 +139,28 @@ describe('parseFeedback（feedback.json）', () => {
     assert.equal(parseFeedback('{'), null)
     assert.equal(parseFeedback('{"version":2}'), null)
     assert.equal(parseFeedback(JSON.stringify({ version: 1, scores: {} })), null)
+  })
+})
+
+describe('dropUnquotable', () => {
+  it('本文に無い引用（直した形）は消してヒントは残す。空白の違いと空の引用はそのまま', () => {
+    const draft = 'First, uniforms takes away a chance.\nFinally, uniform are not comfortable.'
+    const out = dropUnquotable(
+      [
+        { criterion: 'grammar', quote: 'uniforms takes away', hint: 'a' },
+        { criterion: 'grammar', quote: 'Finally, uniforms are not comfortable.', hint: 'b' },
+        { criterion: 'grammar', quote: 'a chance. Finally,  uniform', hint: 'c' },
+        { criterion: 'content', quote: '', hint: 'd' },
+      ],
+      draft,
+    )
+    assert.deepEqual(
+      out.map((f) => f.quote),
+      ['uniforms takes away', '', 'a chance. Finally,  uniform', ''],
+    )
+    assert.deepEqual(
+      out.map((f) => f.hint),
+      ['a', 'b', 'c', 'd'],
+    )
   })
 })

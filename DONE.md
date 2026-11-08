@@ -14,3 +14,4 @@
 - 2026-11-08 各 STEP の画面の下に次のステップへのボタン（中央のペインの一番下・右寄せ。段階を移ったらスクロールを先頭へ。中身がボタンに重なる・下書きのリストで欄ごと伸びる、を合わせて直した。[plan](docs/plans/archive/next-step-button.md)）
 - 2026-11-08 下書きをプレーンテキストで書き出す（ヘッダと STEP 4 の下から開くダイアログ。確かめてからコピーか .txt で保存。未保存の分も含む・末尾を整える・日本語の注意。[plan](docs/plans/archive/export-plain-text.md)）
 - 2026-11-08 学習ガイド（構成の解説・モデル文・表現集。モデル文はモックの題材で Claude が書いた 1 本に、アウトラインの見本とポイントを添えた。表現集は日本語の意味つき。学習ガイド画面と右ペインで共用、タブは共有。[plan](docs/plans/archive/learning-guide.md)）
+- 2026-11-08 AI の採点と指摘（右ペインの「採点」タブ。固定基準 100 点・観点ごとの点数と一言・よかった点・指摘（直した文は出さない、本文に無い引用は消す）。Claude Opus 5.5・fallbacks: "default"。feedback.json に最新 1 回分。API キーは daily-note と共用。本物の API で 2 回確かめた。[plan](docs/plans/archive/ai-scoring.md)）

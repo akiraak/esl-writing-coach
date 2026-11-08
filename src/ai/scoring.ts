@@ -44,7 +44,7 @@ export const SYSTEM_PROMPT = [
   '## 守ること',
   '- 生徒は課題として自分で書き直します。**直した文・書き直した文・正しい言い方そのものは、どこにも書かないでください**（ヒント・一言・よかった点のどれにも）。',
   '- 指摘のヒントは、何が問題か・何を確かめればよいかを日本語で短く伝えます（例: 「主語が三人称単数のときの動詞の形を確かめよう」「この理由を支える具体的な例を 1 文足そう」）。正解の語や文は示しません。',
-  '- 指摘の quote には、問題のある箇所を生徒の本文からそのまま短く（15 語まで）抜き出します。本文全体や構成についての指摘で特定の箇所が無いときは空文字にします。',
+  '- 指摘の quote には、問題のある箇所を生徒の本文から**1 文字も変えずに**（誤りもそのまま）短く（15 語まで）抜き出します。誤りを直した形で引用してはいけません。本文全体や構成についての指摘で特定の箇所が無いときは空文字にします。',
   '- 指摘は大事なものから、多くても 10 個まで。同じ種類の誤りが何度もあるときは 1 つにまとめ、ヒントで「ほかにもある」と伝えます。',
   '- 本文に日本語が混じっていれば、課題の条件（requirements）の指摘として必ず挙げます。',
   '- 観点ごとの comment は日本語 1〜2 文。よかった点（strengths）は具体的に 1〜3 個、日本語で。',
@@ -127,6 +127,20 @@ export class ScoringOutputError extends Error {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** 空白の続きを 1 つにする（引用が本文にあるかを比べるため）。 */
+const squash = (text: string) => text.replace(/\s+/g, ' ').trim()
+
+/**
+ * 本文に無い引用は消す（ヒントは残す）。AI が誤りを直した形で引用すると、直した文が画面に出てしまうため。
+ * 空白の違いだけは許す。
+ */
+export function dropUnquotable(findings: readonly Finding[], draft: string): Finding[] {
+  const text = squash(draft)
+  return findings.map((f) =>
+    f.quote === '' || text.includes(squash(f.quote)) ? f : { ...f, quote: '' },
+  )
 }
 
 /** 指摘の上限（プロンプトでも 10 個までと頼んでいる）。 */

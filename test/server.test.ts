@@ -281,7 +281,14 @@ describe('採点の API', () => {
       async score(input) {
         received = input
         return {
-          output: { scores: SCORES, strengths: ['よい'], findings: [] },
+          output: {
+            scores: SCORES,
+            strengths: ['よい'],
+            findings: [
+              { criterion: 'grammar', quote: 'I agree', hint: 'そのまま' },
+              { criterion: 'grammar', quote: 'I agreed.', hint: '直した形の引用は消える' },
+            ],
+          },
           model: 'claude-opus-5-5',
         }
       },
@@ -297,6 +304,10 @@ describe('採点の API', () => {
     assert.equal(feedback.total, 78)
     assert.equal(feedback.draft, 'I agree.')
     assert.equal(feedback.scoredAt, '2026-11-08T03:00:00.000Z')
+    assert.deepEqual(
+      feedback.findings.map((f) => f.quote),
+      ['I agree', ''],
+    )
     assert.deepEqual((received as { assignment: { words: unknown } }).assignment.words, {
       min: 100,
       max: null,

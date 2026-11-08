@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { type Scorer, ScoringApiError, ScoringRefusedError } from '../ai/client.js'
-import { ScoringOutputError } from '../ai/scoring.js'
+import { dropUnquotable, ScoringOutputError } from '../ai/scoring.js'
 import { describeError, log } from '../log.js'
 import {
   FeedbackConflictError,
@@ -147,6 +147,8 @@ async function scoreParagraph(id: string, options: ApiOptions): Promise<Feedback
     draft: draft.text,
     total: totalOf(output.scores),
     ...output,
+    // 本文に無い引用（直した形で引用されたもの）は消す
+    findings: dropUnquotable(output.findings, draft.text),
   }
   const text = `${JSON.stringify(feedback, null, 2)}\n`
   // 最新の 1 回分だけを持つ。他の端末が同時に採点していたら、読み直した rev でもう一度だけ書く
