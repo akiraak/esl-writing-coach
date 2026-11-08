@@ -1,16 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { countWords, describeRange, summarizeStage } from '../src/shared/stage-summary.js'
-
-describe('countWords（仮の数え方）', () => {
-  it('英単語を数える。短縮形・ハイフン・小数は 1 語', () => {
-    assert.equal(countWords(''), 0)
-    assert.equal(countWords('In my opinion, students should not wear uniforms.'), 8)
-    assert.equal(countWords("I don't think it's well-known."), 5)
-    assert.equal(countWords('It costs 3.5 times more.'), 5)
-    assert.equal(countWords('First,second'), 2)
-  })
-})
+import { describeRange, summarizeStage } from '../src/shared/stage-summary.js'
 
 describe('describeRange', () => {
   it('幅・以上・以下・ちょうど・指定なし', () => {
@@ -38,9 +28,10 @@ describe('summarizeStage', () => {
     assert.equal(summarizeStage('assignment', '# T\n\n- 語数:\n- 文数:\n'), '指定なし')
   })
 
-  it('アイデア・アウトラインは空でない行、下書きは語数', () => {
+  it('アイデアは空でない行、アウトラインは理由の数（無ければ行）、下書きは語数', () => {
     assert.equal(summarizeStage('ideas', 'a\n\n b\nc\n'), '3 行')
-    assert.equal(summarizeStage('outline', '意見\n  理由1\n    例\n'), '3 項目')
+    assert.equal(summarizeStage('outline', '意見\n  理由1\n    例\n  理由2\n  結論\n'), '理由 2')
+    assert.equal(summarizeStage('outline', '意見だけ\n'), '1 項目')
     assert.equal(summarizeStage('draft', 'I agree with this idea.'), '5 語')
   })
 })

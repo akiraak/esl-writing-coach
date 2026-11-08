@@ -139,7 +139,6 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
   border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
 }
 .theme-input:focus, .range-row input:focus, .conditions-input:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
-.preview { margin: 0; padding: 1rem 1.2rem; background: var(--card); border-radius: 12px; box-shadow: var(--shadow); white-space: pre-wrap; font-family: var(--serif); font-size: 16px; }
 /* --- 課題のテーマと条件の帯（アイデア・下書きの上） ----------------------- */
 .brief { display: flex; flex-direction: column; gap: .5rem; }
 .brief-theme { font-family: var(--serif); font-size: 18px; font-weight: 600; line-height: 1.45; }
@@ -209,6 +208,44 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .map-act:hover:not(:disabled) { background: var(--brand-soft); }
 .map-act:disabled { opacity: .4; cursor: default; }
 .map-hint { margin-left: auto; font-size: 11px; color: var(--faint); }
+
+/* --- STEP 4 下書き・推敲（決定版のモックの .meters / .work / .struct） ------- */
+.draft { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .8rem; }
+.meters { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+.meter { background: var(--card); border-radius: 12px; padding: .6rem .9rem .9rem; box-shadow: var(--shadow); }
+.meter .lab { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--soft); }
+.meter .lab b { font-size: 18px; color: var(--ink); margin-right: .2rem; }
+.meter .need { font-weight: 600; }
+.meter .need.under { color: var(--warn); }
+.meter .need.within { color: var(--brand); }
+.meter .need.over { color: var(--danger); }
+.meter .need.none { color: var(--faint); font-weight: 400; }
+.bar { position: relative; height: 10px; border-radius: 5px; background: var(--line-soft); margin: .35rem 0 .7rem; }
+.bar .band { position: absolute; top: 0; bottom: 0; background: #d6e7dc; }
+.bar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--brand); }
+.bar .fill.over { background: var(--danger); }
+.bar .fill.under { background: var(--warn); }
+.bar .tick { position: absolute; top: 13px; font-size: 10.5px; color: var(--faint); transform: translateX(-50%); }
+.draft-warn { margin: 0; color: var(--danger); font-size: 12.5px; font-weight: 600; }
+.draft-warn:empty { display: none; }
+.work { flex: 1; display: grid; grid-template-columns: 1fr 250px; gap: .8rem; min-height: 360px; }
+.paper {
+  width: 100%; height: 100%; min-height: 360px; resize: none; background: var(--card); border-radius: 14px; box-shadow: var(--shadow);
+  border: 1px solid transparent; padding: 1.1rem 1.3rem; color: var(--ink);
+  font-family: var(--serif); font-size: 17px; line-height: 1.95;
+}
+.paper:focus { outline: none; border-color: var(--brand); }
+.paper::placeholder { color: var(--faint); }
+.struct { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: .8rem .8rem 1rem; font-size: 12.5px; overflow: auto; align-self: start; max-height: 100%; }
+.struct h4 { margin: 0 0 .55rem; font-size: 11px; color: var(--faint); letter-spacing: .06em; display: flex; justify-content: space-between; }
+.struct h4 span { letter-spacing: 0; font-weight: 400; }
+.node { border-radius: 8px; padding: .3rem .55rem; margin-bottom: .3rem; line-height: 1.45; white-space: pre-wrap; }
+.node small { display: block; font-size: 10px; font-weight: 700; letter-spacing: .05em; opacity: .85; }
+/* 構成の 4 役割の色（アプリ全体で同じ） */
+.n-ts { background: var(--ts-bg); color: #2c5585; border-left: 4px solid var(--ts); }
+.n-rs { background: var(--rs-bg); color: #356b3f; border-left: 4px solid var(--rs); }
+.n-ex { background: var(--ex-bg); color: #8a5418; border-left: 4px solid var(--ex); }
+.n-cs { background: var(--cs-bg); color: #64407d; border-left: 4px solid var(--cs); }
 
 .guide { background: var(--card); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .seg { display: flex; margin: .8rem .9rem .3rem; background: var(--bg); border-radius: 9px; padding: 3px; }

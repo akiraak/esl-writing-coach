@@ -10,3 +10,4 @@
 - 2026-11-08 編集画面の骨組み（パラグラフを開いている間 4 つの段階の自動保存を持ち続け、段階の切り替えで読み直さない。タイルに状態の行と保存の印、ヘッダの保存の状態をまとめて表示、競合はその段階だけ読み直す、右ペインのタブ切り替え、ペインごとのスクロール。[plan](docs/plans/archive/edit-screen-frame.md)）
 - 2026-11-08 アイデアのメモ（`ideas.txt` の自由テキスト。上に課題のテーマと条件の帯を出す（下書きでも使う部品 `src/browser/views/brief.ts`）。[plan](docs/plans/archive/ideas-memo.md)）
 - 2026-11-08 アウトライン: daily-note のマインドマップを移植（`outline.ts`・`mindmap-layout.ts` とテストを `src/shared/` へ、`map.ts` は綴り・画像・AI・タッチを外して `mountMap()` の部品に。STEP 3 の画面は中心 = 意見の早見つき、`outline.txt` に字下げのテキストで保存。[plan](docs/plans/archive/outline-mindmap.md)）
+- 2026-11-08 下書きエディタ（語数・文数のメーター（指定の幅の帯・あと N / 範囲内 / 多い）、日本語の注意、アウトラインを役割の色で並べたリスト。深さ → 役割は案 A（最後の子が「結論」で始まれば結論）。タイルのアウトラインは「理由 N」に。[plan](docs/plans/archive/draft-editor.md)）

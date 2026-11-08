@@ -1,4 +1,6 @@
 import { type CountRange, parseAssignment } from './assignment.js'
+import { countWords } from './counting.js'
+import { countReasons } from './outline-roles.js'
 import type { Stage } from './types.js'
 
 /**
@@ -6,17 +8,12 @@ import type { Stage } from './types.js'
  *
  * - 課題: 語数の指定（無ければ文数の指定、どちらも無ければ「指定なし」）
  * - アイデア: 空でない行の数
- * - アウトライン: 空でない行の数。役割ごとの数（「理由 3」）は、深さ → 役割の規則を決める下書きのタスクで差し替える
- * - 下書き: 語数（数え方は仮。下書きのタスクで詰める）
+ * - アウトライン: 理由の数（`outline-roles.ts`）。理由が無ければ空でない行の数
+ * - 下書き: 語数（`counting.ts`）
  * - 中身が空なら「未着手」
  */
 
 export const NOT_STARTED = '未着手'
-
-/** 英数字の並びを 1 語と数える（`don't`・`well-known`・`3.5` は 1 語）。仮の数え方。 */
-export function countWords(text: string): number {
-  return text.match(/[\p{L}\p{N}]+(?:['’.-][\p{L}\p{N}]+)*/gu)?.length ?? 0
-}
 
 function countLines(text: string): number {
   return text.split('\n').filter((line) => line.trim() !== '').length
@@ -40,8 +37,10 @@ export function summarizeStage(stage: Stage, text: string): string {
     }
     case 'ideas':
       return `${countLines(text)} 行`
-    case 'outline':
-      return `${countLines(text)} 項目`
+    case 'outline': {
+      const reasons = countReasons(text)
+      return reasons > 0 ? `理由 ${reasons}` : `${countLines(text)} 項目`
+    }
     case 'draft':
       return `${countWords(text)} 語`
   }

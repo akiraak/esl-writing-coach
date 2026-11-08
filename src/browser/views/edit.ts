@@ -15,6 +15,7 @@ import {
 import { errorBox, header, STAGE_LABELS, STAGE_LANG } from '../ui.js'
 import type { View } from '../view.js'
 import { renderAssignmentView } from './assignment.js'
+import { renderDraftView } from './draft.js'
 import { renderIdeasView } from './ideas.js'
 import { renderOutlineView } from './outline.js'
 
@@ -25,7 +26,7 @@ import { renderOutlineView } from './outline.js'
  *   **パラグラフを開いている間は持ち続ける**。同じパラグラフの中で段階を移るときは中央だけを描き直す（読み直さない）
  * - 段階を離れるときはその段階を待たずに保存する。rev は保存が終わったときに手元で新しくなるので、戻っても古い rev にはならない
  * - ヘッダの保存の状態は 4 つをまとめて出し、タイルには段階ごとの状態の行と保存の印を出す
- * - いま中身があるのは STEP 1（課題）・STEP 2（アイデア）・STEP 3（アウトライン）。ほかの段階は各タスクで作る（いまは保存されている内容を見せるだけ）
+ * - 中央の中身は段階ごとに `views/` の各ファイル（課題・アイデア・アウトライン・下書き）
  */
 
 interface Tile {
@@ -159,13 +160,12 @@ export function renderEdit(
         theme: parseAssignment(editors.assignment.text).theme,
       })
     } else {
-      // 編集欄は各段階のタスクで作る。いまは保存されている内容を見せるだけ
-      replace(
-        body,
-        editor.text === ''
-          ? h('p', { class: 'muted' }, 'まだ何も書かれていません。')
-          : h('pre', { class: 'preview' }, editor.text),
-      )
+      renderDraftView(body, {
+        id,
+        editor,
+        assignment: parseAssignment(editors.assignment.text),
+        outline: editors.outline.text,
+      })
     }
   }
 
