@@ -98,7 +98,18 @@ PC の横幅を使う。実装の前に**デザイン例をいくつか作って
 
 ## 技術スタック
 
-（未定。決まり次第ここに追記する）
+2026-11-08 に決定（経緯は `docs/plans/archive/tech-stack.md`）。**API サーバ + 素の TypeScript の SPA**。
+
+- **サーバ**: Node 22 + TypeScript、`node:http`（フレームワークは使わない）。JSON の API だけを出し、Dropbox の読み書きを受け持つ。束ねたブラウザ用コードと静的ファイルも配る
+  - 認証は付けないので、`127.0.0.1` だけで待ち受ける
+  - Dropbox のトークン類は `.env` に置き、`node --env-file-if-exists=.env` で読む（daily-note と同じ）
+- **画面**: ブラウザ側の素の TypeScript で描く 1 ページ（一覧・編集・学習ガイドを切り替える）。フレームワークは使わず、esbuild で束ねる
+  - 段階の切り替えはページ遷移なしで行う。4 つのファイルの `rev` と未保存の状態はブラウザ側で持ち、ファイルごとに自動保存する
+- **daily-note から流用するもの**: `src/editor/outline.ts`・`src/editor/mindmap-layout.ts`（DOM を使わない純関数）、`src/browser/map.ts`（素の TS のマップ。綴りの確認・画像の書き出しは外す）、`src/dropbox/client.ts`
+- **書き直すもの**: 画面の描画と自動保存（daily-note はサーバで HTML を組む方式なので流用しない）
+- **テスト**: `node --test`。DOM を使わない部分（アウトライン・語数／文数の数え方・API の入出力など）を node で直接確かめる
+- **lint / 整形**: Biome
+- **AI を足すとき**: `@anthropic-ai/sdk` をサーバ側で使い、API を足して右ペインに結果を描く
 
 ## 開発管理画面
 
