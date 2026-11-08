@@ -4,7 +4,7 @@ set -euo pipefail
 # ESL Writing をローカルで起動する。
 #
 #   ./run-server.sh               バックグラウンドで起動してシェルに戻る（出力は logs/server.log）
-#   ./run-server.sh --foreground  フォアグラウンドで動かす（project-manager の projects.yaml の起動コマンドはこちら）
+#   ./run-server.sh --foreground  フォアグラウンドで動かす（以前の動き）
 #   ./run-server.sh --stop        止めるだけ
 #
 # - `.env` の PORT（無ければ 3016）を見て、**そのポートを掴んでいるプロセスがいれば止めてから**起動する

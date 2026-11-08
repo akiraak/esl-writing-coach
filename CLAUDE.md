@@ -167,8 +167,11 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 | コマンド | 内容 |
 |---|---|
 | `./run-server.sh` | バックグラウンドで起動してシェルに戻る（ビルドが古ければビルドし、ポートを掴んでいる前回のプロセスを止めてから。待ち受けるまで待つ。出力は `logs/server.log`） |
-| `./run-server.sh --foreground` | フォアグラウンドで動かす（project-manager の起動コマンドはこちら。project-manager はフォアグラウンドで動き続ける前提で tmux の中で回す） |
+| `./run-server.sh --foreground` | フォアグラウンドで動かす（以前の動き） |
 | `./run-server.sh --stop` | 止める |
+
+project-manager の起動コマンド（`projects.yaml` の `app.start`）は `PORT=3016 ./run-server.sh` のまま（2026-11-08 決定。`--foreground` にはしない）。
+project-manager はフォアグラウンドで動き続ける前提で回すので、起動するとサーバは動くが、project-manager の画面にはすぐ「サーバが終了しました」と出る（ログは `logs/server.log`）。
 | `npm start` | `node dist/main.js`（先に `build` が要る） |
 | `npm run build` | `tsc` で `dist/` へ出力 → esbuild で `src/browser/` を `dist/browser/app.js` に束ねる |
 | `npm test` | `tsc -p tsconfig.test.json` → `node --test`（`dist-test/`） |
