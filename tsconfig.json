@@ -20,5 +20,7 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  // ブラウザ向け（DOM を使う）は tsconfig.web.json で型チェックし、esbuild で束ねる
+  "exclude": ["src/browser"]
 }

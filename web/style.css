@@ -1,0 +1,87 @@
+/* ===========================================================================
+   ESL Writing の画面。決定版のデザイン（docs/plans/archive/design-examples/decided.html）:
+   構成は案 C（ワークブック）、色合いは案 A（暖色の紙・深緑の差し色）。PC 専用（横幅 1200px 以上）。
+   構成の 4 役割の色（Topic = 青 / Reason = 緑 / Example = 橙 / Conclusion = 紫）はアプリ全体で同じものを使う。
+   =========================================================================== */
+:root {
+  --bg: #f6f3ec; --card: #fffdf8; --ink: #2a2620; --soft: #6e675c; --faint: #a39b8e;
+  --line: #e3ddd0; --line-soft: #eee9de;
+  --brand: #2f6f62; --brand-soft: #e3efeb;
+  --ts: #3b6ea5; --ts-bg: #e3ecf5; --rs: #4a8a55; --rs-bg: #e3f0e1;
+  --ex: #c07a2c; --ex-bg: #f8ecda; --cs: #82589e; --cs-bg: #efe6f3;
+  --warn: #b26b00; --danger: #b42318;
+  --shadow: 0 1px 2px rgba(42, 38, 32, .05), 0 6px 18px rgba(42, 38, 32, .05);
+  --sans: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+  --serif: Georgia, "Times New Roman", serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); min-width: 1200px;
+  font-family: var(--sans); font-size: 14px; line-height: 1.6;
+}
+#app { min-height: 100vh; display: flex; flex-direction: column; }
+a { color: var(--brand); }
+.muted { color: var(--soft); }
+.error { color: var(--danger); }
+.boot { padding: 2rem; color: var(--soft); }
+
+/* --- ヘッダ ---------------------------------------------------------------- */
+.top {
+  display: flex; align-items: center; gap: 1rem; height: 54px; padding: 0 1.4rem; flex: none;
+  background: var(--card); border-bottom: 1px solid var(--line);
+}
+.logo { display: flex; align-items: center; gap: .55rem; font-weight: 800; font-size: 15px; color: var(--ink); text-decoration: none; }
+.logo i { width: 26px; height: 26px; border-radius: 7px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 4px; background: var(--ink); }
+.logo i b { border-radius: 2px; }
+.logo i b:nth-child(1) { background: var(--ts); } .logo i b:nth-child(2) { background: var(--rs); }
+.logo i b:nth-child(3) { background: var(--ex); } .logo i b:nth-child(4) { background: var(--cs); }
+.crumb { color: var(--soft); }
+.crumb b { color: var(--ink); font-family: var(--serif); }
+.sp { flex: 1; }
+.btn {
+  font: inherit; font-size: 13px; padding: .38rem 1rem; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink); font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.btn.pri { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+/* --- 一覧 ------------------------------------------------------------------ */
+.lwrap { flex: 1; padding: 1.8rem 2.6rem 4rem; }
+.lhead { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.3rem; }
+.lhead h1 { margin: 0; font-size: 21px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.pc {
+  background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: 1.1rem 1.2rem;
+  display: flex; flex-direction: column; gap: .7rem; color: inherit; text-decoration: none; border: 1px solid transparent;
+}
+.pc:hover { border-color: var(--line); }
+.pc h2 { margin: 0; font-size: 16px; line-height: 1.45; font-family: var(--serif); font-weight: 600; }
+.prog { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.prog span { height: 6px; border-radius: 3px; background: var(--line-soft); }
+.prog span.f { background: var(--brand); }
+.plabels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; font-size: 11px; color: var(--faint); margin-top: -.45rem; }
+.pc .meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--soft); }
+
+/* --- 編集（3 ペイン） ------------------------------------------------------ */
+.panes { flex: 1; display: grid; grid-template-columns: 200px 1fr 340px; min-height: 0; }
+.stages { padding: 1rem .8rem; display: flex; flex-direction: column; gap: .55rem; border-right: 1px solid var(--line); }
+.tile { background: var(--card); border-radius: 12px; padding: .7rem .85rem; border: 1.5px solid var(--line-soft); color: inherit; text-decoration: none; }
+.tile .k { font-size: 11px; color: var(--faint); font-weight: 700; letter-spacing: .06em; }
+.tile .t { font-weight: 700; font-size: 14.5px; }
+.tile .s { font-size: 12px; color: var(--soft); }
+.tile.on { border-color: var(--brand); background: var(--brand-soft); }
+.tile.on .k { color: var(--brand); }
+.tile.ja .s::after { content: "日本語可"; margin-left: .4rem; font-size: 10.5px; padding: 0 .35rem; border-radius: 4px; background: var(--line-soft); color: var(--soft); }
+.tile.en .s::after { content: "英語のみ"; margin-left: .4rem; font-size: 10.5px; padding: 0 .35rem; border-radius: 4px; background: var(--brand); color: #fff; }
+.center { display: flex; flex-direction: column; min-width: 0; padding: 1rem 1.2rem 4rem; gap: .8rem; }
+.center h2 { margin: 0; font-size: 17px; }
+.preview { margin: 0; padding: 1rem 1.2rem; background: var(--card); border-radius: 12px; box-shadow: var(--shadow); white-space: pre-wrap; font-family: var(--serif); font-size: 16px; }
+.guide { background: var(--card); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.seg { display: flex; margin: .8rem .9rem .3rem; background: var(--bg); border-radius: 9px; padding: 3px; }
+.seg span { flex: 1; text-align: center; padding: .3rem 0; border-radius: 7px; font-size: 12.5px; color: var(--soft); font-weight: 600; }
+.seg span.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+.gbody { padding: .6rem 1rem 4rem; }
+
+/* --- 学習ガイド画面 -------------------------------------------------------- */
+.gpage { flex: 1; max-width: 900px; width: 100%; margin: 0 auto; padding: 1.6rem 1.5rem 5rem; }
+.gpage h1 { margin: 0 0 1rem; font-size: 21px; }

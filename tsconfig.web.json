@@ -1,0 +1,12 @@
+{
+  // ブラウザ向けのコード（src/browser/）の型チェックだけに使う。出力は esbuild が作る（npm run build:web）。
+  // src/shared/ は Node にも DOM にも依存しない部品で、サーバ側の tsconfig からも使う
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": [],
+    "noEmit": true
+  },
+  "include": ["src/browser/**/*", "src/shared/**/*"],
+  "exclude": []
+}

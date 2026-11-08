@@ -4,3 +4,4 @@
 - 2026-11-08 技術スタックを決める（API サーバ + 素の TypeScript の SPA。中身は `CLAUDE.md` の「技術スタック」、経緯は [plan](docs/plans/archive/tech-stack.md)）
 - 2026-11-08 デザイン例を作って選ぶ（4 案から、構成は案 C・色合いは案 A に決定。マインドマップはアウトラインの編集でだけ使う。決定版は `docs/plans/archive/design-examples/decided.html`、経緯は [plan](docs/plans/archive/design-examples.md)）
 - 2026-11-08 Dropbox への接続と読み書き（TypeScript の土台、daily-note から Dropbox クライアントを移植、パラグラフの保存層 `src/paragraphs/`、`dropbox:check` / `dropbox:smoke` で本物の Dropbox を確認。[plan](docs/plans/archive/dropbox-storage.md)）
+- 2026-11-08 サーバと画面の土台（開く名前 `http://esl-writing.localhost:3016`、Host・Origin・専用ヘッダの安全チェック、JSON API、ハッシュで切り替える 1 ページ、`run-server.sh`。[plan](docs/plans/archive/app-foundation.md)）

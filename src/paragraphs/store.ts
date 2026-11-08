@@ -1,6 +1,28 @@
 import { type DropboxClient, isConflictError, isNotFoundError } from '../dropbox/client.js'
+import {
+  type ParagraphSummary,
+  type SaveBase,
+  type SavedStage,
+  STAGE_FILES,
+  STAGES,
+  type Stage,
+  type StageContent,
+  type StageFileInfo,
+  type StageTextFormat,
+} from '../shared/types.js'
 import { dateOfParagraphId, isParagraphId, paragraphIdCandidate } from './naming.js'
-import { decodeStageText, encodeStageText, type StageTextFormat } from './text.js'
+import { decodeStageText, encodeStageText } from './text.js'
+
+export {
+  type ParagraphSummary,
+  type SaveBase,
+  type SavedStage,
+  STAGE_FILES,
+  STAGES,
+  type Stage,
+  type StageContent,
+  type StageFileInfo,
+} from '../shared/types.js'
 
 /**
  * パラグラフの読み書き（Dropbox 上のファイル。`CLAUDE.md` の「ファイルの配置」）。
@@ -14,16 +36,6 @@ import { decodeStageText, encodeStageText, type StageTextFormat } from './text.j
  *   `rev` が合わない・既にある、は `StageConflictError` にして呼び出し側に知らせる
  * - 新規作成ではフォルダだけを作る（空のファイルは作らない）。段階のファイルが「無い・0 バイト」なら未着手
  */
-
-export const STAGES = ['assignment', 'ideas', 'outline', 'draft'] as const
-export type Stage = (typeof STAGES)[number]
-
-export const STAGE_FILES: Readonly<Record<Stage, string>> = {
-  assignment: 'assignment.md',
-  ideas: 'ideas.txt',
-  outline: 'outline.txt',
-  draft: 'draft.txt',
-}
 
 /** パラグラフのフォルダを並べるフォルダ（保存先の直下）。 */
 export const PARAGRAPHS_DIR = 'paragraphs'
@@ -52,48 +64,6 @@ export class StageConflictError extends Error {
     this.id = id
     this.stage = stage
   }
-}
-
-export interface StageFileInfo {
-  rev: string
-  size: number
-  /** サーバ側の更新時刻（ISO8601）。 */
-  serverModified: string
-}
-
-export interface ParagraphSummary {
-  /** フォルダ名。 */
-  id: string
-  /** 作成日（フォルダ名の先頭。`YYYY-MM-DD`）。 */
-  createdOn: string
-  /** 段階のファイルの最新の更新時刻。ファイルが 1 つも無ければ作成日の 0 時（UTC）。 */
-  updatedAt: string
-  /** ある段階のファイルだけを持つ。 */
-  files: Partial<Record<Stage, StageFileInfo>>
-  /** 段階ごとの着手済みか（ファイルがあって 1 バイト以上）。一覧の進み具合に使う。 */
-  started: Record<Stage, boolean>
-}
-
-export interface StageContent {
-  /** LF に正規化した本文。ファイルが無ければ空文字。 */
-  text: string
-  /** 保存のときに渡す版番号。ファイルが無ければ null（保存は `add` になる）。 */
-  rev: string | null
-  /** 保存のときに渡す、元のファイルの形式。 */
-  format: StageTextFormat
-}
-
-export interface SaveBase {
-  /** 読んだときの `rev`（無ければ null）。 */
-  rev: string | null
-  /** 読んだときの形式。 */
-  format: StageTextFormat
-}
-
-export interface SavedStage {
-  rev: string
-  size: number
-  serverModified: string
 }
 
 export interface ParagraphStore {

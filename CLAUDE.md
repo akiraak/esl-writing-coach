@@ -111,9 +111,14 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 2026-11-08 に決定（経緯は `docs/plans/archive/tech-stack.md`）。**API サーバ + 素の TypeScript の SPA**。
 
 - **サーバ**: Node 22 + TypeScript、`node:http`（フレームワークは使わない）。JSON の API だけを出し、Dropbox の読み書きを受け持つ。束ねたブラウザ用コードと静的ファイルも配る
-  - 認証は付けないので、`127.0.0.1` だけで待ち受ける
+  - 認証は付けないので、`127.0.0.1`（と `::1`）だけで待ち受ける
+  - **開く名前は `http://esl-writing.localhost:3016`**（2026-11-08。project-manager の `project-manager.localhost:8200` にならう）。`*.localhost` はブラウザが自分の PC に向けるので設定は要らない。`127.0.0.1:3016` でも開ける
+  - **安全チェック**（`src/server/guard.ts`。project-manager の `guard.ts` と同じ考え方）: Host が `127.0.0.1` / `localhost` / `esl-writing.localhost` のこのポートのときだけ受ける（DNS rebinding 対策）、Origin があれば同じオリジンだけ、書き込みは `X-ESL-Request: 1` と JSON が必須。CSP はインラインのスクリプト・スタイルを許さない
+  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`
   - Dropbox のトークン類は `.env` に置き、`node --env-file-if-exists=.env` で読む（daily-note と同じ）
 - **画面**: ブラウザ側の素の TypeScript で描く 1 ページ（一覧・編集・学習ガイドを切り替える）。フレームワークは使わず、esbuild で束ねる
+  - 画面の切り替えは URL のハッシュ（`#/` = 一覧、`#/p/<id>/<stage>` = 編集、`#/guide` = 学習ガイド。`src/shared/route.ts`）。サーバが返すページは `/` だけ
+  - DOM は `src/browser/dom.ts` の `h()` で組み、本文などのデータは文字列ノードとして入れる（innerHTML は使わない）
   - 段階の切り替えはページ遷移なしで行う。4 つのファイルの `rev` と未保存の状態はブラウザ側で持ち、ファイルごとに自動保存する
 - **daily-note から流用するもの**: `src/editor/outline.ts`・`src/editor/mindmap-layout.ts`（DOM を使わない純関数）、`src/browser/map.ts`（素の TS のマップ。綴りの確認・画像の書き出しは外す）、`src/dropbox/client.ts`
 - **書き直すもの**: 画面の描画と自動保存（daily-note はサーバで HTML を組む方式なので流用しない）
@@ -125,6 +130,10 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 
 - `src/config.ts`（環境変数）/ `src/log.ts`（トークンを伏せるログ）/ `src/dropbox/client.ts`（Dropbox API。daily-note から移植）
 - `src/paragraphs/`: 保存層。`store.ts`（一覧・段階のファイルの読み書き・作成・削除。競合は `StageConflictError`）、`naming.ts`、`text.ts`
+- `src/server/`: `server.ts`（HTTP サーバ・画面のファイル）、`api.ts`（JSON API）、`guard.ts`（安全チェック・CSP）。起動は `src/main.ts`
+- `src/shared/`: サーバとブラウザで共有する型と定数（`types.ts`）、画面の切り替え（`route.ts`）。Node にも DOM にも依存しない
+- `src/browser/`: 画面（`main.ts`・`api.ts`・`dom.ts`）。`tsconfig.web.json` で型チェックし、esbuild で `dist/browser/app.js` に束ねる
+- `web/`: `index.html`（外枠）と `style.css`（決定版のデザインの色・フォントを CSS 変数に）
 - `src/scripts/`: `dropbox-check.ts`・`dropbox-smoke.ts`
 - `test/`: `node --test`。Dropbox は偽の `fetch` / 偽のクライアントに差し替え、実 API は叩かない
 
@@ -132,9 +141,11 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 
 | コマンド | 内容 |
 |---|---|
-| `npm run build` | `tsc` で `dist/` へ出力 |
+| `./run-server.sh` | 起動（ビルドが古ければビルドし、ポートを掴んでいる前回のプロセスを止めてから）。project-manager の起動コマンドもこれ |
+| `npm start` | `node dist/main.js`（先に `build` が要る） |
+| `npm run build` | `tsc` で `dist/` へ出力 → esbuild で `src/browser/` を `dist/browser/app.js` に束ねる |
 | `npm test` | `tsc -p tsconfig.test.json` → `node --test`（`dist-test/`） |
-| `npm run typecheck` | 型チェックのみ（`src` と `test`） |
+| `npm run typecheck` | 型チェックのみ（`src`・`test`、ブラウザ向けは `tsconfig.web.json`） |
 | `npm run lint` / `npm run lint:fix` | Biome |
 | `npm run dropbox:check` | Dropbox に繋がるか確かめる（**読むだけ**。パラグラフの件数と着手済みの件数だけ出す） |
 | `npm run dropbox:smoke` | 本物の Dropbox で保存層を一通り動かす（**書く**。`<保存先>/.smoke-test/` だけを使い、最後に消す） |

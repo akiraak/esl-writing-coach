@@ -18,16 +18,9 @@
  * 単独の CR（旧 Mac 形式。実データには無い）はそのまま残す。
  */
 
-export type Eol = 'lf' | 'crlf'
+import type { Eol, StageTextFormat } from '../shared/types.js'
 
-export interface StageTextFormat {
-  /** 元の改行コード。CRLF を 1 つでも含めば 'crlf'。 */
-  eol: Eol
-  /** 先頭に BOM があったか。 */
-  bom: boolean
-  /** 末尾に改行があったか。 */
-  finalNewline: boolean
-}
+export type { Eol, StageTextFormat } from '../shared/types.js'
 
 export interface DecodedStageText {
   /** LF に正規化した本文（BOM は含まない）。 */
