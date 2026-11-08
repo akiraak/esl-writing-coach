@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { type Scorer, ScoringApiError, ScoringRefusedError } from '../ai/client.js'
-import { dropUnquotable, ScoringOutputError } from '../ai/scoring.js'
+import type { Ai } from '../ai/client.js'
+import { AiApiError, AiOutputError, AiRefusedError } from '../ai/errors.js'
+import { dropUnquotable } from '../ai/scoring.js'
 import { describeError, log } from '../log.js'
 import {
   FeedbackConflictError,
@@ -29,7 +30,10 @@ import { type Feedback, parseFeedback, totalOf } from '../shared/feedback.js'
  * | `GET /api/paragraphs/:id/feedback` | AI の採点の結果 → `{ feedback, aiConfigured }`（無ければ `feedback: null`） |
  * | `POST /api/paragraphs/:id/feedback` | 保存されている下書きを AI で採点し、`feedback.json` に書いて返す → `{ feedback }` |
  *
- * 採点のエラー: 下書きが空 400 `empty_draft` / キーが無い 503 `ai_not_configured` / 拒否 422 `ai_refusal` / API の失敗 502 `ai_error`
+ * | `POST /api/ai/themes` `{ hint }` | テーマの候補 → `{ themes }`（`hint` は分野・キーワード。空でもよい） |
+ * | `POST /api/ai/ideas` `{ theme, conditions }` | 賛成・反対の理由と例の候補 → `{ ideas }` |
+ *
+ * AI のエラー: キーが無い 503 `ai_not_configured` / 拒否 422 `ai_refusal` / API の失敗 502 `ai_error`。採点で下書きが空なら 400 `empty_draft`
  *
  * **本文はログに出さない**（パス・ステータスまで）。
  */
@@ -111,8 +115,8 @@ export interface ApiOptions {
   store: ParagraphStore
   /** 一覧のテーマを読む（rev で覚えておくので、サーバで 1 つを使い回す）。無ければリクエストごとに作る。 */
   themes?: ThemeReader
-  /** AI の採点。`ANTHROPIC_API_KEY` が無ければ null。 */
-  scorer?: Scorer | null
+  /** AI（採点・アイデア出し）。`ANTHROPIC_API_KEY` が無ければ null。 */
+  ai?: Ai | null
   /** 採点の時刻。差し替えられるのはテストのため。 */
   now?: () => string
   /** 新規作成の作成日。差し替えられるのはテストのため。 */
@@ -125,18 +129,33 @@ const STAGE = /^\/api\/paragraphs\/([^/]+)\/stages\/([^/]+)$/
 const FEEDBACK = /^\/api\/paragraphs\/([^/]+)\/feedback$/
 
 /** 保存されている下書きを採点して `feedback.json` に書く。 */
-async function scoreParagraph(id: string, options: ApiOptions): Promise<Feedback> {
-  const { store } = options
-  const scorer = options.scorer ?? null
-  if (scorer === null) {
+function requireAi(options: ApiOptions): Ai {
+  const ai = options.ai ?? null
+  if (ai === null) {
     throw new HttpError(503, 'ai_not_configured', 'ANTHROPIC_API_KEY が設定されていません')
   }
+  return ai
+}
+
+/** 長さの上限つきの文字列の項目（無ければ空文字）。 */
+function stringField(body: unknown, name: string, max: number): string {
+  const value = isRecord(body) ? body[name] : undefined
+  if (value === undefined || value === null) return ''
+  if (typeof value !== 'string' || value.length > max) {
+    throw new HttpError(400, `bad_${name}`, `${name} が不正です`)
+  }
+  return value
+}
+
+async function scoreParagraph(id: string, options: ApiOptions): Promise<Feedback> {
+  const { store } = options
+  const ai = requireAi(options)
   const [assignment, draft] = await Promise.all([
     store.readStage(id, 'assignment'),
     store.readStage(id, 'draft'),
   ])
   if (draft.text.trim() === '') throw new HttpError(400, 'empty_draft', '下書きが空です')
-  const { output, model } = await scorer.score({
+  const { output, model } = await ai.score({
     assignment: parseAssignment(assignment.text),
     draft: draft.text,
   })
@@ -258,7 +277,7 @@ export async function handleApi(
         const file = await store.readFeedback(id)
         sendJson(res, 200, {
           feedback: file === null ? null : parseFeedback(file.text),
-          aiConfigured: (options.scorer ?? null) !== null,
+          aiConfigured: (options.ai ?? null) !== null,
         })
         return
       }
@@ -270,6 +289,27 @@ export async function handleApi(
       throw new HttpError(405, 'method_not_allowed', '使えないメソッドです')
     }
 
+    if (pathname === '/api/ai/themes' || pathname === '/api/ai/ideas') {
+      if (method !== 'POST') throw new HttpError(405, 'method_not_allowed', '使えないメソッドです')
+      const body = await readJson(req)
+      const ai = requireAi(options)
+      if (pathname === '/api/ai/themes') {
+        const themes = await ai.suggestThemes(stringField(body, 'hint', 200))
+        log.info(`テーマの候補: ${themes.length} 件`)
+        sendJson(res, 200, { themes })
+        return
+      }
+      const theme = stringField(body, 'theme', MAX_THEME_LENGTH).trim()
+      if (theme === '') throw new HttpError(400, 'empty_theme', 'テーマが空です')
+      const ideas = await ai.suggestIdeas({
+        theme,
+        conditions: stringField(body, 'conditions', 4000),
+      })
+      log.info('理由・例の候補を出しました')
+      sendJson(res, 200, { ideas })
+      return
+    }
+
     throw new HttpError(404, 'not_found', 'ありません')
   } catch (error) {
     if (error instanceof HttpError) {
@@ -279,11 +319,11 @@ export async function handleApi(
     } else if (error instanceof StageConflictError) {
       log.warn(`競合: ${error.id}/${error.stage}`)
       sendJson(res, 409, { error: 'conflict', message: error.message })
-    } else if (error instanceof ScoringRefusedError) {
-      log.warn(`採点を断られました: ${pathname}`)
+    } else if (error instanceof AiRefusedError) {
+      log.warn(`AI に断られました: ${pathname}`)
       sendJson(res, 422, { error: 'ai_refusal', message: error.message })
-    } else if (error instanceof ScoringApiError || error instanceof ScoringOutputError) {
-      log.error(`採点に失敗: ${pathname}: ${error.message}`)
+    } else if (error instanceof AiApiError || error instanceof AiOutputError) {
+      log.error(`AI の呼び出しに失敗: ${pathname}: ${error.message}`)
       sendJson(res, 502, { error: 'ai_error', message: error.message })
     } else if (error instanceof StageTextError) {
       sendJson(res, 422, { error: 'not_utf8', message: error.message })

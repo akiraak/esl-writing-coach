@@ -1,4 +1,5 @@
 import type { Feedback } from '../shared/feedback.js'
+import type { IdeaSuggestions, ThemeSuggestion } from '../shared/ideas.js'
 import type {
   ApiErrorBody,
   ParagraphListItem,
@@ -89,4 +90,15 @@ export async function scoreParagraph(id: string): Promise<Feedback> {
       `/api/paragraphs/${encodeURIComponent(id)}/feedback`,
     )
   ).feedback
+}
+
+/** テーマの候補（`hint` は分野・キーワード。空でもよい）。 */
+export async function suggestThemes(hint: string): Promise<ThemeSuggestion[]> {
+  return (await request<{ themes: ThemeSuggestion[] }>('POST', '/api/ai/themes', { hint })).themes
+}
+
+/** 賛成・反対の理由と例の候補。 */
+export async function suggestIdeas(theme: string, conditions: string): Promise<IdeaSuggestions> {
+  return (await request<{ ideas: IdeaSuggestions }>('POST', '/api/ai/ideas', { theme, conditions }))
+    .ideas
 }

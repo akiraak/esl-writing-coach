@@ -1,5 +1,6 @@
-import { parseAssignment } from '../../shared/assignment.js'
+import { parseAssignment, serializeAssignment } from '../../shared/assignment.js'
 import { combineSaveStates, type SaveState } from '../../shared/autosave.js'
+import { appendToMemo } from '../../shared/ideas.js'
 import { type Route, routeHash } from '../../shared/route.js'
 import { summarizeStage } from '../../shared/stage-summary.js'
 import { STAGES, type Stage } from '../../shared/types.js'
@@ -8,6 +9,7 @@ import { h, replace } from '../dom.js'
 import { openExportDialog } from '../export-dialog.js'
 import { createFeedbackPanel } from '../feedback-pane.js'
 import { guidePane } from '../guide-pane.js'
+import { createIdeasPanel } from '../ideas-pane.js'
 import {
   conflictBanner,
   openStageEditor,
@@ -99,6 +101,26 @@ export function renderEdit(
     },
   })
 
+  /**
+   * 右ペインの「AI 案」。「課題のテーマにする」「メモに足す」を押したときだけ、その段階の本文を書き換える
+   * （開いている段階なら中央も描き直す）。
+   */
+  const ideasPanel = createIdeasPanel({
+    assignment: () => parseAssignment(editors?.assignment.text ?? ''),
+    setTheme(theme) {
+      if (editors === null) return
+      const assignment = parseAssignment(editors.assignment.text)
+      editors.assignment.update(serializeAssignment({ ...assignment, theme }))
+      setTheme(theme)
+      if (stage === 'assignment') renderBody()
+    },
+    appendMemo(block) {
+      if (editors === null) return
+      editors.ideas.update(appendToMemo(editors.ideas.text, block))
+      if (stage === 'ideas') renderBody()
+    },
+  })
+
   const tiles = {} as Record<Stage, Tile>
   STAGES.forEach((s, i) => {
     const summary = h('div', { class: 's' }, '…')
@@ -126,7 +148,10 @@ export function renderEdit(
       { class: 'panes' },
       h('nav', { class: 'stages' }, ...STAGES.map((s) => tiles[s].el)),
       center,
-      guidePane([{ key: 'feedback', label: '採点', el: feedback.el }]),
+      guidePane([
+        { key: 'ideas', label: 'AI案', el: ideasPanel.el },
+        { key: 'feedback', label: '採点', el: feedback.el },
+      ]),
     ),
   )
 
@@ -159,6 +184,7 @@ export function renderEdit(
     // 競合の知らせは、その段階を開いているときだけ出す
     if (s === stage) renderBanner()
     if (s === 'draft') feedback.sync()
+    if (s === 'assignment') ideasPanel.sync()
   }
 
   function renderBanner(): void {

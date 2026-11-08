@@ -51,6 +51,9 @@ ESL（英語を第二言語として学ぶ）の授業で課されるパラグ�
     送るのは下書き・課題・アプリが数えた語数と文数だけ（アイデア・アウトラインは送らない）。`ANTHROPIC_API_KEY` が無ければ採点だけ使えない
     **指摘の引用が本文に無ければ消す**（AI が誤りを直した形で引用すると直した文が出てしまうため。`dropUnquotable`）。API キーは daily-note と共用（2026-11-08 決定）
 - **AI のアイデア出し**: テーマ候補、理由・例の候補を出す。メモへは自動で書き込まない
+  - 実装（2026-11-08。`docs/plans/archive/ai-ideas.md`）: 編集画面の右ペインの「AI案」タブ。テーマの候補は分野・キーワード（任意）から英語の問いと日本語訳（「課題のテーマにする」で書き換え）。
+    理由・例の候補は課題のテーマと条件から、賛成・反対それぞれ理由 3 つと例を**日本語で**（英文は出さない。「メモに足す」で末尾に書き足す）。
+    押したときだけ呼び、結果は保存しない。送るのは分野・キーワード、テーマと条件だけ。モデルは採点と同じで effort `medium`
 - **`.docx` / PDF の書き出し**と体裁
 - **間違いの振り返り**: 全パラグラフの最新の指摘・点数を観点別に集める
 - アウトライン段階での AI の指摘
@@ -138,7 +141,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
   - 認証は付けないので、`127.0.0.1`（と `::1`）だけで待ち受ける
   - **開く名前は `http://esl-writing.localhost:3016`**（2026-11-08。project-manager の `project-manager.localhost:8200` にならう）。`*.localhost` はブラウザが自分の PC に向けるので設定は要らない。`127.0.0.1:3016` でも開ける
   - **安全チェック**（`src/server/guard.ts`。project-manager の `guard.ts` と同じ考え方）: Host が `127.0.0.1` / `localhost` / `esl-writing.localhost` のこのポートのときだけ受ける（DNS rebinding 対策）、Origin があれば同じオリジンだけ、書き込みは `X-ESL-Request: 1` と JSON が必須。CSP はインラインのスクリプト・スタイルを許さない
-  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`。一覧の各項目には `assignment.md` のテーマ `theme` を足す（`src/paragraphs/themes.ts`。id + rev で覚えておき、変わっていなければ読み直さない）。AI の採点は `GET/POST /api/paragraphs/:id/feedback`（下書きが空 400 `empty_draft`・キーが無い 503 `ai_not_configured`・拒否 422 `ai_refusal`・API の失敗 502 `ai_error`）
+  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`。一覧の各項目には `assignment.md` のテーマ `theme` を足す（`src/paragraphs/themes.ts`。id + rev で覚えておき、変わっていなければ読み直さない）。AI の採点は `GET/POST /api/paragraphs/:id/feedback`、アイデア出しは `POST /api/ai/themes`・`POST /api/ai/ideas`（下書きが空 400 `empty_draft`・キーが無い 503 `ai_not_configured`・拒否 422 `ai_refusal`・API の失敗 502 `ai_error`）
   - Dropbox のトークン類は `.env` に置き、`node --env-file-if-exists=.env` で読む（daily-note と同じ）
 - **画面**: ブラウザ側の素の TypeScript で描く 1 ページ（一覧・編集・学習ガイドを切り替える）。フレームワークは使わず、esbuild で束ねる
   - 画面の切り替えは URL のハッシュ（`#/` = 一覧、`#/p/<id>/<stage>` = 編集、`#/guide` = 学習ガイド。`src/shared/route.ts`）。サーバが返すページは `/` だけ
@@ -154,7 +157,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 ### コードの置き場所
 
 - `src/config.ts`（環境変数）/ `src/log.ts`（トークンを伏せるログ）/ `src/dropbox/client.ts`（Dropbox API。daily-note から移植）
-- `src/ai/`: AI の採点（`scoring.ts` = プロンプト・出力のスキーマと検証の純関数、`client.ts` = SDK の呼び出し）
+- `src/ai/`: AI（`scoring.ts` = 採点、`ideas.ts` = アイデア出しのプロンプト・出力のスキーマと検証の純関数、`client.ts` = SDK の呼び出し（共通）、`errors.ts`）
 - `src/paragraphs/`: 保存層。`store.ts`（一覧・段階のファイルの読み書き・作成・削除。競合は `StageConflictError`）、`naming.ts`、`text.ts`、`themes.ts`（一覧のテーマ）
 - `src/server/`: `server.ts`（HTTP サーバ・画面のファイル）、`api.ts`（JSON API）、`guard.ts`（安全チェック・CSP）。起動は `src/main.ts`
 - `src/shared/`: サーバとブラウザで共有する型と定数（`types.ts`）、画面の切り替え（`route.ts`）、`assignment.md` の書式（`assignment.ts`）、自動保存（`autosave.ts`）、タイルの状態の行（`stage-summary.ts`）、アウトライン（`outline.ts`・`mindmap-layout.ts`。daily-note から移植）。Node にも DOM にも依存しない

@@ -10,6 +10,7 @@ import {
   isCriterionKey,
 } from '../shared/feedback.js'
 import { describeRange } from '../shared/stage-summary.js'
+import { AiOutputError } from './errors.js'
 
 /**
  * 採点のプロンプトと、AI の出力の検証（`docs/plans/archive/ai-scoring.md`）。純関数なので node でテストする。
@@ -121,10 +122,6 @@ export interface ScoringOutput {
   findings: Finding[]
 }
 
-export class ScoringOutputError extends Error {
-  override name = 'ScoringOutputError'
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -146,23 +143,23 @@ export function dropUnquotable(findings: readonly Finding[], draft: string): Fin
 /** 指摘の上限（プロンプトでも 10 個までと頼んでいる）。 */
 const MAX_FINDINGS = 10
 
-/** AI の出力（JSON の文字列）を検証する。観点が欠けていれば `ScoringOutputError`。点数は 0〜満点に収める。 */
+/** AI の出力（JSON の文字列）を検証する。観点が欠けていれば `AiOutputError`。点数は 0〜満点に収める。 */
 export function parseScoringOutput(text: string): ScoringOutput {
   let value: unknown
   try {
     value = JSON.parse(text)
   } catch {
-    throw new ScoringOutputError('採点の結果を JSON として読めません')
+    throw new AiOutputError('採点の結果を JSON として読めません')
   }
   if (!isRecord(value) || !isRecord(value['scores'])) {
-    throw new ScoringOutputError('採点の結果に scores がありません')
+    throw new AiOutputError('採点の結果に scores がありません')
   }
   const raw = value['scores']
   const scores = {} as Record<CriterionKey, CriterionScore>
   for (const key of CRITERION_KEYS) {
     const item = raw[key]
     if (!isRecord(item) || typeof item['score'] !== 'number') {
-      throw new ScoringOutputError(`採点の結果に ${key} の点数がありません`)
+      throw new AiOutputError(`採点の結果に ${key} の点数がありません`)
     }
     scores[key] = {
       score: clampScore(key, item['score']),

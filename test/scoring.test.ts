@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { AiOutputError } from '../src/ai/errors.js'
 import {
   buildUserPrompt,
   dropUnquotable,
   OUTPUT_SCHEMA,
   parseScoringOutput,
-  ScoringOutputError,
   SYSTEM_PROMPT,
 } from '../src/ai/scoring.js'
 import { parseAssignment } from '../src/shared/assignment.js'
@@ -97,11 +97,11 @@ describe('parseScoringOutput', () => {
     )
   })
 
-  it('観点が欠けている・JSON でないなら ScoringOutputError', () => {
-    assert.throws(() => parseScoringOutput('not json'), ScoringOutputError)
+  it('観点が欠けている・JSON でないなら AiOutputError', () => {
+    assert.throws(() => parseScoringOutput('not json'), AiOutputError)
     assert.throws(
       () => parseScoringOutput(output({ scores: { structure: { score: 1, comment: '' } } })),
-      ScoringOutputError,
+      AiOutputError,
     )
   })
 

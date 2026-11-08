@@ -5,7 +5,8 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, before, beforeEach, describe, it } from 'node:test'
-import { type Scorer, ScoringApiError, ScoringRefusedError } from '../src/ai/client.js'
+import type { Ai } from '../src/ai/client.js'
+import { AiApiError, AiRefusedError } from '../src/ai/errors.js'
 import {
   FeedbackConflictError,
   InvalidParagraphIdError,
@@ -100,8 +101,14 @@ let base: string
 let port: number
 let fake: ReturnType<typeof fakeStore>
 let webDir: string
-/** 偽の採点器（テストごとに差し替える。null ならキーが無い扱い）。 */
-let scorer: Scorer | null = null
+/** 偽の AI（テストごとに差し替える。null ならキーが無い扱い）。使わないメソッドは呼ばれたら落ちる。 */
+let ai: Ai | null = null
+const fakeAi = (methods: Partial<Ai>): Ai => ({
+  score: () => Promise.reject(new Error('score は呼ばれないはず')),
+  suggestThemes: () => Promise.reject(new Error('suggestThemes は呼ばれないはず')),
+  suggestIdeas: () => Promise.reject(new Error('suggestIdeas は呼ばれないはず')),
+  ...methods,
+})
 
 before(async () => {
   webDir = await mkdtemp(path.join(tmpdir(), 'esl-web-'))
@@ -120,7 +127,7 @@ before(async () => {
       webDir,
       bundleDir: webDir,
       today: () => '2026-11-08',
-      scorer,
+      ai,
       now: () => '2026-11-08T03:00:00.000Z',
     })(req, res)
 })
@@ -131,7 +138,7 @@ after(() => {
 
 beforeEach(() => {
   fake = fakeStore()
-  scorer = null
+  ai = null
 })
 
 const WRITE = { 'content-type': 'application/json', 'x-esl-request': '1' }
@@ -277,7 +284,7 @@ describe('採点の API', () => {
 
   it('POST は保存されている下書きと課題で採点し、feedback.json に書いて返す。合計はアプリが足す', async () => {
     let received: unknown = null
-    scorer = {
+    ai = fakeAi({
       async score(input) {
         received = input
         return {
@@ -292,7 +299,7 @@ describe('採点の API', () => {
           model: 'claude-opus-5-5',
         }
       },
-    }
+    })
     await fake.store.saveStage('2026-11-08-a', 'assignment', '# Uniforms\n\n- 語数: 100-\n', {
       rev: null,
       format: NEW_FILE_FORMAT,
@@ -324,12 +331,12 @@ describe('採点の API', () => {
   it('キーが無ければ 503、下書きが空なら 400（採点器を呼ばない）', async () => {
     assert.equal((await post()).status, 503)
     let called = false
-    scorer = {
+    ai = fakeAi({
       async score() {
         called = true
         throw new Error('呼ばれないはず')
       },
-    }
+    })
     await putDraft('  \n')
     const res = await post()
     assert.equal(res.status, 400)
@@ -339,19 +346,19 @@ describe('採点の API', () => {
 
   it('拒否は 422 ai_refusal、API の失敗は 502 ai_error（feedback.json は書かない）', async () => {
     await putDraft('I agree.')
-    scorer = {
+    ai = fakeAi({
       async score() {
-        throw new ScoringRefusedError('断られました')
+        throw new AiRefusedError('断られました')
       },
-    }
+    })
     const refused = await post()
     assert.equal(refused.status, 422)
     assert.equal(((await refused.json()) as { error: string }).error, 'ai_refusal')
-    scorer = {
+    ai = fakeAi({
       async score() {
-        throw new ScoringApiError('API キーが正しくありません')
+        throw new AiApiError('API キーが正しくありません')
       },
-    }
+    })
     const failed = await post()
     assert.equal(failed.status, 502)
     assert.deepEqual(await failed.json(), {
@@ -359,6 +366,56 @@ describe('採点の API', () => {
       message: 'API キーが正しくありません',
     })
     assert.equal(fake.calls.filter((c) => c.op === 'saveFeedback').length, 0)
+  })
+})
+
+describe('アイデア出しの API', () => {
+  const post = (path: string, body: unknown) =>
+    fetch(`${base}/api/ai/${path}`, { method: 'POST', headers: WRITE, body: JSON.stringify(body) })
+
+  it('テーマの候補: hint を渡して返す（hint は無くてもよい）', async () => {
+    const hints: string[] = []
+    ai = fakeAi({
+      async suggestThemes(hint) {
+        hints.push(hint)
+        return [{ en: 'Should we?', ja: 'すべきか' }]
+      },
+    })
+    const res = await post('themes', { hint: '部活' })
+    assert.equal(res.status, 200)
+    assert.deepEqual(await res.json(), { themes: [{ en: 'Should we?', ja: 'すべきか' }] })
+    assert.equal((await post('themes', {})).status, 200)
+    assert.deepEqual(hints, ['部活', ''])
+  })
+
+  it('理由・例の候補: テーマと条件を渡す。テーマが空なら 400', async () => {
+    let received: unknown = null
+    const ideas = { sides: [] }
+    ai = fakeAi({
+      async suggestIdeas(input) {
+        received = input
+        return ideas
+      },
+    })
+    const res = await post('ideas', { theme: ' Uniforms ', conditions: '理由を 3 つ' })
+    assert.equal(res.status, 200)
+    assert.deepEqual(await res.json(), { ideas })
+    assert.deepEqual(received, { theme: 'Uniforms', conditions: '理由を 3 つ' })
+    const empty = await post('ideas', { theme: '  ' })
+    assert.equal(empty.status, 400)
+    assert.equal(((await empty.json()) as { error: string }).error, 'empty_theme')
+  })
+
+  it('キーが無ければ 503、長すぎる hint は 400、拒否は 422、GET は 405', async () => {
+    assert.equal((await post('themes', { hint: 'x' })).status, 503)
+    ai = fakeAi({
+      async suggestThemes() {
+        throw new AiRefusedError('断られました')
+      },
+    })
+    assert.equal((await post('themes', { hint: 'x'.repeat(201) })).status, 400)
+    assert.equal((await post('themes', { hint: 'x' })).status, 422)
+    assert.equal((await fetch(`${base}/api/ai/themes`)).status, 405)
   })
 })
 

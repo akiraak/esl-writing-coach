@@ -1,7 +1,7 @@
 import type { Server } from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createScorer } from './ai/client.js'
+import { createAi } from './ai/client.js'
 import { BIND_HOST, ConfigError, loadAiConfig, loadDropboxConfig, parsePort } from './config.js'
 import { createDropboxClient } from './dropbox/client.js'
 import { describeError, log } from './log.js'
@@ -25,9 +25,9 @@ async function main(): Promise<void> {
   const port = parsePort(process.env['PORT']?.trim() || undefined)
   const settings = loadDropboxConfig(process.env)
   const store = createParagraphStore(createDropboxClient(settings), settings.root)
-  const ai = loadAiConfig(process.env)
-  const scorer = ai === null ? null : createScorer(ai.apiKey)
-  const handler = createAppHandler({ port, store, webDir, bundleDir, scorer })
+  const aiSettings = loadAiConfig(process.env)
+  const ai = aiSettings === null ? null : createAi(aiSettings.apiKey)
+  const handler = createAppHandler({ port, store, webDir, bundleDir, ai })
 
   const servers: Server[] = [await listen(handler, port, BIND_HOST)]
   try {
@@ -37,7 +37,7 @@ async function main(): Promise<void> {
   }
 
   log.info(`保存先: ${settings.root}`)
-  if (scorer === null) log.warn('ANTHROPIC_API_KEY が無いので、AI の採点は使えません')
+  if (ai === null) log.warn('ANTHROPIC_API_KEY が無いので、AI（採点・アイデア出し）は使えません')
   log.info(`開く: http://${FRIENDLY_NAME}:${port}/`)
 
   const stop = () => {

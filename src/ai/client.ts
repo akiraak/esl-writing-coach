@@ -1,5 +1,18 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { registerSecret } from '../log.js'
+import type { IdeaSuggestions, ThemeSuggestion } from '../shared/ideas.js'
+import { AiApiError, AiRefusedError } from './errors.js'
+import {
+  buildIdeasPrompt,
+  buildThemesPrompt,
+  IDEAS_SCHEMA,
+  IDEAS_SYSTEM,
+  type IdeasInput,
+  parseIdeas,
+  parseThemes,
+  THEMES_SCHEMA,
+  THEMES_SYSTEM,
+} from './ideas.js'
 import {
   buildUserPrompt,
   OUTPUT_SCHEMA,
@@ -10,15 +23,15 @@ import {
 } from './scoring.js'
 
 /**
- * AI の採点を 1 回呼ぶ（Anthropic API。`docs/plans/archive/ai-scoring.md`）。
+ * Anthropic API の呼び出し（採点・アイデア出し。`docs/plans/archive/ai-scoring.md`・`ai-ideas.md`）。
  *
- * - モデルは Claude Opus 5.5・effort `high`（採点のぶれを抑える）。出力は構造化出力（JSON スキーマ）
- * - 拒否されたら別のモデルで採点し直す（サーバ側の `fallbacks: "default"`）。それでも拒否なら `ScoringRefusedError`
- * - SDK の失敗は `ScoringApiError` に包む（API の層が SDK に依存しないように）
+ * - モデルは Claude Opus 5.5。採点は effort `high`（ぶれを抑える）、アイデア出しは `medium`（速さを取る）
+ * - 出力は構造化出力（JSON スキーマ）。拒否されたら別のモデルでやり直す（サーバ側の `fallbacks: "default"`）。
+ *   それでも拒否なら `AiRefusedError`、SDK の失敗・途中で切れたら `AiApiError`（API の層が SDK に依存しないように包む）
  * - 本文はログに出さない
  */
 
-export const SCORING_MODEL = 'claude-opus-5-5'
+export const AI_MODEL = 'claude-opus-5-5'
 
 export interface ScoringResult {
   output: ScoringOutput
@@ -26,18 +39,12 @@ export interface ScoringResult {
   model: string
 }
 
-export interface Scorer {
+export interface Ai {
   score(input: ScoringInput): Promise<ScoringResult>
-}
-
-/** 安全のための判定で採点を断られた（代わりのモデルでも）。 */
-export class ScoringRefusedError extends Error {
-  override name = 'ScoringRefusedError'
-}
-
-/** API の呼び出しに失敗した・結果が途中で切れた。 */
-export class ScoringApiError extends Error {
-  override name = 'ScoringApiError'
+  /** テーマの候補（`hint` は分野・キーワード。空でもよい）。 */
+  suggestThemes(hint: string): Promise<ThemeSuggestion[]>
+  /** 賛成・反対それぞれの理由と例の候補。 */
+  suggestIdeas(input: IdeasInput): Promise<IdeaSuggestions>
 }
 
 function describeApiError(error: unknown): string {
@@ -53,36 +60,76 @@ function describeApiError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-export function createScorer(apiKey: string): Scorer {
+interface JsonRequest {
+  system: string
+  user: string
+  schema: { [key: string]: unknown }
+  effort: 'medium' | 'high'
+}
+
+export function createAi(apiKey: string): Ai {
   registerSecret(apiKey)
   const client = new Anthropic({ apiKey })
+
+  /** 1 回呼んで、構造化出力の JSON の文字列と、実際に答えたモデルを返す。 */
+  async function callJson(request: JsonRequest): Promise<{ text: string; model: string }> {
+    let response: Anthropic.Beta.BetaMessage
+    try {
+      response = await client.beta.messages.create({
+        model: AI_MODEL,
+        max_tokens: 16000,
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+        thinking: { type: 'adaptive' },
+        output_config: {
+          effort: request.effort,
+          format: { type: 'json_schema', schema: request.schema },
+        },
+        system: request.system,
+        messages: [{ role: 'user', content: request.user }],
+      })
+    } catch (error) {
+      throw new AiApiError(describeApiError(error))
+    }
+    if (response.stop_reason === 'refusal') {
+      throw new AiRefusedError('安全のための判定で断られました（代わりのモデルでも）')
+    }
+    if (response.stop_reason === 'max_tokens') {
+      throw new AiApiError('結果が途中で切れました。もう一度お試しください')
+    }
+    const text = response.content
+      .flatMap((block) => (block.type === 'text' ? [block.text] : []))
+      .join('')
+    return { text, model: response.model }
+  }
+
   return {
     async score(input) {
-      let response: Anthropic.Beta.BetaMessage
-      try {
-        response = await client.beta.messages.create({
-          model: SCORING_MODEL,
-          max_tokens: 16000,
-          betas: ['server-side-fallback-2026-07-01'],
-          fallbacks: 'default',
-          thinking: { type: 'adaptive' },
-          output_config: { effort: 'high', format: { type: 'json_schema', schema: OUTPUT_SCHEMA } },
-          system: SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: buildUserPrompt(input) }],
-        })
-      } catch (error) {
-        throw new ScoringApiError(describeApiError(error))
-      }
-      if (response.stop_reason === 'refusal') {
-        throw new ScoringRefusedError('安全のための判定で断られました（代わりのモデルでも）')
-      }
-      if (response.stop_reason === 'max_tokens') {
-        throw new ScoringApiError('採点の結果が途中で切れました。もう一度お試しください')
-      }
-      const text = response.content
-        .flatMap((block) => (block.type === 'text' ? [block.text] : []))
-        .join('')
-      return { output: parseScoringOutput(text), model: response.model }
+      const { text, model } = await callJson({
+        system: SYSTEM_PROMPT,
+        user: buildUserPrompt(input),
+        schema: OUTPUT_SCHEMA,
+        effort: 'high',
+      })
+      return { output: parseScoringOutput(text), model }
+    },
+    async suggestThemes(hint) {
+      const { text } = await callJson({
+        system: THEMES_SYSTEM,
+        user: buildThemesPrompt(hint),
+        schema: THEMES_SCHEMA,
+        effort: 'medium',
+      })
+      return parseThemes(text)
+    },
+    async suggestIdeas(input) {
+      const { text } = await callJson({
+        system: IDEAS_SYSTEM,
+        user: buildIdeasPrompt(input),
+        schema: IDEAS_SCHEMA,
+        effort: 'medium',
+      })
+      return parseIdeas(text)
     },
   }
 }
