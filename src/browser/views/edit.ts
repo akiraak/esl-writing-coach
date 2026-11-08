@@ -26,7 +26,7 @@ import { renderOutlineView } from './outline.js'
  *   **パラグラフを開いている間は持ち続ける**。同じパラグラフの中で段階を移るときは中央だけを描き直す（読み直さない）
  * - 段階を離れるときはその段階を待たずに保存する。rev は保存が終わったときに手元で新しくなるので、戻っても古い rev にはならない
  * - ヘッダの保存の状態は 4 つをまとめて出し、タイルには段階ごとの状態の行と保存の印を出す
- * - 中央の中身は段階ごとに `views/` の各ファイル（課題・アイデア・アウトライン・下書き）
+ * - 中央の中身は段階ごとに `views/` の各ファイル（課題・アイデア・アウトライン・下書き）。一番下に次のステップへのボタン
  */
 
 interface Tile {
@@ -76,6 +76,9 @@ export function renderEdit(
   const title = h('h2', {})
   const banner = h('div', { class: 'banner' })
   const body = h('div', { class: 'stage-body' }, h('p', { class: 'muted' }, '読み込み中…'))
+  /** 中央の一番下の「次のステップへ」（STEP 4 には出さない）。 */
+  const footer = h('div', { class: 'stage-next' })
+  const center = h('main', { class: 'center' }, title, banner, body, footer)
 
   const tiles = {} as Record<Stage, Tile>
   STAGES.forEach((s, i) => {
@@ -103,7 +106,7 @@ export function renderEdit(
       'div',
       { class: 'panes' },
       h('nav', { class: 'stages' }, ...STAGES.map((s) => tiles[s].el)),
-      h('main', { class: 'center' }, title, banner, body),
+      center,
       guidePane(),
     ),
   )
@@ -145,6 +148,7 @@ export function renderEdit(
   function renderBody(): void {
     if (editors === null) return
     clearBody()
+    body.className = stage === 'outline' ? 'stage-body fill' : 'stage-body'
     const editor = editors[stage]
     if (stage === 'assignment') {
       renderAssignmentView(body, { text: editor.text, editor, onThemeChange: setTheme })
@@ -179,8 +183,29 @@ export function renderEdit(
     stage = next
     for (const s of STAGES) tiles[s].el.classList.toggle('on', s === stage)
     replace(title, STAGE_LABELS[stage])
+    renderFooter()
     renderBanner()
     renderBody()
+    // 中央のペインは使い回すので、前の段階のスクロール位置を残さない
+    center.scrollTop = 0
+  }
+
+  /** 次のステップへのボタン。押すと左のタイルと同じく、その場で段階が切り替わる。 */
+  function renderFooter(): void {
+    const index = STAGES.indexOf(stage)
+    const next = STAGES[index + 1]
+    if (next === undefined) {
+      replace(footer)
+      return
+    }
+    replace(
+      footer,
+      h(
+        'a',
+        { class: 'btn pri next-step', href: routeHash({ name: 'edit', id, stage: next }) },
+        `STEP ${index + 2} ${STAGE_LABELS[next]}へ →`,
+      ),
+    )
   }
 
   function attach(editor: StageEditor): void {
