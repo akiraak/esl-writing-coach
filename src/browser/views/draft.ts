@@ -1,9 +1,10 @@
 import type { Assignment, CountRange } from '../../shared/assignment.js'
 import { countSentences, countWords, hasJapanese } from '../../shared/counting.js'
 import { meterOf } from '../../shared/meter.js'
-import { outlineRoles, type Role, type RoleItem } from '../../shared/outline-roles.js'
+import { outlineRoles } from '../../shared/outline-roles.js'
 import { routeHash } from '../../shared/route.js'
 import { h, replace } from '../dom.js'
+import { roleNodes } from '../role-list.js'
 import type { StageEditor } from '../stage-editor.js'
 import { assignmentBrief } from './brief.js'
 
@@ -20,26 +21,6 @@ export interface DraftViewOptions {
   assignment: Assignment
   /** 手元の最新のアウトライン（字下げのテキスト）。 */
   outline: string
-}
-
-const ROLE_CLASS: Readonly<Record<Role, string>> = {
-  topic: 'n-ts',
-  reason: 'n-rs',
-  example: 'n-ex',
-  conclusion: 'n-cs',
-}
-
-function roleLabel(item: RoleItem): string {
-  switch (item.role) {
-    case 'topic':
-      return 'OPINION'
-    case 'reason':
-      return `REASON ${item.number ?? ''}`.trim()
-    case 'example':
-      return 'EXAMPLE'
-    case 'conclusion':
-      return 'CONCLUSION'
-  }
 }
 
 function meterBox(unit: string, range: CountRange) {
@@ -92,16 +73,7 @@ function outlineList(id: string, outline: string): HTMLElement {
           h('p', { class: 'muted' }, 'アウトラインはまだありません。'),
           h('a', { href: routeHash({ name: 'edit', id, stage: 'outline' }) }, 'STEP 3 で作る'),
         ]
-      : items.map((item) => {
-          const node = h(
-            'div',
-            { class: `node ${ROLE_CLASS[item.role]}` },
-            h('small', {}, roleLabel(item)),
-            item.label,
-          )
-          node.style.marginLeft = `${item.level * 0.7}rem`
-          return node
-        })
+      : roleNodes(items)
   return h(
     'aside',
     { class: 'struct', 'aria-label': 'アウトライン（見るだけ）' },

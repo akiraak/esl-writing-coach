@@ -34,7 +34,12 @@ export function logo(): HTMLElement {
 }
 
 /** ヘッダ。`middle` はロゴの右（パンくず）、`right` は学習ガイドの左（保存の状態など）。 */
-export function header(middle: (Node | string)[] = [], right: (Node | string)[] = []): HTMLElement {
+export function header(
+  middle: (Node | string)[] = [],
+  right: (Node | string)[] = [],
+  /** 学習ガイド画面では右端を「パラグラフ一覧へ」にする（モックと同じ）。 */
+  onGuide = false,
+): HTMLElement {
   return h(
     'header',
     { class: 'top' },
@@ -42,7 +47,9 @@ export function header(middle: (Node | string)[] = [], right: (Node | string)[] 
     ...middle,
     h('span', { class: 'sp' }),
     ...right,
-    h('a', { class: 'btn', href: '#/guide' }, '学習ガイド'),
+    onGuide
+      ? h('a', { class: 'btn', href: '#/' }, 'パラグラフ一覧へ')
+      : h('a', { class: 'btn', href: '#/guide' }, '学習ガイド'),
   )
 }
 

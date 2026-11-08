@@ -1,21 +1,18 @@
 import { h, replace } from '../dom.js'
+import { guideTabs } from '../guide-content.js'
 import { header } from '../ui.js'
 import { STATIC_VIEW, type View } from '../view.js'
 
-/** 学習ガイド画面。構成の解説・モデル文・表現集は「学習ガイド」のタスクで作る。 */
+/** 学習ガイド画面。構成の解説・モデル文・表現集のタブ（中身は `guide-content.ts`。編集画面の右ペインと同じ）。 */
 export function renderGuide(app: HTMLElement): View {
+  const { tabs, body } = guideTabs(false)
   replace(
     app,
-    header([h('span', { class: 'crumb' }, '／ ', h('b', {}, '学習ガイド'))]),
+    header([h('span', { class: 'crumb' }, '／ ', h('b', {}, '学習ガイド'))], [], true),
     h(
       'main',
       { class: 'gpage' },
-      h('h1', {}, 'Opinion paragraph の書き方'),
-      h(
-        'p',
-        { class: 'muted' },
-        '構成の解説・モデル文・表現集は「学習ガイド」のタスクで作ります。',
-      ),
+      h('div', { class: 'gin' }, h('h1', {}, 'Opinion paragraph の書き方'), tabs, body),
     ),
   )
   return STATIC_VIEW
