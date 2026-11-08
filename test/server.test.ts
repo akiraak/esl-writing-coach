@@ -120,7 +120,7 @@ describe('API', () => {
     assert.equal(body.paragraphs[0]?.id, '2026-11-08-a')
   })
 
-  it('POST /api/paragraphs はサーバの今日の日付で作る（テーマの前後の空白は落とす）', async () => {
+  it('POST /api/paragraphs はサーバの今日の日付で作り、テーマ入りの assignment.md を書く（前後の空白は落とす）', async () => {
     const res = await fetch(`${base}/api/paragraphs`, {
       method: 'POST',
       headers: WRITE,
@@ -128,7 +128,18 @@ describe('API', () => {
     })
     assert.equal(res.status, 201)
     assert.deepEqual(await res.json(), { id: '2026-11-08-new' })
-    assert.deepEqual(fake.calls, [{ op: 'create', args: ['2026-11-08', 'School uniforms'] }])
+    assert.deepEqual(fake.calls, [
+      { op: 'create', args: ['2026-11-08', 'School uniforms'] },
+      {
+        op: 'save',
+        args: [
+          '2026-11-08-new',
+          'assignment',
+          '# School uniforms\n\n- 語数:\n- 文数:\n\n## 条件\n',
+          { rev: null, format: NEW_FILE_FORMAT },
+        ],
+      },
+    ])
   })
 
   it('POST のテーマが文字列でなければ 400', async () => {

@@ -65,16 +65,48 @@ a { color: var(--brand); }
 /* --- 編集（3 ペイン） ------------------------------------------------------ */
 .panes { flex: 1; display: grid; grid-template-columns: 200px 1fr 340px; min-height: 0; }
 .stages { padding: 1rem .8rem; display: flex; flex-direction: column; gap: .55rem; border-right: 1px solid var(--line); }
-.tile { background: var(--card); border-radius: 12px; padding: .7rem .85rem; border: 1.5px solid var(--line-soft); color: inherit; text-decoration: none; }
+.tile {
+  position: relative; background: var(--card); border-radius: 12px; padding: .7rem .85rem;
+  border: 1.5px solid var(--line-soft); color: inherit; text-decoration: none;
+}
 .tile .k { font-size: 11px; color: var(--faint); font-weight: 700; letter-spacing: .06em; }
 .tile .t { font-weight: 700; font-size: 14.5px; }
-.tile .s { font-size: 12px; color: var(--soft); }
 .tile.on { border-color: var(--brand); background: var(--brand-soft); }
 .tile.on .k { color: var(--brand); }
-.tile.ja .s::after { content: "日本語可"; margin-left: .4rem; font-size: 10.5px; padding: 0 .35rem; border-radius: 4px; background: var(--line-soft); color: var(--soft); }
-.tile.en .s::after { content: "英語のみ"; margin-left: .4rem; font-size: 10.5px; padding: 0 .35rem; border-radius: 4px; background: var(--brand); color: #fff; }
+.tile .lang { position: absolute; top: .65rem; right: .7rem; font-size: 10.5px; padding: 0 .35rem; border-radius: 4px; }
+.tile .lang.ja { background: var(--line-soft); color: var(--soft); }
+.tile .lang.en { background: var(--brand); color: #fff; }
 .center { display: flex; flex-direction: column; min-width: 0; padding: 1rem 1.2rem 4rem; gap: .8rem; }
 .center h2 { margin: 0; font-size: 17px; }
+.banner:empty { display: none; }
+.conflict-banner { background: #fdf0e1; border: 1px solid #f0c890; color: #6b4000; border-radius: 10px; padding: .75rem 1rem; }
+.conflict-banner .actions { display: flex; gap: .6rem; align-items: center; margin-top: .6rem; }
+
+/* --- 保存の状態（ヘッダ） -------------------------------------------------- */
+.save-status { font-size: 12px; color: var(--soft); white-space: nowrap; }
+.save-status.dirty { color: var(--warn); }
+.save-status.error, .save-status.conflict { color: var(--danger); font-weight: 600; }
+button.link { font: inherit; background: none; border: 0; padding: 0; color: var(--brand); text-decoration: underline; cursor: pointer; }
+
+/* --- STEP 1 課題 ----------------------------------------------------------- */
+.assignment { display: flex; flex-direction: column; gap: 1rem; max-width: 760px; }
+.field { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: .9rem 1.1rem 1rem; }
+.field-label { display: block; font-size: 12px; font-weight: 700; color: var(--soft); letter-spacing: .04em; margin-bottom: .45rem; }
+.hint { margin: .45rem 0 0; font-size: 12px; color: var(--faint); }
+.theme-input {
+  width: 100%; font-family: var(--serif); font-size: 20px; padding: .45rem .6rem;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+}
+.range-row { display: flex; align-items: center; gap: .5rem; margin: .3rem 0; }
+.range-label { width: 3rem; font-weight: 600; }
+.range-row input { width: 6rem; font: inherit; padding: .3rem .5rem; border: 1px solid var(--line); border-radius: 8px; background: #fff; text-align: right; }
+.range-row .tilde, .range-row .unit { color: var(--soft); }
+.range-row .warn { color: var(--warn); font-size: 12px; margin-left: .5rem; }
+.conditions-input {
+  width: 100%; font: inherit; font-size: 14.5px; line-height: 1.7; padding: .55rem .7rem; resize: vertical;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+}
+.theme-input:focus, .range-row input:focus, .conditions-input:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
 .preview { margin: 0; padding: 1rem 1.2rem; background: var(--card); border-radius: 12px; box-shadow: var(--shadow); white-space: pre-wrap; font-family: var(--serif); font-size: 16px; }
 .guide { background: var(--card); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .seg { display: flex; margin: .8rem .9rem .3rem; background: var(--bg); border-radius: 9px; padding: 3px; }

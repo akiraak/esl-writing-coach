@@ -2,12 +2,14 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { describeError, log } from '../log.js'
 import {
   InvalidParagraphIdError,
+  NEW_FILE_FORMAT,
   type ParagraphStore,
   STAGES,
   type Stage,
   StageConflictError,
 } from '../paragraphs/store.js'
 import { StageTextError, type StageTextFormat } from '../paragraphs/text.js'
+import { emptyAssignment, serializeAssignment } from '../shared/assignment.js'
 
 /**
  * JSON の API（`/api/...`）。保存層（`src/paragraphs/store.ts`）をそのまま呼ぶ。
@@ -15,7 +17,7 @@ import { StageTextError, type StageTextFormat } from '../paragraphs/text.js'
  * | メソッド・パス | 内容 |
  * |---|---|
  * | `GET /api/paragraphs` | 一覧 |
- * | `POST /api/paragraphs` `{ theme }` | 新規作成 → `{ id }` |
+ * | `POST /api/paragraphs` `{ theme }` | 新規作成（テーマだけを入れた `assignment.md` も書く）→ `{ id }` |
  * | `DELETE /api/paragraphs/:id` | 削除 |
  * | `GET /api/paragraphs/:id/stages/:stage` | 段階のファイル → `{ text, rev, format }` |
  * | `PUT /api/paragraphs/:id/stages/:stage` `{ text, rev, format }` | 保存 → `{ rev, size, serverModified }`。競合は 409 |
@@ -131,6 +133,21 @@ export async function handleApi(
         }
         const id = await store.createParagraph(today(), theme.trim())
         log.info(`作成: ${id}`)
+        try {
+          // 課題の画面を開いたときにテーマが入っているように（2026-11-08 決定）
+          await store.saveStage(
+            id,
+            'assignment',
+            serializeAssignment(emptyAssignment(theme.trim())),
+            {
+              rev: null,
+              format: NEW_FILE_FORMAT,
+            },
+          )
+        } catch (error) {
+          // フォルダはできている。テーマは課題の画面で入れ直せるので、作成そのものは成功として返す
+          log.warn(`作成した ${id} に assignment.md を書けません: ${describeError(error)}`)
+        }
         sendJson(res, 201, { id })
         return
       }
