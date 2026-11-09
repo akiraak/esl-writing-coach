@@ -3,6 +3,7 @@ import type { Ai } from '../ai/client.js'
 import { AiApiError, AiOutputError, AiRefusedError } from '../ai/errors.js'
 import { dropUnquotable } from '../ai/scoring.js'
 import { describeError, log } from '../log.js'
+import { createFeedbackReader, type FeedbackReader } from '../paragraphs/feedbacks.js'
 import {
   FeedbackConflictError,
   InvalidParagraphIdError,
@@ -30,6 +31,7 @@ import { type Feedback, parseFeedback, totalOf } from '../shared/feedback.js'
  * | `GET /api/paragraphs/:id/feedback` | AI の採点の結果 → `{ feedback, aiConfigured }`（無ければ `feedback: null`） |
  * | `POST /api/paragraphs/:id/feedback` | 保存されている下書きを AI で採点し、`feedback.json` に書いて返す → `{ feedback }` |
  *
+ * | `GET /api/review` | 振り返り: 採点のあるパラグラフごとの最新の採点とテーマ → `{ entries }`（集計はブラウザ。`src/shared/review.ts`） |
  * | `POST /api/ai/themes` `{ hint }` | テーマの候補 → `{ themes }`（`hint` は分野・キーワード。空でもよい） |
  * | `POST /api/ai/ideas` `{ theme, conditions }` | 賛成・反対の理由と例の候補 → `{ ideas }` |
  *
@@ -115,6 +117,8 @@ export interface ApiOptions {
   store: ParagraphStore
   /** 一覧のテーマを読む（rev で覚えておくので、サーバで 1 つを使い回す）。無ければリクエストごとに作る。 */
   themes?: ThemeReader
+  /** 振り返りの feedback.json を読む（rev で覚えておくので、サーバで 1 つを使い回す）。無ければリクエストごとに作る。 */
+  feedbacks?: FeedbackReader
   /** AI（採点・アイデア出し）。`ANTHROPIC_API_KEY` が無ければ null。 */
   ai?: Ai | null
   /** 採点の時刻。差し替えられるのはテストのため。 */
@@ -287,6 +291,19 @@ export async function handleApi(
         return
       }
       throw new HttpError(405, 'method_not_allowed', '使えないメソッドです')
+    }
+
+    if (pathname === '/api/review') {
+      if (method !== 'GET') throw new HttpError(405, 'method_not_allowed', '使えないメソッドです')
+      const summaries = await store.listParagraphs()
+      const listed = await (options.themes ?? createThemeReader(store)).withThemes(summaries)
+      const themes = new Map(listed.map((p) => [p.id, p.theme]))
+      const entries = await (options.feedbacks ?? createFeedbackReader(store)).entries(
+        summaries,
+        themes,
+      )
+      sendJson(res, 200, { entries })
+      return
     }
 
     if (pathname === '/api/ai/themes' || pathname === '/api/ai/ideas') {

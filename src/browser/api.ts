@@ -1,5 +1,6 @@
 import type { Feedback } from '../shared/feedback.js'
 import type { IdeaSuggestions, ThemeSuggestion } from '../shared/ideas.js'
+import type { ReviewEntry } from '../shared/review.js'
 import type {
   ApiErrorBody,
   ParagraphListItem,
@@ -101,4 +102,9 @@ export async function suggestThemes(hint: string): Promise<ThemeSuggestion[]> {
 export async function suggestIdeas(theme: string, conditions: string): Promise<IdeaSuggestions> {
   return (await request<{ ideas: IdeaSuggestions }>('POST', '/api/ai/ideas', { theme, conditions }))
     .ideas
+}
+
+/** 振り返り: 採点のあるパラグラフごとの最新の採点とテーマ。 */
+export async function readReview(): Promise<ReviewEntry[]> {
+  return (await request<{ entries: ReviewEntry[] }>('GET', '/api/review')).entries
 }

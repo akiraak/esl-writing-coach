@@ -8,6 +8,7 @@ import { isStage, type Stage } from './types.js'
  * | `#/`（空も） | 一覧 |
  * | `#/p/<id>`・`#/p/<id>/<stage>` | 編集（段階を省けば課題） |
  * | `#/guide` | 学習ガイド |
+ * | `#/review` | 間違いの振り返り |
  *
  * id の形はサーバが確かめる（`src/paragraphs/naming.ts`）。ここでは `/` を含まないことだけ見る。
  */
@@ -16,6 +17,7 @@ export type Route =
   | { name: 'list' }
   | { name: 'edit'; id: string; stage: Stage }
   | { name: 'guide' }
+  | { name: 'review' }
   | { name: 'not-found'; hash: string }
 
 export const DEFAULT_STAGE: Stage = 'assignment'
@@ -24,6 +26,7 @@ export function parseRoute(hash: string): Route {
   const path = hash.replace(/^#/, '')
   if (path === '' || path === '/') return { name: 'list' }
   if (path === '/guide') return { name: 'guide' }
+  if (path === '/review') return { name: 'review' }
   const m = /^\/p\/([^/]+)(?:\/([^/]+))?\/?$/.exec(path)
   if (m !== null) {
     let id: string
@@ -44,6 +47,8 @@ export function routeHash(route: Route): string {
       return '#/'
     case 'guide':
       return '#/guide'
+    case 'review':
+      return '#/review'
     case 'edit':
       return `#/p/${encodeURIComponent(route.id)}/${route.stage}`
     case 'not-found':

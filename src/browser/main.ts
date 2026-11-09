@@ -5,6 +5,7 @@ import { STATIC_VIEW, type View } from './view.js'
 import { renderEdit } from './views/edit.js'
 import { renderGuide } from './views/guide.js'
 import { renderList } from './views/list.js'
+import { renderReview } from './views/review.js'
 
 /**
  * 画面の入口。URL のハッシュで一覧・編集・学習ガイドを切り替える（`src/shared/route.ts`）。
@@ -52,6 +53,9 @@ function render(): void {
       break
     case 'guide':
       current = renderGuide(app)
+      break
+    case 'review':
+      current = renderReview(app, previousSaved)
       break
     case 'not-found':
       current = renderNotFound(route.hash)

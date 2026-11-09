@@ -19,3 +19,4 @@
 - 2026-11-08 表現集から下書きへの挿入（右ペインの表現集の表現を押すと下書きのカーソルの位置に入る。前後の空白を整え、Ctrl+Z で戻せる。下書き以外では知らせる。[plan](docs/plans/archive/insert-phrase.md)）
 - 2026-11-08 AI のアイデア出し（右ペインの「AI案」タブ。テーマの候補（英語の問いと日本語訳。「課題のテーマにする」）と、賛成・反対の理由と例の候補（日本語。「メモに足す」）。結果は保存しない。本物の API で 2 回確かめ、理由の頭の First などを落とすようにした。[plan](docs/plans/archive/ai-ideas.md)）
 - 2026-11-08 .docx / PDF の書き出しと体裁（書き出しのダイアログに提出用のファイル。A4・Times New Roman 12pt・行間 2 行、名前・クラス・日付とタイトル。.docx はライブラリなしでブラウザの中で作り、PDF はブラウザの印刷。pandoc で読み戻して確かめた。[plan](docs/plans/archive/docx-pdf-export.md)）
+- 2026-11-08 間違いの振り返り（#/review。採点した数・平均・観点ごとの平均と伸ばしたいところ・点数の推移・よくする間違い。feedback.json を rev で覚えて読む。[plan](docs/plans/archive/review.md)）

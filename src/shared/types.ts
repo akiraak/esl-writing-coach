@@ -48,6 +48,8 @@ export interface ParagraphSummary {
   files: Partial<Record<Stage, StageFileInfo>>
   /** 段階ごとの着手済みか（ファイルがあって 1 バイト以上）。一覧の進み具合に使う。 */
   started: Record<Stage, boolean>
+  /** AI の採点の結果（`feedback.json`）があればそのメタデータ。更新日には数えない。 */
+  feedback?: StageFileInfo
 }
 
 /** 一覧の 1 件（`GET /api/paragraphs`）。 */

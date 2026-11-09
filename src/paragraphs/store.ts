@@ -152,14 +152,20 @@ export function summarizeEntries(base: string, entries: ListFolderEntry[]): Para
     if (entry['.tag'] === 'folder' && segments.length === 1) {
       summaryOf(id)
     } else if (entry['.tag'] === 'file' && segments.length === 2) {
-      const stage = stageOfFileName(segments[1] ?? '')
-      if (stage === null) continue
+      const fileName = (segments[1] ?? '').toLowerCase()
+      const stage = stageOfFileName(fileName)
+      if (stage === null && fileName !== FEEDBACK_FILE) continue
       const summary = summaryOf(id)
       if (summary === null || entry.rev === undefined) continue
       const info: StageFileInfo = {
         rev: entry.rev,
         size: entry.size ?? 0,
         serverModified: entry.server_modified ?? '',
+      }
+      if (stage === null) {
+        // feedback.json（AI の採点）。振り返りで使う。更新日には数えない
+        summary.feedback = info
+        continue
       }
       summary.files[stage] = info
       summary.started[stage] = info.size > 0

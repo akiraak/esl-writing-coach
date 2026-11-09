@@ -47,6 +47,7 @@ export function header(
     ...middle,
     h('span', { class: 'sp' }),
     ...right,
+    h('a', { class: 'btn', href: '#/review' }, '振り返り'),
     onGuide
       ? h('a', { class: 'btn', href: '#/' }, 'パラグラフ一覧へ')
       : h('a', { class: 'btn', href: '#/guide' }, '学習ガイド'),

@@ -3,10 +3,11 @@ import { describe, it } from 'node:test'
 import { parseRoute, type Route, routeHash } from '../src/shared/route.js'
 
 describe('parseRoute', () => {
-  it('空・#/ は一覧、#/guide は学習ガイド', () => {
+  it('空・#/ は一覧、#/guide は学習ガイド、#/review は振り返り', () => {
     assert.deepEqual(parseRoute(''), { name: 'list' })
     assert.deepEqual(parseRoute('#/'), { name: 'list' })
     assert.deepEqual(parseRoute('#/guide'), { name: 'guide' })
+    assert.deepEqual(parseRoute('#/review'), { name: 'review' })
   })
 
   it('#/p/<id>/<stage> は編集。段階を省けば課題', () => {
@@ -37,6 +38,7 @@ describe('parseRoute', () => {
     const routes: Route[] = [
       { name: 'list' },
       { name: 'guide' },
+      { name: 'review' },
       { name: 'edit', id: '2026-11-08-a', stage: 'outline' },
     ]
     for (const route of routes) assert.deepEqual(parseRoute(routeHash(route)), route)

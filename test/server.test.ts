@@ -369,6 +369,18 @@ describe('採点の API', () => {
   })
 })
 
+describe('振り返りの API', () => {
+  it('GET /api/review は採点のあるパラグラフの最新の採点（無ければ空）', async () => {
+    const res = await fetch(`${base}/api/review`)
+    assert.equal(res.status, 200)
+    assert.deepEqual(await res.json(), { entries: [] })
+    assert.equal(
+      (await fetch(`${base}/api/review`, { method: 'POST', headers: WRITE, body: '{}' })).status,
+      405,
+    )
+  })
+})
+
 describe('アイデア出しの API', () => {
   const post = (path: string, body: unknown) =>
     fetch(`${base}/api/ai/${path}`, { method: 'POST', headers: WRITE, body: JSON.stringify(body) })

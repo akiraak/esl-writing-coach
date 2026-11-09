@@ -58,6 +58,8 @@ ESL（英語を第二言語として学ぶ）の授業で課されるパラグ�
   体裁は A4・余白 1 インチ・Times New Roman 12pt・行間 2 行、左上に名前・クラス・日付（入れたものだけ。名前とクラスはブラウザに覚える）、テーマを中央のタイトル、段落の頭を 0.5 インチ下げる（`src/shared/document.ts`）。
   .docx はブラウザの中で最小の OOXML を無圧縮 ZIP に詰めて作る（ライブラリなし。`src/shared/docx.ts`）。PDF はブラウザの印刷（「PDF に保存」。`src/browser/print.ts` と印刷の CSS）
 - **間違いの振り返り**: 全パラグラフの最新の指摘・点数を観点別に集める
+  - 実装（2026-11-08。`docs/plans/archive/review.md`）: `#/review`（ヘッダの「振り返り」）。採点したパラグラフの数・合計の平均・観点ごとの平均と「伸ばしたいところ」（満点に対する割合がいちばん低い観点）・
+    点数の推移（採点した日の古い順の表）・よくする間違い（観点ごとの指摘）。`GET /api/review` が採点のあるパラグラフの `feedback.json` を id + rev で覚えて読み（`src/paragraphs/feedbacks.ts`）、集計はブラウザ（`src/shared/review.ts`）
 - アウトライン段階での AI の指摘
 - **表現集から下書きへの挿入**（2026-11-08 実装。`docs/plans/archive/insert-phrase.md`）: 右ペインの表現集の表現を押すと、下書き（STEP 4）を開いていれば本文のカーソルの位置に入る（前後の空白は `src/shared/insert.ts`、Ctrl+Z で戻せる）。下書き以外では知らせるだけ。学習ガイド画面では押せない
 
@@ -146,7 +148,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
   - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`。一覧の各項目には `assignment.md` のテーマ `theme` を足す（`src/paragraphs/themes.ts`。id + rev で覚えておき、変わっていなければ読み直さない）。AI の採点は `GET/POST /api/paragraphs/:id/feedback`、アイデア出しは `POST /api/ai/themes`・`POST /api/ai/ideas`（下書きが空 400 `empty_draft`・キーが無い 503 `ai_not_configured`・拒否 422 `ai_refusal`・API の失敗 502 `ai_error`）
   - Dropbox のトークン類は `.env` に置き、`node --env-file-if-exists=.env` で読む（daily-note と同じ）
 - **画面**: ブラウザ側の素の TypeScript で描く 1 ページ（一覧・編集・学習ガイドを切り替える）。フレームワークは使わず、esbuild で束ねる
-  - 画面の切り替えは URL のハッシュ（`#/` = 一覧、`#/p/<id>/<stage>` = 編集、`#/guide` = 学習ガイド。`src/shared/route.ts`）。サーバが返すページは `/` だけ
+  - 画面の切り替えは URL のハッシュ（`#/` = 一覧、`#/p/<id>/<stage>` = 編集、`#/guide` = 学習ガイド、`#/review` = 振り返り。`src/shared/route.ts`）。サーバが返すページは `/` だけ
   - DOM は `src/browser/dom.ts` の `h()` で組み、本文などのデータは文字列ノードとして入れる（innerHTML は使わない）
   - 段階の切り替えはページ遷移なしで行う。4 つのファイルの `rev` と未保存の状態はブラウザ側で持ち、ファイルごとに自動保存する（`src/browser/views/edit.ts`。画面の入口は `View.navigate()` で作り直さずに済むかを聞く）
   - ヘッダの保存の状態は 4 つをまとめて 1 つ出し（競合 > 保存できません > 保存中 > 未保存 > 保存済み）、段階のタイルに段階ごとの状態の行（`src/shared/stage-summary.ts`）と保存の印を出す

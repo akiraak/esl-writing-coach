@@ -395,4 +395,32 @@ describe('summarizeEntries', () => {
     })
     assert.equal(list[0]?.updatedAt, '2026-11-08T12:00:00Z')
   })
+
+  it('feedback.json は feedback に入れ、段階にも更新日にも数えない', () => {
+    const list = summarizeEntries(BASE, [
+      {
+        '.tag': 'file',
+        path_lower: `${BASE}/2026-11-08-a/draft.txt`.toLowerCase(),
+        path_display: `${BASE}/2026-11-08-a/draft.txt`,
+        rev: 'd1',
+        size: 5,
+        server_modified: '2026-11-08T10:00:00Z',
+      },
+      {
+        '.tag': 'file',
+        path_lower: `${BASE}/2026-11-08-a/feedback.json`.toLowerCase(),
+        path_display: `${BASE}/2026-11-08-a/feedback.json`,
+        rev: 'f1',
+        size: 300,
+        server_modified: '2026-11-08T11:00:00Z',
+      },
+    ])
+    assert.deepEqual(list[0]?.feedback, {
+      rev: 'f1',
+      size: 300,
+      serverModified: '2026-11-08T11:00:00Z',
+    })
+    assert.deepEqual(Object.keys(list[0]?.files ?? {}), ['draft'])
+    assert.equal(list[0]?.updatedAt, '2026-11-08T10:00:00Z')
+  })
 })
