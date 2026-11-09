@@ -34,6 +34,7 @@ import { type Feedback, parseFeedback, totalOf } from '../shared/feedback.js'
  * | `GET /api/review` | 振り返り: 採点のあるパラグラフごとの最新の採点とテーマ → `{ entries }`（集計はブラウザ。`src/shared/review.ts`） |
  * | `POST /api/ai/themes` `{ hint }` | テーマの候補 → `{ themes }`（`hint` は分野・キーワード。空でもよい） |
  * | `POST /api/ai/ideas` `{ theme, conditions }` | 賛成・反対の理由と例の候補 → `{ ideas }` |
+ * | `POST /api/ai/outline` `{ theme, conditions, outline }` | アウトラインへの指摘 → `{ review }`（アウトラインが空なら 400 `empty_outline`） |
  *
  * AI のエラー: キーが無い 503 `ai_not_configured` / 拒否 422 `ai_refusal` / API の失敗 502 `ai_error`。採点で下書きが空なら 400 `empty_draft`
  *
@@ -303,6 +304,22 @@ export async function handleApi(
         themes,
       )
       sendJson(res, 200, { entries })
+      return
+    }
+
+    if (pathname === '/api/ai/outline') {
+      if (method !== 'POST') throw new HttpError(405, 'method_not_allowed', '使えないメソッドです')
+      const body = await readJson(req)
+      const ai = requireAi(options)
+      const outline = stringField(body, 'outline', 20000)
+      if (outline.trim() === '') throw new HttpError(400, 'empty_outline', 'アウトラインが空です')
+      const review = await ai.reviewOutline({
+        theme: stringField(body, 'theme', MAX_THEME_LENGTH),
+        conditions: stringField(body, 'conditions', 4000),
+        outline,
+      })
+      log.info(`アウトラインの指摘: ${review.findings.length} 件`)
+      sendJson(res, 200, { review })
       return
     }
 

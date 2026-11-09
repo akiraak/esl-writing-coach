@@ -47,3 +47,14 @@ export function appendToMemo(memo: string, block: string): string {
   const trimmed = memo.replace(/\n*$/, '')
   return `${trimmed}\n\n${block}\n`
 }
+
+/** アウトラインへの AI の指摘（保存しない）。 */
+export interface OutlineReview {
+  /** 全体の一言（日本語）。 */
+  summary: string
+  findings: {
+    /** アウトラインの項目からの引用（無ければ空。アウトラインに無い引用は消してある）。 */
+    quote: string
+    hint: string
+  }[]
+}

@@ -2,10 +2,11 @@ import type { Assignment } from '../shared/assignment.js'
 import {
   type IdeaSuggestions,
   memoBlock,
+  type OutlineReview,
   STANCE_LABEL,
   type ThemeSuggestion,
 } from '../shared/ideas.js'
-import { suggestIdeas, suggestThemes } from './api.js'
+import { reviewOutline, suggestIdeas, suggestThemes } from './api.js'
 import { h, replace } from './dom.js'
 import { errorText } from './ui.js'
 
@@ -14,7 +15,8 @@ import { errorText } from './ui.js'
  *
  * - **テーマの候補**: 分野・キーワード（任意）から、英語の問いと日本語訳。「課題のテーマにする」を押したときだけテーマを書き換える
  * - **理由・例の候補**: 課題のテーマ（手元の最新）から、賛成・反対それぞれの理由と例（日本語）。「メモに足す」を押したときだけメモに書き足す
- * - どちらもボタンを押したときだけ呼ぶ。結果は保存しない（編集画面を開いている間だけ持つ）
+ * - **アウトラインの指摘**: 課題のテーマと条件・アウトラインから、構成の問題を日本語のヒントで（直した項目は出さない）
+ * - どれもボタンを押したときだけ呼ぶ。結果は保存しない（編集画面を開いている間だけ持つ）
  */
 
 export interface IdeasPanelOptions {
@@ -24,11 +26,13 @@ export interface IdeasPanelOptions {
   setTheme(theme: string): void
   /** アイデアのメモの末尾に書き足す。 */
   appendMemo(block: string): void
+  /** 手元の最新のアウトライン。 */
+  outline(): string
 }
 
 export interface IdeasPanel {
   el: HTMLElement
-  /** 課題が変わったら（テーマの表示と、押せるかを更新する）。 */
+  /** 課題・アウトラインが変わったら（テーマの表示と、押せるかを更新する）。 */
   sync(): void
 }
 
@@ -133,11 +137,47 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     }),
   )
 
+  // --- アウトラインの指摘 ---
+  const reviewButton = h('button', { class: 'btn pri', type: 'button' }, 'アウトラインを見てもらう')
+  const reviewNote = h('p', { class: 'muted ai-sub-note' })
+  const reviewMessage = h('p', { class: 'error ai-error' })
+  const reviewResult = h('div', { class: 'ai-review' })
+
+  const renderReview = (review: OutlineReview) =>
+    replace(
+      reviewResult,
+      review.summary === '' ? null : h('p', { class: 'ai-review-summary' }, review.summary),
+      review.findings.length === 0
+        ? h('p', { class: 'muted' }, '大きな指摘はありません。')
+        : h(
+            'ol',
+            { class: 'findings' },
+            ...review.findings.map((f) =>
+              h('li', {}, f.quote === '' ? null : h('q', {}, f.quote), h('p', {}, f.hint)),
+            ),
+          ),
+    )
+
+  reviewButton.addEventListener('click', () =>
+    running(reviewButton, reviewMessage, '見ています…', async () => {
+      const { theme, conditions } = options.assignment()
+      renderReview(await reviewOutline(theme, conditions, options.outline()))
+    }),
+  )
+
   function sync(): void {
     const theme = options.assignment().theme.trim()
     replace(currentTheme, theme === '' ? '課題のテーマを入れると出せます。' : `テーマ: ${theme}`)
     currentTheme.classList.toggle('empty', theme === '')
     if (!ideasButton.textContent?.includes('考えています')) ideasButton.disabled = theme === ''
+    const emptyOutline = options.outline().trim() === ''
+    replace(
+      reviewNote,
+      emptyOutline
+        ? 'STEP 3 でアウトラインを作ると見てもらえます。'
+        : '意見・理由・例・結論のつながりを見て、直すところをヒントで返します（直した項目は出しません）。',
+    )
+    if (!reviewButton.textContent?.includes('見ています')) reviewButton.disabled = emptyOutline
   }
 
   const el = h(
@@ -146,7 +186,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     h(
       'p',
       { class: 'muted ai-note' },
-      'ボタンを押したときだけ、入れた分野・課題のテーマと条件を Anthropic の API に送って候補を出します。下書きやメモは送りません。',
+      'ボタンを押したときだけ、入れた分野・課題のテーマと条件・アウトラインを Anthropic の API に送ります。下書きやメモは送りません。',
     ),
     h(
       'section',
@@ -165,6 +205,15 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
       ideasButton,
       ideasMessage,
       ideasList,
+    ),
+    h(
+      'section',
+      { class: 'ai-section' },
+      h('h3', {}, 'アウトラインの指摘'),
+      reviewNote,
+      reviewButton,
+      reviewMessage,
+      reviewResult,
     ),
   )
   sync()

@@ -210,6 +210,12 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .outline-view { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .6rem; }
 .outline-legend { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; font-size: 12.5px; color: var(--soft); }
 .outline-legend b { color: var(--ink); margin-right: .25rem; }
+/* 型のチェック（✓ / !）。足りないものだけ説明を出す */
+.outline-checks { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: .35rem .5rem; font-size: 12px; }
+.outline-checks li { display: inline-flex; align-items: baseline; gap: .3rem; padding: .15rem .55rem; border-radius: 999px; background: var(--brand-soft); color: var(--brand); }
+.outline-checks li b { font-weight: 800; }
+.outline-checks li.ng { background: #fdf0e1; color: var(--warn); }
+.outline-checks li span { color: var(--ink); }
 .map-host {
   flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative;
   background: var(--card); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
@@ -348,6 +354,9 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .ai-side.against .ai-stance { background: var(--ex); }
 .ai-reason-text { margin: 0; font-weight: 600; font-size: 13px; }
 .ai-reason ul { margin: 0; padding-left: 1.1rem; font-size: 12.5px; color: var(--soft); line-height: 1.6; }
+.ai-sub-note { margin: 0; font-size: 12px; line-height: 1.6; }
+.ai-review { display: flex; flex-direction: column; gap: .5rem; }
+.ai-review-summary { margin: 0; font-size: 13px; line-height: 1.7; background: var(--brand-soft); border-radius: 8px; padding: .45rem .65rem; }
 
 /* --- 間違いの振り返り（#/review） ---------------------------------------- */
 .gin.rv { max-width: 1040px; }

@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { registerSecret } from '../log.js'
-import type { IdeaSuggestions, ThemeSuggestion } from '../shared/ideas.js'
+import type { IdeaSuggestions, OutlineReview, ThemeSuggestion } from '../shared/ideas.js'
 import { AiApiError, AiRefusedError } from './errors.js'
 import {
   buildIdeasPrompt,
@@ -13,6 +13,13 @@ import {
   THEMES_SCHEMA,
   THEMES_SYSTEM,
 } from './ideas.js'
+import {
+  buildOutlineReviewPrompt,
+  OUTLINE_REVIEW_SCHEMA,
+  OUTLINE_SYSTEM,
+  type OutlineReviewInput,
+  parseOutlineReview,
+} from './outline-review.js'
 import {
   buildUserPrompt,
   OUTPUT_SCHEMA,
@@ -45,6 +52,8 @@ export interface Ai {
   suggestThemes(hint: string): Promise<ThemeSuggestion[]>
   /** 賛成・反対それぞれの理由と例の候補。 */
   suggestIdeas(input: IdeasInput): Promise<IdeaSuggestions>
+  /** アウトラインへの指摘（ヒントだけ）。 */
+  reviewOutline(input: OutlineReviewInput): Promise<OutlineReview>
 }
 
 function describeApiError(error: unknown): string {
@@ -130,6 +139,15 @@ export function createAi(apiKey: string): Ai {
         effort: 'medium',
       })
       return parseIdeas(text)
+    },
+    async reviewOutline(input) {
+      const { text } = await callJson({
+        system: OUTLINE_SYSTEM,
+        user: buildOutlineReviewPrompt(input),
+        schema: OUTLINE_REVIEW_SCHEMA,
+        effort: 'medium',
+      })
+      return parseOutlineReview(text, input.outline)
     },
   }
 }

@@ -107,6 +107,7 @@ const fakeAi = (methods: Partial<Ai>): Ai => ({
   score: () => Promise.reject(new Error('score は呼ばれないはず')),
   suggestThemes: () => Promise.reject(new Error('suggestThemes は呼ばれないはず')),
   suggestIdeas: () => Promise.reject(new Error('suggestIdeas は呼ばれないはず')),
+  reviewOutline: () => Promise.reject(new Error('reviewOutline は呼ばれないはず')),
   ...methods,
 })
 
@@ -416,6 +417,24 @@ describe('アイデア出しの API', () => {
     const empty = await post('ideas', { theme: '  ' })
     assert.equal(empty.status, 400)
     assert.equal(((await empty.json()) as { error: string }).error, 'empty_theme')
+  })
+
+  it('アウトラインの指摘: テーマ・条件・アウトラインを渡す。アウトラインが空なら 400', async () => {
+    let received: unknown = null
+    const review = { summary: 'よい', findings: [] }
+    ai = fakeAi({
+      async reviewOutline(input) {
+        received = input
+        return review
+      },
+    })
+    const res = await post('outline', { theme: 'T', conditions: 'C', outline: '意見\n\t理由' })
+    assert.equal(res.status, 200)
+    assert.deepEqual(await res.json(), { review })
+    assert.deepEqual(received, { theme: 'T', conditions: 'C', outline: '意見\n\t理由' })
+    const empty = await post('outline', { theme: 'T', outline: ' \n' })
+    assert.equal(empty.status, 400)
+    assert.equal(((await empty.json()) as { error: string }).error, 'empty_outline')
   })
 
   it('キーが無ければ 503、長すぎる hint は 400、拒否は 422、GET は 405', async () => {

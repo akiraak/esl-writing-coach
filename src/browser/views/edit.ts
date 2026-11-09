@@ -114,6 +114,7 @@ export function renderEdit(
       setTheme(theme)
       if (stage === 'assignment') renderBody()
     },
+    outline: () => editors?.outline.text ?? '',
     appendMemo(block) {
       if (editors === null) return
       editors.ideas.update(appendToMemo(editors.ideas.text, block))
@@ -189,7 +190,7 @@ export function renderEdit(
     // 競合の知らせは、その段階を開いているときだけ出す
     if (s === stage) renderBanner()
     if (s === 'draft') feedback.sync()
-    if (s === 'assignment') ideasPanel.sync()
+    if (s === 'assignment' || s === 'outline') ideasPanel.sync()
   }
 
   function renderBanner(): void {
