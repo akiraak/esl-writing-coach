@@ -20,3 +20,4 @@
 - 2026-11-08 AI のアイデア出し（右ペインの「AI案」タブ。テーマの候補（英語の問いと日本語訳。「課題のテーマにする」）と、賛成・反対の理由と例の候補（日本語。「メモに足す」）。結果は保存しない。本物の API で 2 回確かめ、理由の頭の First などを落とすようにした。[plan](docs/plans/archive/ai-ideas.md)）
 - 2026-11-08 .docx / PDF の書き出しと体裁（書き出しのダイアログに提出用のファイル。A4・Times New Roman 12pt・行間 2 行、名前・クラス・日付とタイトル。.docx はライブラリなしでブラウザの中で作り、PDF はブラウザの印刷。pandoc で読み戻して確かめた。[plan](docs/plans/archive/docx-pdf-export.md)）
 - 2026-11-08 間違いの振り返り（#/review。採点した数・平均・観点ごとの平均と伸ばしたいところ・点数の推移・よくする間違い。feedback.json を rev で覚えて読む。[plan](docs/plans/archive/review.md)）
+- 2026-11-08 アウトライン段階での AI の指摘（型のチェックを AI なしでその場で出し、右ペインの「AI案」でアウトラインへの指摘を日本語のヒントで。直した項目は出さない。本物の API で 1 回確かめた。[plan](docs/plans/archive/outline-ai-feedback.md)）
