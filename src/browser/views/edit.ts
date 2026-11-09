@@ -157,7 +157,12 @@ export function renderEdit(
 
   /** 書き出し（下書きの手元の最新。まだ保存していない分も含む）。読み込み中は何もしない。 */
   function openExport(): void {
-    if (editors !== null) openExportDialog(app, { id, text: editors.draft.text })
+    if (editors === null) return
+    openExportDialog(app, {
+      id,
+      theme: parseAssignment(editors.assignment.text).theme,
+      text: editors.draft.text,
+    })
   }
   function exportButton(label = '書き出し', className = 'btn'): HTMLButtonElement {
     return h('button', { class: className, type: 'button', onclick: openExport }, label)
