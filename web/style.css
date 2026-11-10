@@ -206,6 +206,19 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .outline-checks li b { font-weight: 800; }
 .outline-checks li.ng { background: #fdf0e1; color: var(--warn); }
 .outline-checks li span { color: var(--ink); }
+/* 選んでいる項目に合わせた問い（役割の色を左の帯と頭の印に） */
+.outline-prompt {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .8rem; font-size: 13px;
+  padding: .45rem .85rem; border-radius: 10px; background: var(--card); border-left: 4px solid var(--brand);
+}
+.outline-prompt-role { font-size: 11.5px; padding: .05rem .5rem; border-radius: 999px; background: var(--brand-soft); color: var(--brand); }
+.outline-prompt-write { color: var(--ink); font-weight: 600; }
+.outline-prompt-next { color: var(--soft); }
+.outline-prompt-next::before { content: '次に → '; color: var(--faint); }
+.outline-prompt.topic { border-left-color: var(--ts); } .outline-prompt.topic .outline-prompt-role { background: var(--ts-bg); color: var(--ts); }
+.outline-prompt.reason { border-left-color: var(--rs); } .outline-prompt.reason .outline-prompt-role { background: var(--rs-bg); color: var(--rs); }
+.outline-prompt.example { border-left-color: var(--ex); } .outline-prompt.example .outline-prompt-role { background: var(--ex-bg); color: var(--ex); }
+.outline-prompt.conclusion { border-left-color: var(--cs); } .outline-prompt.conclusion .outline-prompt-role { background: var(--cs-bg); color: var(--cs); }
 .map-host {
   flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative;
   background: var(--card); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;

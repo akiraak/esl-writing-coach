@@ -44,6 +44,11 @@ export interface MapOptions {
   centerPlaceholder: string
   /** 図の操作で本文が変わったら。 */
   onChange(text: string): void
+  /**
+   * 選んでいる項目が変わったら・描き直したら（アウトラインの画面の問いの行）。`text` は入力欄を出している間は仮の枝を入れた本文で、
+   * `line` はその本文での行（仮の中心は -1）。
+   */
+  onSelect?(selection: { text: string; line: number }): void
 }
 
 export interface MapHandle {
@@ -258,6 +263,7 @@ export function mountMap(host: HTMLElement, options: MapOptions): MapHandle {
     toggleButton.textContent = node !== null && shown.has(node.line) ? '開く' : '畳む'
     undoButton.disabled = undo.length === 0
     redoButton.disabled = redo.length === 0
+    options.onSelect?.({ text: draft?.text ?? text, line: selected })
     zoomOutButton.disabled = zoom <= ZOOM_MIN
     zoomInButton.disabled = zoom >= ZOOM_MAX
   }
