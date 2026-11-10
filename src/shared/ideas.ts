@@ -3,7 +3,7 @@
  *
  * - テーマの候補: opinion paragraph 向けの問い（英語）と日本語訳
  * - 理由・例の候補: 賛成側・反対側それぞれの意見（日本語）と、理由（日本語）・例（日本語）
- * - 理由・例の候補は見るだけ（アイデアの段階をなくしたので書き足す先が無い。`docs/plans/ideas-outline.md`）
+ * - 理由・例の候補は見るだけ（アイデアの段階をなくしたので書き足す先が無い。`docs/plans/archive/ideas-outline.md`）
  */
 
 export interface ThemeSuggestion {

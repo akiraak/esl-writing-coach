@@ -2,7 +2,7 @@ import { MIN_REASONS } from './outline-checks.js'
 import { outlineRoles, type Role } from './outline-roles.js'
 
 /**
- * アウトラインの画面でマップの上に出す、選んでいる項目に合わせた問い（AI なし。`docs/plans/ideas-outline.md`）。純関数。
+ * アウトラインの画面でマップの上に出す、選んでいる項目に合わせた問い（AI なし。`docs/plans/archive/ideas-outline.md`）。純関数。
  *
  * アイデアの段階をなくしたので、マップの上で「この項目に何を書くか」と「次に何を足すか」を出して、空のマップから埋めていけるようにする。
  * 役割の決め方は下書きの横のリスト・型のチェックと同じ（`outline-roles.ts`）。全体で足りないものは型のチェック（`outline-checks.ts`）が受け持つ。

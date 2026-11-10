@@ -6,7 +6,7 @@
 
 /**
  * 段階（= 段階のファイル）。2026-11-09 にアイデアの段階をなくし、最初からアウトラインを作るようにした
- * （`docs/plans/ideas-outline.md`）。以前の `ideas.txt` は Dropbox に残っていても読まない。
+ * （`docs/plans/archive/ideas-outline.md`）。以前の `ideas.txt` は Dropbox に残っていても読まない。
  */
 export const STAGES = ['assignment', 'outline', 'draft'] as const
 export type Stage = (typeof STAGES)[number]
