@@ -50,7 +50,7 @@ function fakeStore() {
           files: {
             assignment: { rev: 'a1', size: 10, serverModified: '2026-11-08T01:00:00Z' },
           },
-          started: { assignment: true, ideas: false, outline: false, draft: false },
+          started: { assignment: true, outline: false, draft: false },
         },
       ]
     },

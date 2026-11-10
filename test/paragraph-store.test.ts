@@ -179,7 +179,6 @@ describe('createParagraphStore', () => {
     assert.deepEqual(summary?.files, {})
     assert.deepEqual(summary?.started, {
       assignment: false,
-      ideas: false,
       outline: false,
       draft: false,
     })
@@ -211,12 +210,15 @@ describe('createParagraphStore', () => {
     const { client, calls } = fakeDropbox()
     const store = createParagraphStore(client, ROOT)
     const id = await store.createParagraph('2026-11-08', 'a')
-    const first = await store.saveStage(id, 'ideas', '制服', { rev: null, format: NEW_FILE_FORMAT })
-    const second = await store.saveStage(id, 'ideas', '制服\nお金', {
+    const first = await store.saveStage(id, 'outline', '制服', {
+      rev: null,
+      format: NEW_FILE_FORMAT,
+    })
+    const second = await store.saveStage(id, 'outline', '制服\n\tお金', {
       rev: first.rev,
       format: NEW_FILE_FORMAT,
     })
-    assert.equal(calls.at(-1), `upload ${BASE}/${id}/ideas.txt update:${first.rev}`)
+    assert.equal(calls.at(-1), `upload ${BASE}/${id}/outline.txt update:${first.rev}`)
     assert.notEqual(second.rev, first.rev)
   })
 
@@ -291,7 +293,7 @@ describe('createParagraphStore', () => {
     const b = await store.createParagraph('2026-11-08', 'Newer')
     await store.saveStage(b, 'assignment', '# Newer', { rev: null, format: NEW_FILE_FORMAT })
     await store.saveStage(a, 'assignment', '# Older', { rev: null, format: NEW_FILE_FORMAT })
-    await store.saveStage(a, 'ideas', '', { rev: null, format: NEW_FILE_FORMAT })
+    await store.saveStage(a, 'outline', '', { rev: null, format: NEW_FILE_FORMAT })
 
     const list = await store.listParagraphs()
     // a のほうが後に保存したので先に来る
@@ -302,12 +304,11 @@ describe('createParagraphStore', () => {
     const first = list[0]
     assert.deepEqual(first?.started, {
       assignment: true,
-      ideas: false,
       outline: false,
       draft: false,
     })
-    assert.equal(first?.files.ideas?.size, 0)
-    assert.equal(first?.updatedAt, first?.files.ideas?.serverModified)
+    assert.equal(first?.files.outline?.size, 0)
+    assert.equal(first?.updatedAt, first?.files.outline?.serverModified)
   })
 
   it('一覧: has_more が無くなるまで list_folder/continue で辿る', async () => {
@@ -364,6 +365,15 @@ describe('summarizeEntries', () => {
         path_display: `${BASE}/2026-11-08-a/notes.txt`,
         rev: 'r1',
         size: 3,
+      },
+      {
+        // なくした段階のファイル（2026-11-09 まで）。残っていても段階にも更新日にも数えない
+        '.tag': 'file',
+        path_lower: `${BASE}/2026-11-08-a/ideas.txt`.toLowerCase(),
+        path_display: `${BASE}/2026-11-08-a/ideas.txt`,
+        rev: 'r5',
+        size: 9,
+        server_modified: '2026-11-09T09:00:00Z',
       },
       {
         '.tag': 'file',

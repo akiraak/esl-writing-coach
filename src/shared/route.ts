@@ -6,7 +6,7 @@ import { isStage, type Stage } from './types.js'
  * | ハッシュ | 画面 |
  * |---|---|
  * | `#/`（空も） | 一覧 |
- * | `#/p/<id>`・`#/p/<id>/<stage>` | 編集（段階を省けば課題） |
+ * | `#/p/<id>`・`#/p/<id>/<stage>` | 編集（段階を省けば課題。なくした段階 `ideas` はアウトラインとして開く） |
  * | `#/guide` | 学習ガイド |
  * | `#/review` | 間違いの振り返り |
  *
@@ -22,6 +22,9 @@ export type Route =
 
 export const DEFAULT_STAGE: Stage = 'assignment'
 
+/** なくした段階の古い URL を、今の段階に読み替える（2026-11-09 にアイデアをアウトラインへまとめた）。 */
+const RENAMED_STAGES: Readonly<Record<string, Stage>> = { ideas: 'outline' }
+
 export function parseRoute(hash: string): Route {
   const path = hash.replace(/^#/, '')
   if (path === '' || path === '/') return { name: 'list' }
@@ -35,7 +38,8 @@ export function parseRoute(hash: string): Route {
     } catch {
       return { name: 'not-found', hash }
     }
-    const stage = m[2] ?? DEFAULT_STAGE
+    const raw = m[2] ?? DEFAULT_STAGE
+    const stage = RENAMED_STAGES[raw] ?? raw
     if (id !== '' && !id.includes('/') && isStage(stage)) return { name: 'edit', id, stage }
   }
   return { name: 'not-found', hash }

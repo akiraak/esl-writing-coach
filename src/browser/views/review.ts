@@ -190,7 +190,7 @@ export function renderReview(app: HTMLElement, previousSaved: Promise<void>): Vi
           h(
             'p',
             { class: 'rv-empty' },
-            'まだ採点したパラグラフがありません。下書き（STEP 4）の右ペインの「採点」で採点すると、ここに集まります。',
+            'まだ採点したパラグラフがありません。下書き（STEP 3）の右ペインの「採点」で採点すると、ここに集まります。',
           ),
         )
         return

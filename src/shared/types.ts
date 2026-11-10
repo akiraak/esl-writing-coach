@@ -4,7 +4,11 @@
  * API の応答の形はここで決める。サーバ側は `src/paragraphs/store.ts`、ブラウザ側は `src/browser/api.ts` が使う。
  */
 
-export const STAGES = ['assignment', 'ideas', 'outline', 'draft'] as const
+/**
+ * 段階（= 段階のファイル）。2026-11-09 にアイデアの段階をなくし、最初からアウトラインを作るようにした
+ * （`docs/plans/ideas-outline.md`）。以前の `ideas.txt` は Dropbox に残っていても読まない。
+ */
+export const STAGES = ['assignment', 'outline', 'draft'] as const
 export type Stage = (typeof STAGES)[number]
 
 export function isStage(value: string): value is Stage {
@@ -13,7 +17,6 @@ export function isStage(value: string): value is Stage {
 
 export const STAGE_FILES: Readonly<Record<Stage, string>> = {
   assignment: 'assignment.md',
-  ideas: 'ideas.txt',
   outline: 'outline.txt',
   draft: 'draft.txt',
 }

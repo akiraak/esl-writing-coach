@@ -5,7 +5,6 @@ import { h } from './dom.js'
 
 export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
   assignment: '課題',
-  ideas: 'アイデア',
   outline: 'アウトライン',
   draft: '下書き・推敲',
 }
@@ -19,7 +18,6 @@ export const STAGE_SHORT_LABELS: Readonly<Record<Stage, string>> = {
 /** 段階ごとの言語（`CLAUDE.md` の「書く流れ」）。下書きだけ英語のみ。 */
 export const STAGE_LANG: Readonly<Record<Stage, 'ja' | 'en'>> = {
   assignment: 'ja',
-  ideas: 'ja',
   outline: 'ja',
   draft: 'en',
 }

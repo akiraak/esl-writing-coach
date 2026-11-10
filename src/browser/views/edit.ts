@@ -1,6 +1,5 @@
 import { parseAssignment, serializeAssignment } from '../../shared/assignment.js'
 import { combineSaveStates, type SaveState } from '../../shared/autosave.js'
-import { appendToMemo } from '../../shared/ideas.js'
 import { type Route, routeHash } from '../../shared/route.js'
 import { summarizeStage } from '../../shared/stage-summary.js'
 import { STAGES, type Stage } from '../../shared/types.js'
@@ -20,7 +19,6 @@ import { errorBox, header, STAGE_LABELS, STAGE_LANG } from '../ui.js'
 import type { View } from '../view.js'
 import { renderAssignmentView } from './assignment.js'
 import { renderDraftView } from './draft.js'
-import { renderIdeasView } from './ideas.js'
 import { renderOutlineView } from './outline.js'
 
 /**
@@ -30,7 +28,7 @@ import { renderOutlineView } from './outline.js'
  *   **パラグラフを開いている間は持ち続ける**。同じパラグラフの中で段階を移るときは中央だけを描き直す（読み直さない）
  * - 段階を離れるときはその段階を待たずに保存する。rev は保存が終わったときに手元で新しくなるので、戻っても古い rev にはならない
  * - ヘッダの保存の状態は 4 つをまとめて出し、タイルには段階ごとの状態の行と保存の印を出す
- * - 中央の中身は段階ごとに `views/` の各ファイル（課題・アイデア・アウトライン・下書き）。一番下に次のステップへのボタン
+ * - 中央の中身は段階ごとに `views/` の各ファイル（課題・アウトライン・下書き）。一番下に次のステップへのボタン
  */
 
 interface Tile {
@@ -80,7 +78,7 @@ export function renderEdit(
   const title = h('h2', {})
   const banner = h('div', { class: 'banner' })
   const body = h('div', { class: 'stage-body' }, h('p', { class: 'muted' }, '読み込み中…'))
-  /** 中央の一番下の「次のステップへ」（STEP 4 は書き出し）。 */
+  /** 中央の一番下の「次のステップへ」（最後の下書きは書き出し）。 */
   const footer = h('div', { class: 'stage-next' })
   const center = h('main', { class: 'center' }, title, banner, body, footer)
 
@@ -102,8 +100,8 @@ export function renderEdit(
   })
 
   /**
-   * 右ペインの「AI 案」。「課題のテーマにする」「メモに足す」を押したときだけ、その段階の本文を書き換える
-   * （開いている段階なら中央も描き直す）。
+   * 右ペインの「AI 案」。「課題のテーマにする」を押したときだけ課題の本文を書き換える
+   * （課題を開いていれば中央も描き直す）。
    */
   const ideasPanel = createIdeasPanel({
     assignment: () => parseAssignment(editors?.assignment.text ?? ''),
@@ -115,11 +113,6 @@ export function renderEdit(
       if (stage === 'assignment') renderBody()
     },
     outline: () => editors?.outline.text ?? '',
-    appendMemo(block) {
-      if (editors === null) return
-      editors.ideas.update(appendToMemo(editors.ideas.text, block))
-      if (stage === 'ideas') renderBody()
-    },
   })
 
   const tiles = {} as Record<Stage, Tile>
@@ -212,16 +205,11 @@ export function renderEdit(
     const editor = editors[stage]
     if (stage === 'assignment') {
       renderAssignmentView(body, { text: editor.text, editor, onThemeChange: setTheme })
-    } else if (stage === 'ideas') {
-      renderIdeasView(body, {
+    } else if (stage === 'outline') {
+      cleanupBody = renderOutlineView(body, {
         id,
         editor,
         assignment: parseAssignment(editors.assignment.text),
-      })
-    } else if (stage === 'outline') {
-      cleanupBody = renderOutlineView(body, {
-        editor,
-        theme: parseAssignment(editors.assignment.text).theme,
       })
     } else {
       cleanupBody = renderDraftView(body, {

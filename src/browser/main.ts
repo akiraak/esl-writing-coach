@@ -40,7 +40,7 @@ function render(): void {
   if (current.navigate?.(route) === true) return
   // 画面はすぐ切り替える。前の画面の保存は裏で続け、新しい画面は**まだ終わっていない保存を全部待ってから読み込む**
   // （待たずに読むと、保存前の古い rev で編集が始まり、次の保存が誤って競合になる。
-  // 課題 → アイデア → 課題と素早く移ったときも、最初の課題の保存を待つよう、1 つ前だけでなく全部をつなぐ）
+  // 課題 → アウトライン → 課題と素早く移ったときも、最初の課題の保存を待つよう、1 つ前だけでなく全部をつなぐ）
   const disposing = Promise.resolve(current.dispose()).catch(() => {})
   pendingSaves = Promise.all([pendingSaves, disposing]).then(() => {})
   const previousSaved = pendingSaves

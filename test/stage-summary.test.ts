@@ -14,7 +14,7 @@ describe('describeRange', () => {
 
 describe('summarizeStage', () => {
   it('空なら未着手', () => {
-    for (const stage of ['assignment', 'ideas', 'outline', 'draft'] as const) {
+    for (const stage of ['assignment', 'outline', 'draft'] as const) {
       assert.equal(summarizeStage(stage, ' \n\n'), '未着手')
     }
   })
@@ -28,8 +28,7 @@ describe('summarizeStage', () => {
     assert.equal(summarizeStage('assignment', '# T\n\n- 語数:\n- 文数:\n'), '指定なし')
   })
 
-  it('アイデアは空でない行、アウトラインは理由の数（無ければ行）、下書きは語数', () => {
-    assert.equal(summarizeStage('ideas', 'a\n\n b\nc\n'), '3 行')
+  it('アウトラインは理由の数（無ければ行）、下書きは語数', () => {
     assert.equal(summarizeStage('outline', '意見\n  理由1\n    例\n  理由2\n  結論\n'), '理由 2')
     assert.equal(summarizeStage('outline', '意見だけ\n'), '1 項目')
     assert.equal(summarizeStage('draft', 'I agree with this idea.'), '5 語')

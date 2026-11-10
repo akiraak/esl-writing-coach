@@ -69,7 +69,7 @@ function modelBody(): HTMLElement {
     paragraph,
     legend(),
     h('p', { class: 'muted model-stats' }, `${countWords(text)} 語 ・ ${countSentences(text)} 文`),
-    h('h3', { class: 'gsub' }, 'このモデル文のアウトライン（STEP 3 の見本）'),
+    h('h3', { class: 'gsub' }, 'このモデル文のアウトライン（STEP 2 の見本）'),
     h('div', { class: 'model-outline' }, ...roleNodes(outlineRoles(MODEL.outline))),
     h('h3', { class: 'gsub' }, '書き方のポイント'),
     h('ul', { class: 'points' }, ...MODEL.points.map((point) => h('li', {}, point))),
@@ -96,7 +96,7 @@ function phrasesBody(insertable: boolean): HTMLElement {
         onclick: () => {
           if (insertPhrase(phrase.en)) return
           // 下書きを開いていなければ知らせる（段階を移ってから残らないよう、数秒で消す）
-          replace(notice, '下書き（STEP 4）を開くと、押して本文に入れられます。')
+          replace(notice, '下書き（STEP 3）を開くと、押して本文に入れられます。')
           clearTimeout(noticeTimer)
           noticeTimer = setTimeout(() => replace(notice), 4000)
         },

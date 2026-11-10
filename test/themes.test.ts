@@ -16,7 +16,6 @@ function summary(id: string, assignment?: { rev: string; size: number }): Paragr
         : { assignment: { ...assignment, serverModified: '2026-11-08T00:00:00Z' } },
     started: {
       assignment: (assignment?.size ?? 0) > 0,
-      ideas: false,
       outline: false,
       draft: false,
     },

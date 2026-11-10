@@ -23,6 +23,14 @@ describe('parseRoute', () => {
     })
   })
 
+  it('なくした段階 ideas の古い URL はアウトラインとして開く', () => {
+    assert.deepEqual(parseRoute('#/p/2026-11-08-a/ideas'), {
+      name: 'edit',
+      id: '2026-11-08-a',
+      stage: 'outline',
+    })
+  })
+
   it('知らない段階・知らないパス・壊れたエスケープは not-found', () => {
     for (const hash of [
       '#/p/2026-11-08-a/notes',

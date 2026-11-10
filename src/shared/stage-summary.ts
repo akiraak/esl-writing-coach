@@ -7,7 +7,6 @@ import type { Stage } from './types.js'
  * 編集画面の段階のタイルに出す、短い状態の行（モックの `120–150 語`・`7 行` など）。純関数。
  *
  * - 課題: 語数の指定（無ければ文数の指定、どちらも無ければ「指定なし」）
- * - アイデア: 空でない行の数
  * - アウトライン: 理由の数（`outline-roles.ts`）。理由が無ければ空でない行の数
  * - 下書き: 語数（`counting.ts`）
  * - 中身が空なら「未着手」
@@ -35,8 +34,6 @@ export function summarizeStage(stage: Stage, text: string): string {
       const a = parseAssignment(text)
       return describeRange(a.words, '語') ?? describeRange(a.sentences, '文') ?? '指定なし'
     }
-    case 'ideas':
-      return `${countLines(text)} 行`
     case 'outline': {
       const reasons = countReasons(text)
       return reasons > 0 ? `理由 ${reasons}` : `${countLines(text)} 項目`

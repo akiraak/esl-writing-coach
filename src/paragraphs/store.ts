@@ -112,7 +112,7 @@ function assertId(id: string): void {
 }
 
 function emptyStarted(): Record<Stage, boolean> {
-  return { assignment: false, ideas: false, outline: false, draft: false }
+  return { assignment: false, outline: false, draft: false }
 }
 
 /**

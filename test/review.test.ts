@@ -103,7 +103,7 @@ describe('createFeedbackReader', () => {
     createdOn: '2026-11-08',
     updatedAt: '2026-11-08T00:00:00Z',
     files: {},
-    started: { assignment: false, ideas: false, outline: false, draft: false },
+    started: { assignment: false, outline: false, draft: false },
     ...(rev === undefined ? {} : { feedback: { rev, size: 10, serverModified: '' } }),
   })
 

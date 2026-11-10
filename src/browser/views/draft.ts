@@ -11,7 +11,7 @@ import type { StageEditor } from '../stage-editor.js'
 import { assignmentBrief } from './brief.js'
 
 /**
- * STEP 4 下書き・推敲（`draft.txt`。英語のみ）。モックの編集画面（`decided.html`）。
+ * STEP 3 下書き・推敲（`draft.txt`。英語のみ）。モックの編集画面（`decided.html`）。
  *
  * - 上: 語数・文数のメーター（課題の指定の幅を帯で示す）と課題の帯。日本語が混じっていれば注意
  * - 下: 本文の欄と、右にアウトラインを構成の役割の色で並べたリスト（見るだけ。役割は `outline-roles.ts`）
@@ -73,7 +73,7 @@ function outlineList(id: string, outline: string): HTMLElement {
     items.length === 0
       ? [
           h('p', { class: 'muted' }, 'アウトラインはまだありません。'),
-          h('a', { href: routeHash({ name: 'edit', id, stage: 'outline' }) }, 'STEP 3 で作る'),
+          h('a', { href: routeHash({ name: 'edit', id, stage: 'outline' }) }, 'STEP 2 で作る'),
         ]
       : roleNodes(items)
   return h(

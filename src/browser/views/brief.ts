@@ -4,7 +4,7 @@ import { describeRange } from '../../shared/stage-summary.js'
 import { h } from '../dom.js'
 
 /**
- * 課題のテーマと条件を小さく出す帯（アイデア・下書きの画面の上。モックの `.req`）。
+ * 課題のテーマと条件を小さく出す帯（アウトライン・下書きの画面の上。モックの `.req`）。
  * テーマが空なら課題の画面へのリンクを出す。
  */
 export function assignmentBrief(id: string, assignment: Assignment): HTMLElement {

@@ -66,7 +66,7 @@ export interface ModelSentence {
 export interface ModelParagraph {
   theme: string
   sentences: readonly ModelSentence[]
-  /** このモデル文のアウトライン（STEP 3 で作るものの見本。字下げのテキスト）。 */
+  /** このモデル文のアウトライン（STEP 2 で作るものの見本。字下げのテキスト）。 */
   outline: string
   /** 書き方のポイント（日本語）。 */
   points: readonly string[]

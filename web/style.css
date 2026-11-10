@@ -57,10 +57,10 @@ a { color: var(--brand); }
 }
 .pc:hover { border-color: var(--line); }
 .pc h2 { margin: 0; font-size: 16px; line-height: 1.45; font-family: var(--serif); font-weight: 600; }
-.prog { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.prog { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .prog span { height: 6px; border-radius: 3px; background: var(--line-soft); }
 .prog span.f { background: var(--brand); }
-.plabels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; font-size: 11px; color: var(--faint); margin-top: -.45rem; }
+.plabels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; font-size: 11px; color: var(--faint); margin-top: -.45rem; }
 .pc .meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--soft); }
 /* カード全体をリンクに（タイトルの <a> を広げる）。削除ボタンはその上に出す */
 .pc { position: relative; }
@@ -180,7 +180,7 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
   border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
 }
 .theme-input:focus, .range-row input:focus, .conditions-input:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
-/* --- 課題のテーマと条件の帯（アイデア・下書きの上） ----------------------- */
+/* --- 課題のテーマと条件の帯（下書きの上） ------------------------------- */
 .brief { display: flex; flex-direction: column; gap: .5rem; }
 .brief-theme { font-family: var(--serif); font-size: 18px; font-weight: 600; line-height: 1.45; }
 .brief-theme.empty { font-family: var(--sans); font-size: 13px; font-weight: 400; color: var(--soft); }
@@ -192,17 +192,7 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .req b { color: var(--ink); }
 .req-text { white-space: pre-wrap; }
 
-/* --- STEP 2 アイデア ------------------------------------------------------- */
-.ideas { display: flex; flex-direction: column; gap: .8rem; }
-.memo-input {
-  width: 100%; min-height: 440px; font: inherit; font-size: 15px; line-height: 1.85; padding: .9rem 1.1rem; resize: vertical;
-  border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); box-shadow: var(--shadow);
-}
-.memo-input:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
-.memo-input::placeholder { color: var(--faint); }
-.ideas .hint { margin-top: 0; }
-
-/* --- STEP 3 アウトライン（マインドマップ。daily-note の map から移植） ------- */
+/* --- STEP 2 アウトライン（マインドマップ。daily-note の map から移植） ------- */
 /* 段階の中身は縮めない（足りなければ中央のペインがスクロールする。下の「次のステップへ」に重ならないように）。
    アウトラインだけは高さを決めて、図の中でスクロールさせる（中身の大きさで伸ばすと図が枠からはみ出す） */
 .stage-body { flex: 1 0 auto; display: flex; flex-direction: column; }
@@ -258,7 +248,7 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .map-act:disabled { opacity: .4; cursor: default; }
 .map-hint { margin-left: auto; font-size: 11px; color: var(--faint); }
 
-/* --- STEP 4 下書き・推敲（決定版のモックの .meters / .work / .struct） ------- */
+/* --- STEP 3 下書き・推敲（決定版のモックの .meters / .work / .struct） ------- */
 .draft { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .8rem; }
 .meters { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
 .meter { background: var(--card); border-radius: 12px; padding: .6rem .9rem .9rem; box-shadow: var(--shadow); }

@@ -10,7 +10,6 @@ import {
   stripOrdinal,
   THEMES_SYSTEM,
 } from '../src/ai/ideas.js'
-import { appendToMemo, memoBlock } from '../src/shared/ideas.js'
 
 describe('テーマの候補', () => {
   it('プロンプト: 分野があれば入れ、無ければ指定なし。システムは 5 つ・賛否を取れる問い', () => {
@@ -85,26 +84,5 @@ describe('stripOrdinal', () => {
     assert.equal(stripOrdinal('２. 疲れる'), '疲れる')
     assert.equal(stripOrdinal('ファーストフードが増える'), 'ファーストフードが増える')
     assert.equal(stripOrdinal('Firstly the cost'), 'Firstly the cost')
-  })
-})
-
-describe('メモへの書き足し', () => {
-  const block = memoBlock('for', {
-    reason: 'お金の管理を学べる',
-    examples: ['自分で稼ぐ', '貯金する'],
-  })
-
-  it('理由と例を立場つきで', () => {
-    assert.equal(block, '理由（賛成）: お金の管理を学べる\n  例: 自分で稼ぐ\n  例: 貯金する')
-    assert.equal(
-      memoBlock('against', { reason: '勉強の時間が減る', examples: [] }),
-      '理由（反対）: 勉強の時間が減る',
-    )
-  })
-
-  it('空のメモにはそのまま、空でなければ空行を 1 つ挟む', () => {
-    assert.equal(appendToMemo('', block), `${block}\n`)
-    assert.equal(appendToMemo('意見: 賛成', block), `意見: 賛成\n\n${block}\n`)
-    assert.equal(appendToMemo('意見: 賛成\n\n\n', block), `意見: 賛成\n\n${block}\n`)
   })
 })

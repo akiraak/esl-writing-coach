@@ -74,18 +74,17 @@ async function main(): Promise<void> {
     assert.equal(after.text, 'In my opinion, students should not have to wear uniforms.')
     step('古い rev からの保存は競合になり、上書きされない')
 
-    await store.saveStage(id, 'ideas', '制服 → 個性・お金・季節', {
+    await store.saveStage(id, 'outline', '制服は不要\n\t個性\n\tお金', {
       rev: null,
       format: empty.format,
     })
     list = await store.listParagraphs()
     assert.deepEqual(list[0]?.started, {
       assignment: false,
-      ideas: true,
-      outline: false,
+      outline: true,
       draft: true,
     })
-    step('一覧の着手済みに反映される（アイデア・下書き）')
+    step('一覧の着手済みに反映される（アウトライン・下書き）')
 
     await store.deleteParagraph(id)
     assert.deepEqual(await store.listParagraphs(), [])

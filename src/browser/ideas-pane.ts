@@ -1,7 +1,6 @@
 import type { Assignment } from '../shared/assignment.js'
 import {
   type IdeaSuggestions,
-  memoBlock,
   type OutlineReview,
   STANCE_LABEL,
   type ThemeSuggestion,
@@ -14,7 +13,8 @@ import { errorText } from './ui.js'
  * 編集画面の右ペインの「AI 案」タブ（AI のアイデア出し。`docs/plans/archive/ai-ideas.md`）。
  *
  * - **テーマの候補**: 分野・キーワード（任意）から、英語の問いと日本語訳。「課題のテーマにする」を押したときだけテーマを書き換える
- * - **理由・例の候補**: 課題のテーマ（手元の最新）から、賛成・反対それぞれの理由と例（日本語）。「メモに足す」を押したときだけメモに書き足す
+ * - **理由・例の候補**: 課題のテーマ（手元の最新）から、賛成・反対それぞれの理由と例（日本語）。**見るだけ**
+ *   （書き足す先のメモをなくした。見ながら自分でアウトラインに足す。`docs/plans/ideas-outline.md`）
  * - **アウトラインの指摘**: 課題のテーマと条件・アウトラインから、構成の問題を日本語のヒントで（直した項目は出さない）
  * - どれもボタンを押したときだけ呼ぶ。結果は保存しない（編集画面を開いている間だけ持つ）
  */
@@ -24,8 +24,6 @@ export interface IdeasPanelOptions {
   assignment(): Assignment
   /** 課題のテーマを書き換える。 */
   setTheme(theme: string): void
-  /** アイデアのメモの末尾に書き足す。 */
-  appendMemo(block: string): void
   /** 手元の最新のアウトライン。 */
   outline(): string
 }
@@ -110,22 +108,16 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
           'div',
           { class: `ai-side ${side.stance}` },
           h('h4', {}, h('span', { class: 'ai-stance' }, STANCE_LABEL[side.stance]), side.opinion),
-          ...side.reasons.map((reason) => {
-            const add = h('button', { class: 'btn ai-use', type: 'button' }, 'メモに足す')
-            add.addEventListener('click', () => {
-              options.appendMemo(memoBlock(side.stance, reason))
-              replace(add, '足しました')
-            })
-            return h(
+          ...side.reasons.map((reason) =>
+            h(
               'div',
               { class: 'ai-reason' },
               h('p', { class: 'ai-reason-text' }, reason.reason),
               reason.examples.length === 0
                 ? null
                 : h('ul', {}, ...reason.examples.map((example) => h('li', {}, example))),
-              add,
-            )
-          }),
+            ),
+          ),
         ),
       ),
     )
@@ -174,7 +166,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     replace(
       reviewNote,
       emptyOutline
-        ? 'STEP 3 でアウトラインを作ると見てもらえます。'
+        ? 'アウトラインを作ると見てもらえます。'
         : '意見・理由・例・結論のつながりを見て、直すところをヒントで返します（直した項目は出しません）。',
     )
     if (!reviewButton.textContent?.includes('見ています')) reviewButton.disabled = emptyOutline
@@ -186,7 +178,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     h(
       'p',
       { class: 'muted ai-note' },
-      'ボタンを押したときだけ、入れた分野・課題のテーマと条件・アウトラインを Anthropic の API に送ります。下書きやメモは送りません。',
+      'ボタンを押したときだけ、入れた分野・課題のテーマと条件・アウトラインを Anthropic の API に送ります。下書きは送りません。',
     ),
     h(
       'section',
@@ -201,6 +193,11 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
       'section',
       { class: 'ai-section' },
       h('h3', {}, '理由・例の候補'),
+      h(
+        'p',
+        { class: 'muted ai-sub-note' },
+        '見るだけ。使えそうなものは自分の言葉でアウトラインに足す。',
+      ),
       currentTheme,
       ideasButton,
       ideasMessage,
