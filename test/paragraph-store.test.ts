@@ -40,26 +40,54 @@ describe('DB を開く', () => {
 })
 
 describe('DB の版', () => {
-  it('版 1 の DB を開くと、データを残したまま版 2（AI案への質問の表）に上がる', async () => {
+  it('版 1 の DB を開くと、データを残したまま今の版（AI案への質問・AI に質問の表）に上がる', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'esl-db-'))
     try {
       const file = path.join(dir, 'v1.db')
-      // 版 1 の形を手で作る（ai_questions が無い。保存層は版 2 の表を前提にするので SQL で入れる）
+      // 版 1 の形を手で作る（ai_questions・draft_questions が無い。保存層は今の表を前提にするので SQL で入れる）
       const v1 = openDatabase(file)
       v1.exec(`
         DROP TABLE ai_questions;
+        DROP TABLE draft_questions;
         UPDATE meta SET value = '1' WHERE key = 'schema_version';
         INSERT INTO paragraphs (id, created_on, created_at) VALUES ('2026-11-11-old', '2026-11-11', '2026-11-11T00:00:00.000Z');
       `)
       v1.close()
       const db = openDatabase(file)
-      assert.equal(readMeta(db, 'schema_version'), '2')
+      assert.equal(readMeta(db, 'schema_version'), String(SCHEMA_VERSION))
       const store = createParagraphStore(db)
       const id = store.listParagraphs()[0]?.id ?? ''
       assert.equal(id, '2026-11-11-old')
       store.saveAiResult(id, 'ideas', '{}')
       store.addAiQuestion(id, 'ideas', 'q', 'a')
       assert.equal(store.readAiQuestions(id).ideas.length, 1)
+      store.addDraftQuestion(id, 'q', 'a')
+      assert.equal(store.readDraftQuestions(id).length, 1)
+      db.close()
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('版 2 の DB を開くと、AI案への質問を残したまま版 3（AI に質問の表）に上がる', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'esl-db-'))
+    try {
+      const file = path.join(dir, 'v2.db')
+      const v2 = openDatabase(file)
+      const id = createParagraphStore(v2).createParagraph('2026-11-11', 'Old', assignment('Old'))
+      createParagraphStore(v2).saveAiResult(id, 'ideas', '{}')
+      createParagraphStore(v2).addAiQuestion(id, 'ideas', 'q', 'a')
+      v2.exec(`
+        DROP TABLE draft_questions;
+        UPDATE meta SET value = '2' WHERE key = 'schema_version';
+      `)
+      v2.close()
+      const db = openDatabase(file)
+      assert.equal(readMeta(db, 'schema_version'), '3')
+      const store = createParagraphStore(db)
+      assert.equal(store.readStage(id, 'assignment').text, assignment('Old'))
+      assert.equal(store.readAiQuestions(id).ideas.length, 1)
+      assert.deepEqual(store.readDraftQuestions(id), [])
       db.close()
     } finally {
       await rm(dir, { recursive: true, force: true })
@@ -194,5 +222,29 @@ describe('採点と AI案', () => {
       after.outline.map((q) => q.question),
       ['q3'],
     )
+  })
+
+  it('「AI に質問」のやりとりはパラグラフごとに古い順。消すとそのパラグラフの分だけ消える', () => {
+    const { store } = setup()
+    const a = store.createParagraph('2026-11-11', 'A', assignment('A'))
+    const b = store.createParagraph('2026-11-11', 'B', assignment('B'))
+    assert.deepEqual(store.readDraftQuestions(a), [])
+    const first = store.addDraftQuestion(a, 'q1', 'a1')
+    store.addDraftQuestion(a, 'q2', 'a2')
+    store.addDraftQuestion(b, 'q3', 'a3')
+    assert.deepEqual(first, { question: 'q1', answer: 'a1', createdAt: first.createdAt })
+    assert.deepEqual(
+      store.readDraftQuestions(a).map((q) => q.question),
+      ['q1', 'q2'],
+    )
+    store.clearDraftQuestions(a)
+    assert.deepEqual(store.readDraftQuestions(a), [])
+    assert.equal(store.readDraftQuestions(b).length, 1)
+    // 消したあとも続きから足せる
+    store.addDraftQuestion(a, 'q4', 'a4')
+    assert.equal(store.readDraftQuestions(a)[0]?.question, 'q4')
+    store.deleteParagraph(a)
+    assert.throws(() => store.readDraftQuestions(a), ParagraphNotFoundError)
+    assert.throws(() => store.addDraftQuestion(a, 'q', 'a'), ParagraphNotFoundError)
   })
 })

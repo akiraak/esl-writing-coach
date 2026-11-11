@@ -10,7 +10,7 @@ import { DatabaseSync } from 'node:sqlite'
  * - 表の形は `SCHEMA_VERSION` で持ち、上げるときは `migrate()` に足す
  */
 
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 const SCHEMA_V1 = `
 CREATE TABLE paragraphs (
@@ -58,6 +58,18 @@ CREATE TABLE ai_questions (
 );
 `
 
+/** 版 3（2026-11-11）: STEP 3 の「AI に質問」のやりとり（`docs/plans/archive/draft-chat.md`）。 */
+const SCHEMA_V3 = `
+CREATE TABLE draft_questions (
+  paragraph_id TEXT NOT NULL REFERENCES paragraphs(id),
+  seq INTEGER NOT NULL,
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (paragraph_id, seq)
+);
+`
+
 /** `BEGIN IMMEDIATE` 〜 `COMMIT`。投げたら `ROLLBACK`。 */
 export function transaction<T>(db: DatabaseSync, run: () => T): T {
   db.exec('BEGIN IMMEDIATE')
@@ -96,6 +108,7 @@ function migrate(db: DatabaseSync): void {
   transaction(db, () => {
     if (version < 1) db.exec(SCHEMA_V1)
     if (version < 2) db.exec(SCHEMA_V2)
+    if (version < 3) db.exec(SCHEMA_V3)
     writeMeta(db, 'schema_version', String(SCHEMA_VERSION))
   })
 }

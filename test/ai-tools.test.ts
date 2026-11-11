@@ -4,15 +4,15 @@ import { AI_TOOLS, aiToolsFor, stepNumber } from '../src/shared/ai-tools.js'
 import { STAGES } from '../src/shared/types.js'
 
 describe('aiToolsFor', () => {
-  it('課題はテーマの候補 → 理由・例、アウトラインは指摘 → 理由・例、下書きは採点', () => {
+  it('課題はテーマの候補 → 理由・例、アウトラインは指摘 → 理由・例、下書きは AI に質問 → 採点', () => {
     assert.deepEqual(aiToolsFor('assignment').current, ['themes', 'ideas'])
     assert.deepEqual(aiToolsFor('outline').current, ['outline', 'ideas'])
-    assert.deepEqual(aiToolsFor('draft').current, ['score'])
+    assert.deepEqual(aiToolsFor('draft').current, ['chat', 'score'])
   })
 
   it('ほかの段階の機能は AI_TOOLS の順で下に回す', () => {
-    assert.deepEqual(aiToolsFor('assignment').others, ['outline', 'score'])
-    assert.deepEqual(aiToolsFor('outline').others, ['themes', 'score'])
+    assert.deepEqual(aiToolsFor('assignment').others, ['outline', 'chat', 'score'])
+    assert.deepEqual(aiToolsFor('outline').others, ['themes', 'chat', 'score'])
     assert.deepEqual(aiToolsFor('draft').others, ['themes', 'ideas', 'outline'])
   })
 

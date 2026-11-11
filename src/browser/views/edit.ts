@@ -6,6 +6,7 @@ import { STAGES, type Stage } from '../../shared/types.js'
 import { createAiPane } from '../ai-pane.js'
 import { readStage } from '../api.js'
 import { h, replace } from '../dom.js'
+import { createDraftChatPanel } from '../draft-chat-pane.js'
 import { openExportDialog } from '../export-dialog.js'
 import { createFeedbackPanel } from '../feedback-pane.js'
 import { createGuideDrawer } from '../guide-pane.js'
@@ -85,22 +86,31 @@ export function renderEdit(
   const footer = h('div', { class: 'stage-next' })
   const center = h('main', { class: 'center' }, title, banner, body, footer)
 
+  /**
+   * サーバが保存されている下書きを読む AI（採点・AI に質問）の前に、全部の段階を保存し終える。
+   * 下書きが保存できていなければ理由の文を返す（呼ばない）。`what` は「採点」「質問」。
+   */
+  async function prepareDraft(what: string): Promise<string | null> {
+    if (editors === null) return '読み込み中です'
+    const all = editors
+    await Promise.all(STAGES.map((s) => all[s].flush()))
+    const state = all.draft.state.kind
+    if (state === 'conflict')
+      return `下書きが他で更新されています（自動保存を止めています）。読み直してから${what}してください`
+    if (state === 'error' || all.draft.hasUnsavedChanges)
+      return `下書きを保存できていません。保存できてから${what}してください`
+    return null
+  }
+
   /** 右ペインの採点。採点の前に全部の段階を保存し終え、下書きが保存できていなければ採点しない。 */
   const feedback = createFeedbackPanel({
     id,
     draftText: () => editors?.draft.text ?? '',
-    async prepare() {
-      if (editors === null) return '読み込み中です'
-      const all = editors
-      await Promise.all(STAGES.map((s) => all[s].flush()))
-      const state = all.draft.state.kind
-      if (state === 'conflict')
-        return '下書きが他で更新されています（自動保存を止めています）。読み直してから採点してください'
-      if (state === 'error' || all.draft.hasUnsavedChanges)
-        return '下書きを保存できていません。保存できてから採点してください'
-      return null
-    },
+    prepare: () => prepareDraft('採点'),
   })
+
+  /** 右ペインの「AI に質問」（STEP 3 で上に出る）。送る前に保存し終えるのは採点と同じ。 */
+  const draftChat = createDraftChatPanel({ id, prepare: () => prepareDraft('質問') })
 
   /**
    * 右ペインの AI 案。結果はサーバがパラグラフごとに保存する（開いたら描き直す）。
@@ -138,7 +148,7 @@ export function renderEdit(
     tiles[s] = { el, summary, mark }
   })
 
-  const aiPane = createAiPane({ ...ideasPanel.cards, score: feedback.card })
+  const aiPane = createAiPane({ ...ideasPanel.cards, chat: draftChat.card, score: feedback.card })
   const guide = createGuideDrawer()
   const panes = h(
     'div',

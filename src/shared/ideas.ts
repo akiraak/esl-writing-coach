@@ -87,15 +87,20 @@ export const MAX_QUESTIONS = 10
 /** 質問の長さの上限（文字）。 */
 export const MAX_QUESTION_LENGTH = 1000
 
+/** STEP 3 の「AI に質問」で聞ける回数（`docs/plans/archive/draft-chat.md`）。「はじめから」で消すとまた聞ける。 */
+export const MAX_DRAFT_QUESTIONS = 30
+
 /**
  * パラグラフの AI案（`GET /api/paragraphs/:id/ai`）。まだ出していない種類は null。
  * `questions` は種類ごとの質問と答え（古い順）。AI案を出し直すとその種類の分は消える。
+ * `draftQuestions` は STEP 3 の「AI に質問」のやりとり（古い順）。
  */
 export interface SavedAiResults {
   themes: SavedThemes | null
   ideas: SavedIdeas | null
   outline: SavedOutlineReview | null
   questions: Record<AiKind, AiQuestion[]>
+  draftQuestions: AiQuestion[]
 }
 
 export function isAiKind(value: string): value is AiKind {

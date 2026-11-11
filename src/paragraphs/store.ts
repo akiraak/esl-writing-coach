@@ -76,6 +76,12 @@ export interface ParagraphStore {
   readAiQuestions(id: string): Record<AiKind, AiQuestion[]>
   /** AI案への質問と答えを足す（その種類の最後に）。 */
   addAiQuestion(id: string, kind: AiKind, question: string, answer: string): AiQuestion
+  /** STEP 3 の「AI に質問」のやりとり（古い順）。 */
+  readDraftQuestions(id: string): AiQuestion[]
+  /** 「AI に質問」のやりとりを足す（最後に）。 */
+  addDraftQuestion(id: string, question: string, answer: string): AiQuestion
+  /** 「AI に質問」のやりとりを全部消す（はじめから）。 */
+  clearDraftQuestions(id: string): void
 }
 
 export interface StoreOptions {
@@ -298,6 +304,36 @@ export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {
     return { question, answer, createdAt }
   }
 
+  const selectDraftQuestions = db.prepare(
+    'SELECT question, answer, created_at FROM draft_questions WHERE paragraph_id = ? ORDER BY seq',
+  )
+  const insertDraftQuestion = db.prepare(`
+    INSERT INTO draft_questions (paragraph_id, seq, question, answer, created_at)
+    VALUES (?, (SELECT coalesce(max(seq), 0) + 1 FROM draft_questions WHERE paragraph_id = ?), ?, ?, ?)
+  `)
+  const deleteDraftQuestions = db.prepare('DELETE FROM draft_questions WHERE paragraph_id = ?')
+
+  function readDraftQuestions(id: string): AiQuestion[] {
+    assertExists(id)
+    return selectDraftQuestions.all(id).map((row) => ({
+      question: str(row['question']),
+      answer: str(row['answer']),
+      createdAt: str(row['created_at']),
+    }))
+  }
+
+  function addDraftQuestion(id: string, question: string, answer: string): AiQuestion {
+    assertExists(id)
+    const createdAt = now()
+    insertDraftQuestion.run(id, id, question, answer, createdAt)
+    return { question, answer, createdAt }
+  }
+
+  function clearDraftQuestions(id: string): void {
+    assertExists(id)
+    deleteDraftQuestions.run(id)
+  }
+
   return {
     listParagraphs,
     readStage,
@@ -311,5 +347,8 @@ export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {
     saveAiResult,
     readAiQuestions,
     addAiQuestion,
+    readDraftQuestions,
+    addDraftQuestion,
+    clearDraftQuestions,
   }
 }

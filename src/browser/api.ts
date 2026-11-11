@@ -159,3 +159,15 @@ export async function askAiQuestion(
     { question },
   )
 }
+
+/** STEP 3 の「AI に質問」（サーバが保存されている下書きと課題を読んで答え、保存する）。 */
+export async function askDraftQuestion(id: string, question: string): Promise<AiQuestion> {
+  return request<AiQuestion>('POST', `/api/paragraphs/${encodeURIComponent(id)}/draft/questions`, {
+    question,
+  })
+}
+
+/** 「AI に質問」のやりとりを消す（はじめから）。 */
+export async function clearDraftQuestions(id: string): Promise<void> {
+  await request<void>('DELETE', `/api/paragraphs/${encodeURIComponent(id)}/draft/questions`)
+}

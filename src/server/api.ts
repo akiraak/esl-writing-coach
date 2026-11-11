@@ -20,6 +20,7 @@ import {
   type AiKind,
   type AiQuestion,
   isAiKind,
+  MAX_DRAFT_QUESTIONS,
   MAX_QUESTION_LENGTH,
   MAX_QUESTIONS,
   type SavedAiResults,
@@ -38,8 +39,10 @@ import type { ReviewEntry } from '../shared/review.js'
  * | `PUT /api/paragraphs/:id/stages/:stage` `{ text, rev }` | 保存 → `{ rev, updatedAt }`。競合は 409 |
  * | `GET /api/paragraphs/:id/feedback` | AI の採点の結果 → `{ feedback, aiConfigured }`（無ければ `feedback: null`） |
  * | `POST /api/paragraphs/:id/feedback` | 保存されている下書きを AI で採点し、保存して返す → `{ feedback }` |
- * | `GET /api/paragraphs/:id/ai` | AI案（種類ごとの最新の 1 回分と、出したときの入力・質問と答え）→ `SavedAiResults` |
+ * | `GET /api/paragraphs/:id/ai` | AI案（種類ごとの最新の 1 回分と、出したときの入力・質問と答え）と「AI に質問」のやりとり → `SavedAiResults` |
  * | `POST /api/paragraphs/:id/ai/:kind/questions` `{ question }` | AI案への質問に答えて保存 → `{ question, answer, createdAt }` |
+ * | `POST /api/paragraphs/:id/draft/questions` `{ question }` | STEP 3 の「AI に質問」: 保存されている下書きと課題を見て答え、保存 → `{ question, answer, createdAt }` |
+ * | `DELETE /api/paragraphs/:id/draft/questions` | 「AI に質問」のやりとりを消す（はじめから） |
  * | `GET /api/review` | 振り返り: 採点のあるパラグラフごとの最新の採点とテーマ → `{ entries }`（集計はブラウザ。`src/shared/review.ts`） |
  * | `POST /api/ai/themes` `{ id?, hint }` | テーマの候補 → `{ themes }`（`hint` は分野・キーワード。空でもよい） |
  * | `POST /api/ai/ideas` `{ id?, theme, conditions }` | 賛成・反対の理由と例の候補 → `{ ideas }` |
@@ -50,6 +53,9 @@ import type { ReviewEntry } from '../shared/review.js'
  *
  * AI案への質問: 空・長すぎる 400 `bad_question`、その AI案がまだ無い 400 `no_result`、回数の上限 400 `too_many_questions`、
  * 答えを待つ間に AI案が出し直された 409 `result_changed`（質問は残さない）。
+ *
+ * 「AI に質問」（`docs/plans/archive/draft-chat.md`）: 空・長すぎる 400 `bad_question`、回数の上限 400 `too_many_questions`、
+ * 答えを待つ間にやりとりが変わった（はじめからにした・別のタブで聞いた）409 `chat_changed`（質問は残さない）。下書きが空でも聞ける。
  *
  * 無いパラグラフは 404 `not_found`。
  * AI のエラー: キーが無い 503 `ai_not_configured` / 拒否 422 `ai_refusal` / API の失敗 502 `ai_error`。採点で下書きが空なら 400 `empty_draft`
@@ -134,6 +140,7 @@ const STAGE = /^\/api\/paragraphs\/([^/]+)\/stages\/([^/]+)$/
 const FEEDBACK = /^\/api\/paragraphs\/([^/]+)\/feedback$/
 const AI_RESULTS = /^\/api\/paragraphs\/([^/]+)\/ai$/
 const AI_QUESTIONS = /^\/api\/paragraphs\/([^/]+)\/ai\/([^/]+)\/questions$/
+const DRAFT_QUESTIONS = /^\/api\/paragraphs\/([^/]+)\/draft\/questions$/
 
 function requireAi(options: ApiOptions): Ai {
   const ai = options.ai ?? null
@@ -184,6 +191,7 @@ function readAiResults(store: ParagraphStore, id: string): SavedAiResults {
     ideas: null,
     outline: null,
     questions: store.readAiQuestions(id),
+    draftQuestions: store.readDraftQuestions(id),
   }
   for (const kind of AI_KINDS) {
     const json = raw[kind]
@@ -239,6 +247,46 @@ async function askQuestion(
   }
   log.info(`AI案への質問: ${id}/${kind}（${history.length + 1} 回目）`)
   return store.addAiQuestion(id, kind, question, answer)
+}
+
+/**
+ * STEP 3 の「AI に質問」: 保存されている下書きと課題を読んで答え、保存して返す（`docs/plans/archive/draft-chat.md`）。
+ * 下書きが空でも答える（書く前の相談）。
+ */
+async function askDraftQuestion(
+  id: string,
+  body: unknown,
+  options: ApiOptions,
+): Promise<AiQuestion> {
+  const { store } = options
+  const question = stringField(body, 'question', MAX_QUESTION_LENGTH).trim()
+  if (question === '') throw new HttpError(400, 'bad_question', '質問が空です')
+  // 無いパラグラフは、キーが無くても 404
+  const history = store.readDraftQuestions(id)
+  const ai = requireAi(options)
+  if (history.length >= MAX_DRAFT_QUESTIONS) {
+    throw new HttpError(
+      400,
+      'too_many_questions',
+      `質問は ${MAX_DRAFT_QUESTIONS} 回までです。「はじめから」で消すと新しく聞けます`,
+    )
+  }
+  const answer = await ai.answerDraftQuestion({
+    assignment: parseAssignment(store.readStage(id, 'assignment').text),
+    draft: store.readStage(id, 'draft').text,
+    history,
+    question,
+  })
+  // 答えを待つ間に「はじめから」にした・別のタブで聞いたなら、話の続きではなくなるので残さない
+  const current = store.readDraftQuestions(id)
+  if (
+    current.length !== history.length ||
+    current.at(-1)?.createdAt !== history.at(-1)?.createdAt
+  ) {
+    throw new HttpError(409, 'chat_changed', 'やりとりが変わったので、質問は残していません')
+  }
+  log.info(`AI に質問: ${id}（${history.length + 1} 回目）`)
+  return store.addDraftQuestion(id, question, answer)
 }
 
 const nowOf = (options: ApiOptions) => (options.now ?? (() => new Date().toISOString()))()
@@ -369,6 +417,23 @@ export async function handleApi(
       const id = decodeURIComponent(m[1] ?? '')
       sendJson(res, 200, await askQuestion(id, decodeURIComponent(m[2] ?? ''), body, options))
       return
+    }
+
+    m = DRAFT_QUESTIONS.exec(pathname)
+    if (m !== null) {
+      const id = decodeURIComponent(m[1] ?? '')
+      if (method === 'POST') {
+        const body = await readJson(req)
+        sendJson(res, 200, await askDraftQuestion(id, body, options))
+        return
+      }
+      if (method === 'DELETE') {
+        store.clearDraftQuestions(id)
+        log.info(`AI に質問: ${id} のやりとりを消しました`)
+        res.writeHead(204, { 'cache-control': 'no-store' }).end()
+        return
+      }
+      throw new HttpError(405, 'method_not_allowed', '使えないメソッドです')
     }
 
     m = AI_RESULTS.exec(pathname)

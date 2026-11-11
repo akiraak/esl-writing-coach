@@ -1,6 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { registerSecret } from '../log.js'
 import type { IdeaSuggestions, OutlineReview, ThemeSuggestion } from '../shared/ideas.js'
+import {
+  buildDraftChatPrompt,
+  DRAFT_CHAT_SCHEMA,
+  DRAFT_CHAT_SYSTEM,
+  type DraftChatInput,
+  parseDraftAnswer,
+} from './draft-chat.js'
 import { AiApiError, AiRefusedError } from './errors.js'
 import {
   buildIdeasPrompt,
@@ -37,7 +44,8 @@ import {
 } from './scoring.js'
 
 /**
- * Anthropic API の呼び出し（採点・アイデア出し・AI案への質問。`docs/plans/archive/ai-scoring.md`・`ai-ideas.md`・`docs/plans/archive/ai-followup-questions.md`）。
+ * Anthropic API の呼び出し（採点・アイデア出し・AI案への質問・STEP 3 の「AI に質問」。
+ * `docs/plans/archive/ai-scoring.md`・`ai-ideas.md`・`ai-followup-questions.md`・`draft-chat.md`）。
  *
  * - モデルは Claude Opus 5.5。採点は effort `high`（ぶれを抑える）、アイデア出しは `medium`（速さを取る）
  * - 出力は構造化出力（JSON スキーマ）。拒否されたら別のモデルでやり直す（サーバ側の `fallbacks: "default"`）。
@@ -63,6 +71,8 @@ export interface Ai {
   reviewOutline(input: OutlineReviewInput): Promise<OutlineReview>
   /** AI案の結果への質問に、日本語で答える（英文・直した項目は出さない）。 */
   answerQuestion(input: QuestionInput): Promise<string>
+  /** STEP 3 の「AI に質問」: 下書きと課題を見て、自由な質問に答える（英語は制限しない）。 */
+  answerDraftQuestion(input: DraftChatInput): Promise<string>
 }
 
 function describeApiError(error: unknown): string {
@@ -166,6 +176,15 @@ export function createAi(apiKey: string): Ai {
         effort: 'medium',
       })
       return parseAnswer(text)
+    },
+    async answerDraftQuestion(input) {
+      const { text } = await callJson({
+        system: DRAFT_CHAT_SYSTEM,
+        user: buildDraftChatPrompt(input),
+        schema: DRAFT_CHAT_SCHEMA,
+        effort: 'medium',
+      })
+      return parseDraftAnswer(text)
     },
   }
 }

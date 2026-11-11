@@ -42,6 +42,10 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
   const message = h('p', { class: 'error score-error' })
   const stale = h('p', { class: 'score-stale' })
   const result = h('div', { class: 'score-result' })
+  /** 結果は長いので、上に出す 2 つ目のとき（STEP 3 では「AI に質問」の下）は畳む（`setFolded`）。 */
+  const foldSummary = h('summary', {}, '採点の結果を見る')
+  const fold = h('details', { class: 'ai-fold', open: true, hidden: true }, foldSummary, result)
+  const empty = h('p', { class: 'muted ai-sub-note' })
   const when = whenLabels()
   const card: AiCard = {
     el: cardFrame({
@@ -50,9 +54,12 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
       desc: note,
       button,
       sends: '下書き・課題・語数と文数',
-      after: [message, stale, result],
+      after: [message, stale, empty, fold],
     }),
     whenLabel: () => when.create('row'),
+    setFolded(folded: boolean) {
+      fold.open = !folded
+    },
   }
 
   function sync(): void {
@@ -86,11 +93,14 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
         ? ''
         : `${formatDate(feedback.scoredAt)} ${formatTime(feedback.scoredAt)}`,
     )
+    fold.hidden = feedback === null
+    replace(empty, feedback === null && loaded ? 'まだ採点していません。' : '')
     if (feedback === null) {
-      replace(result, loaded ? h('p', { class: 'muted' }, 'まだ採点していません。') : null)
+      replace(result)
       return
     }
     const fb = feedback
+    replace(foldSummary, `採点の結果を見る（${fb.total} 点）`)
     replace(
       result,
       h('div', { class: 'score-total' }, h('b', {}, String(fb.total)), h('span', {}, ' / 100')),
@@ -158,6 +168,8 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
       } else {
         feedback = await scoreParagraph(options.id)
         renderResult()
+        // 押して出した結果は、畳んであっても開いて見せる
+        fold.open = true
       }
     } catch (e) {
       error = `採点できませんでした: ${errorText(e)}`

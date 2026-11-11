@@ -15,6 +15,7 @@ import { errorText } from './ui.js'
  *   その下に質問の欄。Ctrl+Enter でも送れる
  * - 答えはサーバが保存する。呼び出し中に画面を離れて戻ったときは、このモジュールに持った Promise の終わりを待って描く
  * - `MAX_QUESTIONS` 回で欄を閉じる。AI案を出し直したら空から（サーバもその種類の質問を消している）
+ * - STEP 3 の「AI に質問」（`draft-chat-pane.ts`）も同じ欄を使う。送り先・回数の上限・文言を `createQuestionBoxWith` で差し替える
  */
 
 export interface QuestionBox {
@@ -25,6 +26,22 @@ export interface QuestionBox {
   setLocked(locked: boolean): void
   /** 元の AI案が今のテーマ・アウトラインと合わないとき。 */
   setStale(stale: boolean): void
+}
+
+/** 質問の欄の差し替えられるところ。 */
+export interface QuestionBoxOptions {
+  /** 呼び出し中の質問を覚える鍵（画面を作り直しても続きから出すため。欄ごとに違うもの）。 */
+  key: string
+  /** 質問を送って、保存された質問と答えを返す。 */
+  ask(question: string): Promise<AiQuestion>
+  /** 聞ける回数。 */
+  max: number
+  placeholder: string
+  ariaLabel: string
+  /** 回数の上限に達したときの知らせ。 */
+  fullNote: string
+  /** やりとり・呼び出し中かどうかが変わったとき（`show` のときも）。 */
+  onChange?(questions: readonly AiQuestion[], busy: boolean): void
 }
 
 /** 呼び出し中の質問（`<id>/<種類>` → 質問と答えの Promise）。画面を作り直しても残る。 */
@@ -39,8 +56,20 @@ function bubble(q: { question: string; answer?: string }): HTMLElement[] {
   ]
 }
 
+/** AI案（テーマの候補・理由と例の候補・アウトラインの指摘）の結果への質問の欄。 */
 export function createQuestionBox(id: string, kind: AiKind): QuestionBox {
-  const key = `${id}/${kind}`
+  return createQuestionBoxWith({
+    key: `${id}/${kind}`,
+    ask: (question) => askAiQuestion(id, kind, question),
+    max: MAX_QUESTIONS,
+    placeholder: 'この結果について質問する（日本語で。Ctrl+Enter で送る）',
+    ariaLabel: 'AI案への質問',
+    fullNote: `質問は ${MAX_QUESTIONS} 回までです。AI案を出し直すと新しく聞けます。`,
+  })
+}
+
+export function createQuestionBoxWith(options: QuestionBoxOptions): QuestionBox {
+  const { key } = options
   let questions: AiQuestion[] = []
   /** この欄で表示中の、呼び出し中の質問。 */
   let inFlight: { question: string; promise: Promise<AiQuestion> } | null = null
@@ -56,8 +85,8 @@ export function createQuestionBox(id: string, kind: AiKind): QuestionBox {
     class: 'ai-qa-input',
     rows: 2,
     maxlength: MAX_QUESTION_LENGTH,
-    placeholder: 'この結果について質問する（日本語で。Ctrl+Enter で送る）',
-    'aria-label': 'AI案への質問',
+    placeholder: options.placeholder,
+    'aria-label': options.ariaLabel,
   })
   const button = h('button', { class: 'btn', type: 'button' }, '質問する')
   const message = h('p', { class: 'error ai-error' })
@@ -79,16 +108,14 @@ export function createQuestionBox(id: string, kind: AiKind): QuestionBox {
       before.length === 0 ? null : older,
       ...(latest === undefined ? [] : bubble(latest)),
     )
-    const full = questions.length >= MAX_QUESTIONS
+    const full = questions.length >= options.max
     form.hidden = full
-    replace(
-      limit,
-      full ? `質問は ${MAX_QUESTIONS} 回までです。AI案を出し直すと新しく聞けます。` : '',
-    )
+    replace(limit, full ? options.fullNote : '')
     const busy = inFlight !== null
     input.disabled = busy || locked
     button.disabled = busy || locked
     replace(button, busy ? '答えています…' : '質問する')
+    options.onChange?.(questions, busy)
   }
 
   async function wait(entry: { question: string; promise: Promise<AiQuestion> }): Promise<void> {
@@ -112,7 +139,7 @@ export function createQuestionBox(id: string, kind: AiKind): QuestionBox {
   function send(): void {
     const question = input.value.trim()
     if (question === '' || inFlight !== null || locked) return
-    const entry = { question, promise: askAiQuestion(id, kind, question) }
+    const entry = { question, promise: options.ask(question) }
     asking.set(key, entry)
     const forget = () => {
       if (asking.get(key) === entry) asking.delete(key)

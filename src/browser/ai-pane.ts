@@ -9,7 +9,8 @@ import { STAGE_LABELS } from './ui.js'
  * - 今の段階で使う機能（`aiToolsFor`）を上に、ほかの段階の機能は下の「ほかの段階の AI」に畳んで残す
  *   （行に名前・使う段階・出した日時。開けば前の結果を見返せて、押して出し直すこともできる）
  * - 段階を移るときは**カードを作り直さずに並べ替えるだけ**（呼び出し中の状態・入れかけの質問・畳んだ行の開閉を保つ）
- * - カードは `ideas-pane.ts`（テーマの候補・理由と例の候補・アウトラインの指摘）と `feedback-pane.ts`（採点）が作る
+ * - カードは `ideas-pane.ts`（テーマの候補・理由と例の候補・アウトラインの指摘）・`draft-chat-pane.ts`（AI に質問）・
+ *   `feedback-pane.ts`（採点）が作る
  */
 
 /** 右ペインに並べる 1 つの機能のカード。 */
@@ -67,7 +68,7 @@ export function createAiPane(cards: Readonly<Record<AiTool, AiCard>>): AiPane {
       h(
         'p',
         { class: 'muted ai-foot' },
-        '押したときだけ、各欄の「送るもの」を Anthropic の API に送ります。質問すると、その結果とそれまでの質問も送ります。結果と質問はパラグラフごとに最新の 1 回分を残します。',
+        '押したときだけ、各欄の「送るもの」を Anthropic の API に送ります。AI案に質問すると、その結果とそれまでの質問も送ります。結果と質問はパラグラフごとに最新の 1 回分を残します（「AI に質問」のやりとりは「はじめから」で消すまで）。',
       ),
     ),
   )
@@ -114,14 +115,15 @@ export function whenLabels(): {
   }
 }
 
-/** カードの外枠（見出しと日時・説明・ボタンと送るもの・そのあとの中身）。4 つのカードで同じ形にする。 */
+/** カードの外枠（見出しと日時・説明・ボタンと送るもの・そのあとの中身）。どのカードも同じ形にする。 */
 export function cardFrame(parts: {
   title: string
   when: HTMLElement
   desc: HTMLElement
   /** ボタンの前に置くもの（テーマの分野・キーワードの欄など）。 */
   before?: (Node | null)[]
-  button: HTMLButtonElement
+  /** 押して呼ぶボタン（「AI に質問」は質問の欄から送るので無い）。 */
+  button?: HTMLButtonElement
   sends: string
   /** ボタンのあと（エラー・古さの知らせ・結果・質問の欄）。 */
   after: (Node | null)[]
@@ -135,7 +137,7 @@ export function cardFrame(parts: {
     h(
       'div',
       { class: 'ai-card-act' },
-      parts.button,
+      parts.button ?? null,
       h('span', { class: 'ai-sends' }, `送るもの: ${parts.sends}`),
     ),
     ...parts.after,

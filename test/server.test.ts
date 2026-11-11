@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, before, beforeEach, describe, it } from 'node:test'
 import type { Ai } from '../src/ai/client.js'
+import type { DraftChatInput } from '../src/ai/draft-chat.js'
 import { AiApiError, AiRefusedError } from '../src/ai/errors.js'
 import { openDatabase } from '../src/paragraphs/database.js'
 import { createParagraphStore, type ParagraphStore } from '../src/paragraphs/store.js'
@@ -36,6 +37,7 @@ const fakeAi = (methods: Partial<Ai>): Ai => ({
   suggestIdeas: () => Promise.reject(new Error('suggestIdeas は呼ばれないはず')),
   reviewOutline: () => Promise.reject(new Error('reviewOutline は呼ばれないはず')),
   answerQuestion: () => Promise.reject(new Error('answerQuestion は呼ばれないはず')),
+  answerDraftQuestion: () => Promise.reject(new Error('answerDraftQuestion は呼ばれないはず')),
   ...methods,
 })
 
@@ -381,6 +383,7 @@ describe('アイデア出しの API', () => {
       ideas: null,
       outline: null,
       questions: noQuestions,
+      draftQuestions: [],
     })
     assert.equal((await post('themes', { id: ID, hint: '部活' })).status, 200)
     assert.equal((await post('ideas', { id: ID, theme: 'T', conditions: 'C' })).status, 200)
@@ -391,6 +394,7 @@ describe('アイデア出しの API', () => {
       ideas: { theme: 'T', conditions: 'C', ideas, createdAt: at },
       outline: { theme: 'T', conditions: '', outline: '意見', review, createdAt: at },
       questions: noQuestions,
+      draftQuestions: [],
     }
     assert.deepEqual(await (await fetch(url)).json(), saved)
     // id が無ければ保存しない。形の違う id は 400（AI を呼ばない）
@@ -499,6 +503,99 @@ describe('AI案への質問の API', () => {
     await saveIdeas()
     assert.equal(await errorOf(await ask('ideas', 'q')), 'result_changed')
     assert.deepEqual(store.readAiQuestions(ID).ideas, [])
+  })
+})
+
+describe('「AI に質問」の API', () => {
+  const url = () => `${base}/api/paragraphs/${ID}/draft/questions`
+  const ask = (question: unknown, id = ID) =>
+    fetch(`${base}/api/paragraphs/${id}/draft/questions`, {
+      method: 'POST',
+      headers: WRITE,
+      body: JSON.stringify({ question }),
+    })
+  const clear = () => fetch(url(), { method: 'DELETE', headers: WRITE, body: '{}' })
+  const errorOf = async (res: Response) => ((await res.json()) as { error: string }).error
+  const saved = async () =>
+    ((await (await fetch(`${base}/api/paragraphs/${ID}/ai`)).json()) as SavedAiResults)
+      .draftQuestions
+
+  it('保存されている下書き・課題と前のやりとりを渡して答え、保存して返す。GET の draftQuestions にも出る', async () => {
+    const received: DraftChatInput[] = []
+    ai = fakeAi({
+      async answerDraftQuestion(input) {
+        received.push(input)
+        return `答え${received.length}`
+      },
+    })
+    store.saveStage(ID, 'assignment', '# Uniforms\n\n- 語数: 120-150\n', '1')
+    store.saveStage(ID, 'draft', 'I like uniforms.', null)
+    const first = await ask(' because と since の違いは？ ')
+    assert.equal(first.status, 200)
+    assert.deepEqual(await first.json(), {
+      question: 'because と since の違いは？',
+      answer: '答え1',
+      createdAt: '2026-11-08T01:00:00.000Z',
+    })
+    assert.equal((await ask('1 文目は自然？')).status, 200)
+    assert.equal(received[1]?.assignment.theme, 'Uniforms')
+    assert.deepEqual(received[1]?.assignment.words, { min: 120, max: 150 })
+    assert.equal(received[1]?.draft, 'I like uniforms.')
+    assert.deepEqual(received[1]?.history, [
+      {
+        question: 'because と since の違いは？',
+        answer: '答え1',
+        createdAt: '2026-11-08T01:00:00.000Z',
+      },
+    ])
+    assert.equal(received[1]?.question, '1 文目は自然？')
+    assert.deepEqual(
+      (await saved()).map((q) => q.answer),
+      ['答え1', '答え2'],
+    )
+  })
+
+  it('下書きが空（まだ無い）でも聞ける', async () => {
+    let draft: string | null = null
+    ai = fakeAi({
+      async answerDraftQuestion(input) {
+        draft = input.draft
+        return 'a'
+      },
+    })
+    assert.equal((await ask('書き出しは？')).status, 200)
+    assert.equal(draft, '')
+  })
+
+  it('空・長すぎる質問、無いパラグラフ、キーが無いときは答えない', async () => {
+    assert.equal(await errorOf(await ask('  ')), 'bad_question')
+    assert.equal(await errorOf(await ask('x'.repeat(1001))), 'bad_question')
+    assert.equal(await errorOf(await ask(3)), 'bad_question')
+    assert.equal((await ask('何？')).status, 503)
+    assert.equal((await ask('何？', '2026-11-08-none')).status, 404)
+    assert.equal((await fetch(url())).status, 405)
+  })
+
+  it('30 回までで、それを超えると 400 too_many_questions。「はじめから」で消すとまた聞ける', async () => {
+    ai = fakeAi({ answerDraftQuestion: async () => 'a' })
+    for (let i = 0; i < 30; i += 1) store.addDraftQuestion(ID, `q${i}`, 'a')
+    assert.equal(await errorOf(await ask('q30')), 'too_many_questions')
+    assert.equal((await clear()).status, 204)
+    assert.deepEqual(await saved(), [])
+    assert.equal((await ask('q0')).status, 200)
+    assert.equal((await saved()).length, 1)
+  })
+
+  it('答えを待つ間に「はじめから」にしたら 409 chat_changed で、質問は残さない', async () => {
+    ai = fakeAi({
+      async answerDraftQuestion() {
+        store.clearDraftQuestions(ID)
+        return 'a'
+      },
+    })
+    store.addDraftQuestion(ID, 'q0', 'a0')
+    assert.equal(await errorOf(await ask('q1')), 'chat_changed')
+    assert.deepEqual(store.readDraftQuestions(ID), [])
   })
 })
 
