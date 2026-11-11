@@ -45,7 +45,7 @@ CREATE TABLE meta (
 );
 `
 
-/** 版 2（2026-11-11）: AI案への質問と答え（`docs/plans/ai-followup-questions.md`）。 */
+/** 版 2（2026-11-11）: AI案への質問と答え（`docs/plans/archive/ai-followup-questions.md`）。 */
 const SCHEMA_V2 = `
 CREATE TABLE ai_questions (
   paragraph_id TEXT NOT NULL REFERENCES paragraphs(id),

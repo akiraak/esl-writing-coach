@@ -37,7 +37,7 @@ import {
 } from './scoring.js'
 
 /**
- * Anthropic API の呼び出し（採点・アイデア出し・AI案への質問。`docs/plans/archive/ai-scoring.md`・`ai-ideas.md`・`docs/plans/ai-followup-questions.md`）。
+ * Anthropic API の呼び出し（採点・アイデア出し・AI案への質問。`docs/plans/archive/ai-scoring.md`・`ai-ideas.md`・`docs/plans/archive/ai-followup-questions.md`）。
  *
  * - モデルは Claude Opus 5.5。採点は effort `high`（ぶれを抑える）、アイデア出しは `medium`（速さを取る）
  * - 出力は構造化出力（JSON スキーマ）。拒否されたら別のモデルでやり直す（サーバ側の `fallbacks: "default"`）。

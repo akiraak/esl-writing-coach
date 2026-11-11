@@ -3,7 +3,7 @@ import { STANCE_LABEL } from '../shared/ideas.js'
 import { AiOutputError } from './errors.js'
 
 /**
- * AI案の結果への質問のプロンプトと出力の検証（`docs/plans/ai-followup-questions.md`）。純関数。
+ * AI案の結果への質問のプロンプトと出力の検証（`docs/plans/archive/ai-followup-questions.md`）。純関数。
  *
  * - 送るのは、その種類の保存してある結果と出したときの入力・それまでの質問と答え・今回の質問（下書きは送らない）
  * - **日本語で答え、パラグラフにそのまま使える英文・直した項目・書き換えた案は出させない**（課題として自分で書くため）。

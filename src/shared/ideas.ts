@@ -74,7 +74,7 @@ export interface SavedOutlineReview {
   createdAt: string
 }
 
-/** AI案への質問と答え（`docs/plans/ai-followup-questions.md`）。 */
+/** AI案への質問と答え（`docs/plans/archive/ai-followup-questions.md`）。 */
 export interface AiQuestion {
   question: string
   /** 日本語の答え。 */

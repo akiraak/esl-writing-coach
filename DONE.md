@@ -23,3 +23,4 @@
 - 2026-11-08 アウトライン段階での AI の指摘（型のチェックを AI なしでその場で出し、右ペインの「AI案」でアウトラインへの指摘を日本語のヒントで。直した項目は出さない。本物の API で 1 回確かめた。[plan](docs/plans/archive/outline-ai-feedback.md)）
 - 2026-11-09 アイデアの段階をなくし、最初からアウトラインを作る（AI なし。課題 → アウトライン → 下書きの 3 段階に、旧 URL の ideas はアウトラインとして開く、以前の ideas.txt は読まない。アウトラインの画面に課題の帯と、選んでいる項目に合わせた「書くこと・次に」の問い。右ペインの理由・例の候補は見るだけに。[plan](docs/plans/archive/ideas-outline.md)）
 - 2026-11-11 保存先を Dropbox からローカルの SQLite（`node:sqlite`・`data/esl-writing.db`）に移す。読み込みが 0.5 秒前後 → 数ミリ秒に。AI案（テーマの候補・理由と例の候補・アウトラインの指摘）をパラグラフごとに DB に残し、画面を移っても・呼び出し中に離れても消えないように。Dropbox は毎時のバックアップ（`backups/`）だけ。今のデータ 1 件を移し替え済み。[plan](docs/plans/archive/sqlite-storage.md)・[調査](docs/plans/archive/keep-ai-ideas.md)
+- 2026-11-11 AI案の結果に質問する（3 つの AI案の結果の下に質問の欄。日本語で答え、英文・直した項目は出さない。前のやりとりも渡して 10 回まで。DB の版 2 の `ai_questions` に残し、出し直すと消える。本物の API で 10 回確かめ、答えの長さなどをプロンプトで直した。[plan](docs/plans/archive/ai-followup-questions.md)）

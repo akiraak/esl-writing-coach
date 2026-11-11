@@ -68,6 +68,12 @@ ESL（英語を第二言語として学ぶ）の授業で課されるパラグ�
 - **AI案を残す**（2026-11-11。`docs/plans/archive/keep-ai-ideas.md`・`docs/plans/archive/sqlite-storage.md`）: 「AI案」の 3 つ（テーマの候補・理由と例の候補・アウトラインの指摘）は、
   `/api/ai/*` に `id` を付けて呼び、**AI の呼び出しが終わったらサーバがパラグラフごとに最新の 1 回分を DB に書く**（画面を離れていても残る）。開いたら `GET /api/paragraphs/:id/ai` で描き直し、
   出したときの入力（テーマ・条件・アウトライン）と今が違えば知らせる（`isIdeasStale`・`isOutlineReviewStale`）。呼び出し中に画面を離れて戻ったときは、ブラウザのメモリに持った Promise の終わりを待って描く（`src/browser/ideas-pane.ts`）
+- **AI案に質問する**（2026-11-11。`docs/plans/archive/ai-followup-questions.md`）: 「AI案」の 3 つの結果の下に質問の欄（`src/browser/ai-questions.ts`）。返ってきた結果について日本語で聞ける（Ctrl+Enter でも送れる）
+  - 答えは**日本語で、英文・直した項目・書き換えた案は出さない**（「英語で書いて」と頼まれても断ってヒントで答える）。テーマの候補への質問だけ、問いの英単語の意味の説明に短い語句は使ってよい。
+    長さは字数ではなく形で決めさせる（本文 2〜4 文・箇条書き 3 つまで・最初の 1 文で答える。上限 800 字。プロンプトは `src/ai/questions.ts`）
+  - 送るのは、その種類の保存してある結果と出したときの入力・それまでの質問と答え・今回の質問（**サーバが DB から読んで組む**。下書きは送らない）。モデルは AI案と同じで effort `medium`
+  - 続けて聞ける（前のやりとりも送る）。1 つの AI案に **10 回まで**。質問と答えは DB の `ai_questions` に残し、**AI案を出し直すとその種類の質問は消える**。
+    答えを待つ間に AI案が出し直されたら、話がずれるので残さず 409 `result_changed`。呼び出し中に画面を離れて戻ると「答えています…」の続きから出る
 - **表現集から下書きへの挿入**（2026-11-08 実装。`docs/plans/archive/insert-phrase.md`）: 右ペインの表現集の表現を押すと、下書き（STEP 3）を開いていれば本文のカーソルの位置に入る（前後の空白は `src/shared/insert.ts`、Ctrl+Z で戻せる）。下書き以外では知らせるだけ。学習ガイド画面では押せない
 
 ### 画面構成
@@ -102,6 +108,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
   - `stages(paragraph_id, stage, text, version, updated_at)`: 段階（課題・アウトライン・下書き）の本文。段階ごとに 1 行
   - `feedbacks(paragraph_id, json, updated_at)`: AI の採点の最新の結果（形は `src/shared/feedback.ts`）
   - `ai_results(paragraph_id, kind, json, created_at)`: AI案（`themes` / `ideas` / `outline`）の最新の 1 回分と、出したときの入力（形は `src/shared/ideas.ts` の `SavedAiResults`）
+  - `ai_questions(paragraph_id, kind, seq, question, answer, created_at)`: AI案への質問と答え（版 2 で足した。AI案を出し直すとその種類の行を消す）
 - **競合の判定**: 段階の `rev` は保存のたびに 1 増える `version` の文字列。`rev` が合わなければ上書きせず 409（タブを 2 つ開いて書いたとき）。
   `rev` が null の保存は「まだ無いときだけ作る」
 - **削除は印を付けるだけ**（`deleted_at`）。一覧にも読み込みにも出さず、同じ id は使い回さない。戻すときは SQL で `deleted_at` を NULL にする
@@ -140,7 +147,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
   - 認証は付けないので、`127.0.0.1`（と `::1`）だけで待ち受ける
   - **開く名前は `http://esl-writing.localhost:3016`**（2026-11-08。project-manager の `project-manager.localhost:8200` にならう）。`*.localhost` はブラウザが自分の PC に向けるので設定は要らない。`127.0.0.1:3016` でも開ける
   - **安全チェック**（`src/server/guard.ts`。project-manager の `guard.ts` と同じ考え方）: Host が `127.0.0.1` / `localhost` / `esl-writing.localhost` のこのポートのときだけ受ける（DNS rebinding 対策）、Origin があれば同じオリジンだけ、書き込みは `X-ESL-Request: 1` と JSON が必須。CSP はインラインのスクリプト・スタイルを許さない
-  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`。無いパラグラフは 404 `not_found`。一覧の各項目には課題のテーマ `theme` を足す。AI の採点は `GET/POST /api/paragraphs/:id/feedback`、アイデア出しは `POST /api/ai/themes`・`POST /api/ai/ideas`、アウトラインの指摘は `POST /api/ai/outline`、保存した AI案は `GET /api/paragraphs/:id/ai`（下書きが空 400 `empty_draft`・キーが無い 503 `ai_not_configured`・拒否 422 `ai_refusal`・API の失敗 502 `ai_error`）
+  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`。無いパラグラフは 404 `not_found`。一覧の各項目には課題のテーマ `theme` を足す。AI の採点は `GET/POST /api/paragraphs/:id/feedback`、アイデア出しは `POST /api/ai/themes`・`POST /api/ai/ideas`、アウトラインの指摘は `POST /api/ai/outline`、保存した AI案（質問と答えも）は `GET /api/paragraphs/:id/ai`、AI案への質問は `POST /api/paragraphs/:id/ai/:kind/questions`（`bad_question`・`no_result`・`too_many_questions` は 400、`result_changed` は 409）（下書きが空 400 `empty_draft`・キーが無い 503 `ai_not_configured`・拒否 422 `ai_refusal`・API の失敗 502 `ai_error`）
   - Dropbox のトークン類（バックアップ用）と API キーは `.env` に置き、`node --env-file-if-exists=.env` で読む（daily-note と同じ）。`node:sqlite` の試験段階の警告は `--disable-warning=ExperimentalWarning` で消す（`run-server.sh`・`npm start`・`npm test`）
 - **画面**: ブラウザ側の素の TypeScript で描く 1 ページ（一覧・編集・学習ガイドを切り替える）。フレームワークは使わず、esbuild で束ねる
   - 画面の切り替えは URL のハッシュ（`#/` = 一覧、`#/p/<id>/<stage>` = 編集、`#/guide` = 学習ガイド、`#/review` = 振り返り。`src/shared/route.ts`）。サーバが返すページは `/` だけ
@@ -156,7 +163,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 ### コードの置き場所
 
 - `src/config.ts`（環境変数）/ `src/log.ts`（トークンを伏せるログ）/ `src/dropbox/client.ts`（Dropbox API。daily-note から移植）
-- `src/ai/`: AI（`scoring.ts` = 採点、`ideas.ts` = アイデア出し・`outline-review.ts` = アウトラインの指摘のプロンプト・出力のスキーマと検証の純関数、`client.ts` = SDK の呼び出し（共通）、`errors.ts`）
+- `src/ai/`: AI（`scoring.ts` = 採点、`ideas.ts` = アイデア出し・`outline-review.ts` = アウトラインの指摘・`questions.ts` = AI案への質問のプロンプト・出力のスキーマと検証の純関数、`client.ts` = SDK の呼び出し（共通）、`errors.ts`）
 - `src/paragraphs/`: 保存層。`database.ts`（DB を開く・表）、`store.ts`（一覧・段階の読み書き・作成・削除・採点・AI案。競合は `StageConflictError`）、`naming.ts`、`backup.ts`（Dropbox へのバックアップ）
 - `src/server/`: `server.ts`（HTTP サーバ・画面のファイル）、`api.ts`（JSON API）、`guard.ts`（安全チェック・CSP）。起動は `src/main.ts`
 - `src/shared/`: サーバとブラウザで共有する型と定数（`types.ts`）、画面の切り替え（`route.ts`）、課題の書式（`assignment.ts`）、自動保存（`autosave.ts`）、タイルの状態の行（`stage-summary.ts`）、アウトライン（`outline.ts`・`mindmap-layout.ts`。daily-note から移植）。Node にも DOM にも依存しない

@@ -25,7 +25,7 @@ import { errorText, formatDate, formatTime } from './ui.js'
  *   （開いたら `readAiResults` で描き直す。`docs/plans/archive/sqlite-storage.md`）。出したときの入力と今が違えば知らせる
  * - 呼び出し中に画面を離れて戻ったときは、続きの「考えています…」を出して終わったら描く（呼び出し中の Promise は
  *   このモジュールにパラグラフごとに持つ。結果はサーバが保存するので、戻らなくても失われない）
- * - 各結果の下に「質問する」欄（`ai-questions.ts`。`docs/plans/ai-followup-questions.md`）。出し直すと質問は消える
+ * - 各結果の下に「質問する」欄（`ai-questions.ts`。`docs/plans/archive/ai-followup-questions.md`）。出し直すと質問は消える
  */
 
 export interface IdeasPanelOptions {

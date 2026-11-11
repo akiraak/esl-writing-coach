@@ -9,7 +9,7 @@ import { h, replace } from './dom.js'
 import { errorText } from './ui.js'
 
 /**
- * AI案の結果の下の「質問する」欄（`docs/plans/ai-followup-questions.md`）。右ペインの「AI案」の 3 つの欄で使う。
+ * AI案の結果の下の「質問する」欄（`docs/plans/archive/ai-followup-questions.md`）。右ペインの「AI案」の 3 つの欄で使う。
  *
  * - それまでの質問（右寄せ）と答え（左）を並べ、その下に質問の欄。Ctrl+Enter でも送れる
  * - 答えはサーバが保存する。呼び出し中に画面を離れて戻ったときは、このモジュールに持った Promise の終わりを待って描く

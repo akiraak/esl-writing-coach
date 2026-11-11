@@ -210,7 +210,7 @@ function questionContext(saved: SavedAiResults, kind: AiKind): QuestionContext |
   }
 }
 
-/** AI案への質問に答え、保存して返す（`docs/plans/ai-followup-questions.md`）。 */
+/** AI案への質問に答え、保存して返す（`docs/plans/archive/ai-followup-questions.md`）。 */
 async function askQuestion(
   id: string,
   rawKind: string,
