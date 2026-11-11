@@ -213,7 +213,9 @@ export function renderEdit(
   function renderBody(): void {
     if (editors === null) return
     clearBody()
-    body.className = stage === 'outline' ? 'stage-body fill' : 'stage-body'
+    // アウトラインと下書きは高さを中央のペインに合わせ、図・本文の欄の中でスクロールさせる
+    body.className =
+      stage === 'outline' ? 'stage-body fill' : stage === 'draft' ? 'stage-body fit' : 'stage-body'
     const editor = editors[stage]
     if (stage === 'assignment') {
       renderAssignmentView(body, { text: editor.text, editor, onThemeChange: setTheme })
@@ -229,6 +231,7 @@ export function renderEdit(
         editor,
         assignment: parseAssignment(editors.assignment.text),
         outline: editors.outline.text,
+        exportButton: () => exportButton('書き出し →', 'btn pri next-step'),
       })
     }
   }
@@ -256,9 +259,10 @@ export function renderEdit(
   function renderFooter(): void {
     const index = STAGES.indexOf(stage)
     const next = STAGES[index + 1]
+    // 下書きは本文の欄を下いっぱいに使うので、「書き出し →」は下書きの画面の右の列（アウトラインのリストの下）に置く
+    center.classList.toggle('is-draft', next === undefined)
     if (next === undefined) {
-      // 最後の段階（下書き）は書き出し
-      replace(footer, exportButton('書き出し →', 'btn pri next-step'))
+      replace(footer)
       return
     }
     replace(

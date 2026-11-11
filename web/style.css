@@ -150,6 +150,8 @@ a { color: var(--brand); }
 .tile .lang.en { background: var(--brand); color: #fff; }
 .center { display: flex; flex-direction: column; min-width: 0; padding: 1rem 1.2rem 4rem; gap: .8rem; overflow: auto; }
 .center h2 { margin: 0; font-size: 17px; }
+/* 下書きは本文の欄を下いっぱいに使うので、下の余白を詰める（「書き出し →」は右の列。docs/plans/archive/draft-paper.md） */
+.center.is-draft { padding-bottom: 1rem; }
 .banner:empty { display: none; }
 /* 次のステップへ（中央のペインの一番下・右寄せ） */
 .stage-next { display: flex; justify-content: flex-end; padding-top: .4rem; }
@@ -200,6 +202,8 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
    アウトラインだけは高さを決めて、図の中でスクロールさせる（中身の大きさで伸ばすと図が枠からはみ出す） */
 .stage-body { flex: 1 0 auto; display: flex; flex-direction: column; }
 .stage-body.fill { flex: 1 1 0; min-height: 480px; }
+/* 下書き: 高さを中央のペインに合わせる。中身の最低の高さ（メーター・課題の帯・本文の欄の 360px）より低くはしない */
+.stage-body.fit { flex: 1 1 0; min-height: auto; }
 .outline-view { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .6rem; }
 .outline-legend { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; font-size: 12.5px; color: var(--soft); }
 .outline-legend b { color: var(--ink); margin-right: .25rem; }
@@ -284,14 +288,42 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .draft-warn { margin: 0; color: var(--danger); font-size: 12.5px; font-weight: 600; }
 .draft-warn:empty { display: none; }
 .work { flex: 1; display: grid; grid-template-columns: 1fr 250px; gap: .8rem; min-height: 360px; }
+/* 右の列: アウトラインのリスト（残りの高さ）と、その下に「書き出し →」 */
+.work-side { display: flex; flex-direction: column; gap: .8rem; min-height: 0; }
+.work-side .struct { flex: 1; }
+.work-side .next-step { align-self: flex-end; }
+/* 本文の欄。紙のノートのような横罫を背景に敷く（daily-note と同じ作り。要素を重ねないので本文・選択・IME・挿入に触らない）
+   - 罫線の間隔は 1 行の高さそのもの（--paper-row）。端数があると行ごとにずれるので整数 px（17px × 1.95 ≒ 33px）
+   - local: 本文と一緒にスクロールさせる（Firefox は効かないので下の @supports と draft.ts の followRules）
+   - origin が content-box: 1 行目の頭から数える。no-repeat と高さ: 上と左右の余白には引かない
+   - clip が padding-box: 下の余白（--paper-tail。行の高さの倍数）にも続ける。模様は 1 行ぶん長く取り、端は clip に切らせる */
 .paper {
-  width: 100%; height: 100%; min-height: 360px; resize: none; background: var(--card); border-radius: 14px; box-shadow: var(--shadow);
-  border: 1px solid transparent; padding: 1.1rem 1.3rem; color: var(--ink);
-  font-family: var(--serif); font-size: 17px; line-height: 1.95;
+  --paper-row: 33px;
+  --paper-tail: calc(3 * var(--paper-row));
+  --paper-rule: #e8e1d2;
+  width: 100%; height: 100%; min-height: 360px; resize: none; border-radius: 14px; box-shadow: var(--shadow);
+  border: 1px solid transparent; padding: 1.1rem 1.3rem var(--paper-tail); color: var(--ink);
+  font-family: var(--serif); font-size: 17px; line-height: var(--paper-row);
+  background-color: var(--card);
+  background-image: repeating-linear-gradient(to bottom,
+    transparent 0, transparent calc(var(--paper-row) - 1px),
+    var(--paper-rule) calc(var(--paper-row) - 1px), var(--paper-rule) var(--paper-row));
+  background-attachment: local;
+  background-repeat: no-repeat;
+  background-size: 100% calc(100% + var(--paper-tail) + var(--paper-row));
+  background-origin: content-box;
+  background-clip: padding-box;
+}
+@supports (-moz-appearance: none) {
+  .paper {
+    background-attachment: scroll;
+    background-position: 0 calc(-1px * var(--rule-scroll, 0));
+    background-size: 100% var(--rule-h, calc(100% + var(--paper-tail) + var(--paper-row)));
+  }
 }
 .paper:focus { outline: none; border-color: var(--brand); }
 .paper::placeholder { color: var(--faint); }
-/* 本文の欄と同じ高さ（モックと同じ）。中身の長さで欄ごと伸ばさないよう contain: size にして、長ければ中でスクロール */
+/* 本文の欄の高さに収める（「書き出し →」の分を引いた残り）。中身の長さで欄ごと伸ばさないよう contain: size にして、長ければ中でスクロール */
 .struct { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: .8rem .8rem 1rem; font-size: 12.5px; overflow: auto; contain: size; }
 .struct h4 { margin: 0 0 .55rem; font-size: 11px; color: var(--faint); letter-spacing: .06em; display: flex; justify-content: space-between; }
 .struct h4 span { letter-spacing: 0; font-weight: 400; }

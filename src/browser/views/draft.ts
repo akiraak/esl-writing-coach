@@ -14,7 +14,8 @@ import { assignmentBrief } from './brief.js'
  * STEP 3 下書き・推敲（`draft.txt`。英語のみ）。モックの編集画面（`decided.html`）。
  *
  * - 上: 語数・文数のメーター（課題の指定の幅を帯で示す）と課題の帯。日本語が混じっていれば注意
- * - 下: 本文の欄と、右にアウトラインを構成の役割の色で並べたリスト（見るだけ。役割は `outline-roles.ts`）
+ * - 下: 本文の欄と、右にアウトラインを構成の役割の色で並べたリスト（見るだけ。役割は `outline-roles.ts`）と「書き出し →」
+ * - 本文の欄は画面の下いっぱいまで使い、紙のノートのような横罫を背景に敷く（`docs/plans/archive/draft-paper.md`）
  */
 
 export interface DraftViewOptions {
@@ -23,6 +24,8 @@ export interface DraftViewOptions {
   assignment: Assignment
   /** 手元の最新のアウトライン（字下げのテキスト）。 */
   outline: string
+  /** 「書き出し →」（右の列のアウトラインのリストの下に置く。本文の欄を画面の下いっぱいに使うため）。 */
+  exportButton(): HTMLElement
 }
 
 function meterBox(unit: string, range: CountRange) {
@@ -97,7 +100,32 @@ function insertAtCursor(paper: HTMLTextAreaElement, phrase: string): void {
   }
 }
 
-/** 描いて、片付けの関数を返す（表現集から入れる先の登録を外す）。 */
+/**
+ * 罫線をスクロールに追従させる（Firefox 向け。daily-note の `followRules` と同じ）。Firefox は textarea の背景に
+ * `background-attachment: local` を効かせないので、CSS（`@supports` で Firefox だけ）がこの 2 つで背景を動かす。
+ * ほかのブラウザでは CSS が使わないので、値を置くだけで見た目は変わらない。片付けの関数を返す。
+ */
+function followRules(paper: HTMLTextAreaElement): () => void {
+  const update = () => {
+    const style = getComputedStyle(paper)
+    const top = Number.parseFloat(style.paddingTop) || 0
+    const row = Number.parseFloat(style.lineHeight) || 0
+    paper.style.setProperty('--rule-scroll', String(paper.scrollTop))
+    // 模様の高さ = 本文の頭から下の余白の下端まで + 1 行（端は clip に切らせる）
+    paper.style.setProperty('--rule-h', `${paper.scrollHeight - top + row}px`)
+  }
+  paper.addEventListener('scroll', update)
+  paper.addEventListener('input', update)
+  const observer = new ResizeObserver(update)
+  observer.observe(paper)
+  return () => {
+    paper.removeEventListener('scroll', update)
+    paper.removeEventListener('input', update)
+    observer.disconnect()
+  }
+}
+
+/** 描いて、片付けの関数を返す（表現集から入れる先の登録と、罫線の追従を外す）。 */
 export function renderDraftView(container: HTMLElement, options: DraftViewOptions): () => void {
   const { assignment } = options
   const words = meterBox('語', assignment.words)
@@ -133,8 +161,22 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
       h('div', { class: 'meters' }, words.box, sentences.box),
       warn,
       assignmentBrief(options.id, assignment),
-      h('div', { class: 'work' }, paper, outlineList(options.id, options.outline)),
+      h(
+        'div',
+        { class: 'work' },
+        paper,
+        h(
+          'div',
+          { class: 'work-side' },
+          outlineList(options.id, options.outline),
+          options.exportButton(),
+        ),
+      ),
     ),
   )
-  return unregister
+  const stopRules = followRules(paper)
+  return () => {
+    unregister()
+    stopRules()
+  }
 }
