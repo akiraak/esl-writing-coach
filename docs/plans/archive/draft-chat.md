@@ -123,23 +123,4 @@ Phase 1〜4 を実装した。
 - **Phase 4**: 本物の API を 5 回（1 回 2〜5 秒）。語の違い（例文つき）・「2 文目の動詞は合っている？」（聞かれた文だけ直した形を出す）・concluding sentence の例・
   「今のところどう？」（全体は書き直さず 3 点に絞る）・関係ない質問（ここでは扱わないと伝える）。どれも日本語の説明で 120〜380 字。プロンプトは直していない
 
-## Phase 5 の残り（CLAUDE.md に書く内容の案）
-
-CLAUDE.md は別のセッションからの依頼では書き換えないので、ここに案を置く。入れたらこのプランを `docs/plans/archive/` へ、`TODO.md` の項目を `DONE.md` へ。
-
-「後で足すもの」に足す:
-
-```markdown
-- **AI に質問**（2026-11-11。`docs/plans/archive/draft-chat.md`）: 右ペイン（AI）の「AI に質問」のカード（STEP 3 でいちばん上。`src/browser/draft-chat-pane.ts`）。下書きを書いている途中に、語・文法・表現・自分の下書き・書き方について日本語で自由に聞ける
-  - 答えは日本語で短く（本文 2〜4 文・箇条書き 3 つまで）。**英語は制限しない: 直した文・書き換えた文・例文も出る**（2026-11-11 ユーザーの決定）。
-    ほかの AI（採点・AI案・AI案への質問）の「直した文は出さない」は変えず、**この「AI に質問」だけの例外**。頼まれていないのに下書き全体を書き直したりはしない（プロンプトは `src/ai/draft-chat.ts`）
-  - 送るのは、保存されている下書き・課題・アプリが数えた語数と文数・それまでの質問と答え・今回の質問（**サーバが DB から読んで組む**。押したら手元の未保存を保存し終えてから。アウトライン・AI案は送らない）。下書きが空でも聞ける。モデルは AI案と同じで effort `medium`
-  - 続けて聞ける（前のやりとりも送る）。**30 回まで**。DB の `draft_questions` に残し、「はじめから」で消して聞き直せる。答えを待つ間にやりとりが変わったら残さず 409 `chat_changed`
-```
-
-ほかに直すところ:
-
-- 「画面構成」の右ペイン: STEP 3 = **AI に質問・採点**（採点の結果は 2 つ目なので畳む）
-- 「データ保存」の表: `draft_questions(paragraph_id, seq, question, answer, created_at)`: STEP 3 の「AI に質問」のやりとり（版 3 で足した）
-- 「技術スタック」の API: `POST` / `DELETE /api/paragraphs/:id/draft/questions`（`bad_question`・`too_many_questions` は 400、`chat_changed` は 409）、`GET /api/paragraphs/:id/ai` に `draftQuestions`
-- 「コードの置き場所」: `src/ai/` に `draft-chat.ts`、`src/browser/` に `draft-chat-pane.ts`
+- **Phase 5**: ユーザーの依頼で `CLAUDE.md` を更新した（「後で足すもの」に「AI に質問」、右ペインの並び・表・API・コードの置き場所）。このプランを archive へ、`TODO.md` の項目を `DONE.md` へ

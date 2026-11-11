@@ -75,6 +75,12 @@ ESL（英語を第二言語として学ぶ）の授業で課されるパラグ�
   - 送るのは、その種類の保存してある結果と出したときの入力・それまでの質問と答え・今回の質問（**サーバが DB から読んで組む**。下書きは送らない）。モデルは AI案と同じで effort `medium`
   - 続けて聞ける（前のやりとりも送る）。1 つの AI案に **10 回まで**。質問と答えは DB の `ai_questions` に残し、**AI案を出し直すとその種類の質問は消える**。
     答えを待つ間に AI案が出し直されたら、話がずれるので残さず 409 `result_changed`。呼び出し中に画面を離れて戻ると「答えています…」の続きから出る
+- **AI に質問**（2026-11-11。`docs/plans/archive/draft-chat.md`）: 右ペイン（AI）の「AI に質問」のカード（STEP 3 でいちばん上。`src/browser/draft-chat-pane.ts`）。下書きを書いている途中に、語・文法・表現・自分の下書き・書き方について日本語で自由に聞ける
+  - 答えは日本語で短く（本文 2〜4 文・箇条書き 3 つまで。目安 800 字、4000 字を超えたら受け取らない）。**英語は制限しない: 直した文・書き換えた文・例文も出る**（2026-11-11 ユーザーの決定）。
+    ほかの AI（採点・AI案・AI案への質問）の「直した文は出さない」は変えず、**この「AI に質問」だけの例外**。頼まれていないのに下書き全体を書き直したりはしない（プロンプトは `src/ai/draft-chat.ts`）
+  - 送るのは、保存されている下書き・課題・アプリが数えた語数と文数・それまでの質問と答え・今回の質問（**サーバが DB から読んで組む**。押したら手元の未保存を保存し終えてから。アウトライン・AI案は送らない）。下書きが空でも聞ける。モデルは AI案と同じで effort `medium`
+  - 続けて聞ける（前のやりとりも送る）。**30 回まで**。DB の `draft_questions` に残し、「はじめから」（確認つき）で消して聞き直せる。答えを待つ間にやりとりが変わったら（はじめからにした・別のタブで聞いた）残さず 409 `chat_changed`。
+    質問の欄は AI案への質問と同じ部品（`src/browser/ai-questions.ts` の `createQuestionBoxWith` で送り先・上限・文言を差し替える）
 - **表現集から下書きへの挿入**（2026-11-08 実装。`docs/plans/archive/insert-phrase.md`）: 学習ガイドの引き出しの表現集の表現を押すと、本文のカーソルの位置に入る（前後の空白は `src/shared/insert.ts`、Ctrl+Z で戻せる）。押せるのは下書き（STEP 3）を開いているときだけで、ほかの段階では見るだけの形。学習ガイド画面では押せない
 
 ### 画面構成
@@ -87,7 +93,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
   - 左 = 段階のタイル（STEP 1〜3。各段階の状態と「日本語可 / 英語のみ」の印）
   - 中央 = 選んだ段階の編集欄。一番下に「STEP 2 アウトラインへ →」のような次のステップへのボタン（2026-11-08 要望）。STEP 3 は本文の欄を下いっぱいに使うので、「書き出し →」は本文の右の列のアウトラインのリストの下（2026-11-11）。アウトラインでは上に課題のテーマと条件の帯。下書きでは、上に語数・文数のメーター（課題の指定の幅を示す）と課題の条件、本文（紙のノートのような横罫）の右にアウトラインを**構成の役割の色で並べたリスト**（見るだけ）
   - 右 = AI（2026-11-11 に見直し。`docs/plans/archive/right-pane-layout.md`。`src/browser/ai-pane.ts`）。タブは無く、「STEP n ○○で使う AI」として**今の段階で使う機能のカードを上に**
-    （STEP 1 = テーマの候補・理由と例の候補、STEP 2 = アウトラインの指摘・理由と例の候補、STEP 3 = 採点。`src/shared/ai-tools.ts`）、ほかの段階の機能は下の「ほかの段階の AI」に畳んで残す（名前・使う段階・出した日時）。
+    （STEP 1 = テーマの候補・理由と例の候補、STEP 2 = アウトラインの指摘・理由と例の候補、STEP 3 = AI に質問・採点（採点の結果は 2 つ目なので「採点の結果を見る（n 点）」に畳む。押して採点したら開く）。`src/shared/ai-tools.ts`）、ほかの段階の機能は下の「ほかの段階の AI」に畳んで残す（名前・使う段階・出した日時）。
     段階を移ってもカードは作り直さず並べ替えるだけ。カードには「送るもの」を出す。AI案への質問は最新の 1 往復だけを出し、前のものは「前の質問（n）」に畳む
   - 右ペインの幅は左端の境をドラッグで 300〜560px（狭い画面では中央が 560px 残るまで上限を下げる）。ダブルクリックで 340px、← → で 20px。ブラウザに覚える（`src/browser/pane-resizer.ts`・`src/shared/side-pane.ts`）
   - **学習ガイドの引き出し**: 学習ガイドの中身はパラグラフにも段階にもよらないので、右ペインのタブにはせずヘッダの「学習ガイド」にまとめた。
@@ -116,6 +122,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
   - `feedbacks(paragraph_id, json, updated_at)`: AI の採点の最新の結果（形は `src/shared/feedback.ts`）
   - `ai_results(paragraph_id, kind, json, created_at)`: AI案（`themes` / `ideas` / `outline`）の最新の 1 回分と、出したときの入力（形は `src/shared/ideas.ts` の `SavedAiResults`）
   - `ai_questions(paragraph_id, kind, seq, question, answer, created_at)`: AI案への質問と答え（版 2 で足した。AI案を出し直すとその種類の行を消す）
+  - `draft_questions(paragraph_id, seq, question, answer, created_at)`: STEP 3 の「AI に質問」のやりとり（版 3 で足した。「はじめから」でそのパラグラフの行を消す）
 - **競合の判定**: 段階の `rev` は保存のたびに 1 増える `version` の文字列。`rev` が合わなければ上書きせず 409（タブを 2 つ開いて書いたとき）。
   `rev` が null の保存は「まだ無いときだけ作る」
 - **削除は印を付けるだけ**（`deleted_at`）。一覧にも読み込みにも出さず、同じ id は使い回さない。戻すときは SQL で `deleted_at` を NULL にする
@@ -154,7 +161,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
   - 認証は付けないので、`127.0.0.1`（と `::1`）だけで待ち受ける
   - **開く名前は `http://esl-writing.localhost:3016`**（2026-11-08。project-manager の `project-manager.localhost:8200` にならう）。`*.localhost` はブラウザが自分の PC に向けるので設定は要らない。`127.0.0.1:3016` でも開ける
   - **安全チェック**（`src/server/guard.ts`。project-manager の `guard.ts` と同じ考え方）: Host が `127.0.0.1` / `localhost` / `esl-writing.localhost` のこのポートのときだけ受ける（DNS rebinding 対策）、Origin があれば同じオリジンだけ、書き込みは `X-ESL-Request: 1` と JSON が必須。CSP はインラインのスクリプト・スタイルを許さない
-  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`。無いパラグラフは 404 `not_found`。一覧の各項目には課題のテーマ `theme` を足す。AI の採点は `GET/POST /api/paragraphs/:id/feedback`、アイデア出しは `POST /api/ai/themes`・`POST /api/ai/ideas`、アウトラインの指摘は `POST /api/ai/outline`、保存した AI案（質問と答えも）は `GET /api/paragraphs/:id/ai`、AI案への質問は `POST /api/paragraphs/:id/ai/:kind/questions`（`bad_question`・`no_result`・`too_many_questions` は 400、`result_changed` は 409）（下書きが空 400 `empty_draft`・キーが無い 503 `ai_not_configured`・拒否 422 `ai_refusal`・API の失敗 502 `ai_error`）
+  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`。無いパラグラフは 404 `not_found`。一覧の各項目には課題のテーマ `theme` を足す。AI の採点は `GET/POST /api/paragraphs/:id/feedback`、アイデア出しは `POST /api/ai/themes`・`POST /api/ai/ideas`、アウトラインの指摘は `POST /api/ai/outline`、保存した AI案（質問と答え、「AI に質問」のやりとり `draftQuestions` も）は `GET /api/paragraphs/:id/ai`、AI案への質問は `POST /api/paragraphs/:id/ai/:kind/questions`（`bad_question`・`no_result`・`too_many_questions` は 400、`result_changed` は 409）、STEP 3 の「AI に質問」は `POST /api/paragraphs/:id/draft/questions`（`bad_question`・`too_many_questions` は 400、`chat_changed` は 409）と `DELETE`（はじめから）（下書きが空 400 `empty_draft`・キーが無い 503 `ai_not_configured`・拒否 422 `ai_refusal`・API の失敗 502 `ai_error`）
   - Dropbox のトークン類（バックアップ用）と API キーは `.env` に置き、`node --env-file-if-exists=.env` で読む（daily-note と同じ）。`node:sqlite` の試験段階の警告は `--disable-warning=ExperimentalWarning` で消す（`run-server.sh`・`npm start`・`npm test`）
 - **画面**: ブラウザ側の素の TypeScript で描く 1 ページ（一覧・編集・学習ガイドを切り替える）。フレームワークは使わず、esbuild で束ねる
   - 画面の切り替えは URL のハッシュ（`#/` = 一覧、`#/p/<id>/<stage>` = 編集、`#/guide` = 学習ガイド、`#/review` = 振り返り。`src/shared/route.ts`）。サーバが返すページは `/` だけ
@@ -170,11 +177,11 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 ### コードの置き場所
 
 - `src/config.ts`（環境変数）/ `src/log.ts`（トークンを伏せるログ）/ `src/dropbox/client.ts`（Dropbox API。daily-note から移植）
-- `src/ai/`: AI（`scoring.ts` = 採点、`ideas.ts` = アイデア出し・`outline-review.ts` = アウトラインの指摘・`questions.ts` = AI案への質問のプロンプト・出力のスキーマと検証の純関数、`client.ts` = SDK の呼び出し（共通）、`errors.ts`）
+- `src/ai/`: AI（`scoring.ts` = 採点、`ideas.ts` = アイデア出し・`outline-review.ts` = アウトラインの指摘・`questions.ts` = AI案への質問・`draft-chat.ts` = STEP 3 の「AI に質問」のプロンプト・出力のスキーマと検証の純関数、`client.ts` = SDK の呼び出し（共通）、`errors.ts`）
 - `src/paragraphs/`: 保存層。`database.ts`（DB を開く・表）、`store.ts`（一覧・段階の読み書き・作成・削除・採点・AI案。競合は `StageConflictError`）、`naming.ts`、`backup.ts`（Dropbox へのバックアップ）
 - `src/server/`: `server.ts`（HTTP サーバ・画面のファイル）、`api.ts`（JSON API）、`guard.ts`（安全チェック・CSP）。起動は `src/main.ts`
 - `src/shared/`: サーバとブラウザで共有する型と定数（`types.ts`）、画面の切り替え（`route.ts`）、課題の書式（`assignment.ts`）、自動保存（`autosave.ts`）、タイルの状態の行（`stage-summary.ts`）、アウトライン（`outline.ts`・`mindmap-layout.ts`。daily-note から移植）。Node にも DOM にも依存しない
-- `src/browser/`: 画面（`main.ts`・`api.ts`・`dom.ts`・`stage-editor.ts`・`ai-pane.ts`（編集画面の右ペイン = AI のカードの並べ方）・`ideas-pane.ts`・`feedback-pane.ts`（AI のカード）・`guide-pane.ts`（学習ガイドの引き出し）・`pane-resizer.ts`（右ペインの幅）・`map.ts`（マインドマップ）・`views/`）。`tsconfig.web.json` で型チェックし、esbuild で `dist/browser/app.js` に束ねる
+- `src/browser/`: 画面（`main.ts`・`api.ts`・`dom.ts`・`stage-editor.ts`・`ai-pane.ts`（編集画面の右ペイン = AI のカードの並べ方）・`ideas-pane.ts`・`draft-chat-pane.ts`・`feedback-pane.ts`（AI のカード）・`ai-questions.ts`（質問の欄）・`guide-pane.ts`（学習ガイドの引き出し）・`pane-resizer.ts`（右ペインの幅）・`map.ts`（マインドマップ）・`views/`）。`tsconfig.web.json` で型チェックし、esbuild で `dist/browser/app.js` に束ねる
 - `web/`: `index.html`（外枠）と `style.css`（決定版のデザインの色・フォントを CSS 変数に）
 - `src/scripts/`: `db-backup.ts`（今すぐバックアップ）
 - `test/`: `node --test`。DB は `:memory:`、Dropbox は偽の `fetch` / 偽のクライアントに差し替え、実 API は叩かない
