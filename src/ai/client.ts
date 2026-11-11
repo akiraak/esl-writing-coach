@@ -21,6 +21,13 @@ import {
   parseOutlineReview,
 } from './outline-review.js'
 import {
+  buildQuestionPrompt,
+  parseAnswer,
+  QUESTION_SCHEMA,
+  QUESTION_SYSTEM,
+  type QuestionInput,
+} from './questions.js'
+import {
   buildUserPrompt,
   OUTPUT_SCHEMA,
   parseScoringOutput,
@@ -30,7 +37,7 @@ import {
 } from './scoring.js'
 
 /**
- * Anthropic API の呼び出し（採点・アイデア出し。`docs/plans/archive/ai-scoring.md`・`ai-ideas.md`）。
+ * Anthropic API の呼び出し（採点・アイデア出し・AI案への質問。`docs/plans/archive/ai-scoring.md`・`ai-ideas.md`・`docs/plans/ai-followup-questions.md`）。
  *
  * - モデルは Claude Opus 5.5。採点は effort `high`（ぶれを抑える）、アイデア出しは `medium`（速さを取る）
  * - 出力は構造化出力（JSON スキーマ）。拒否されたら別のモデルでやり直す（サーバ側の `fallbacks: "default"`）。
@@ -54,6 +61,8 @@ export interface Ai {
   suggestIdeas(input: IdeasInput): Promise<IdeaSuggestions>
   /** アウトラインへの指摘（ヒントだけ）。 */
   reviewOutline(input: OutlineReviewInput): Promise<OutlineReview>
+  /** AI案の結果への質問に、日本語で答える（英文・直した項目は出さない）。 */
+  answerQuestion(input: QuestionInput): Promise<string>
 }
 
 function describeApiError(error: unknown): string {
@@ -148,6 +157,15 @@ export function createAi(apiKey: string): Ai {
         effort: 'medium',
       })
       return parseOutlineReview(text, input.outline)
+    },
+    async answerQuestion(input) {
+      const { text } = await callJson({
+        system: QUESTION_SYSTEM,
+        user: buildQuestionPrompt(input),
+        schema: QUESTION_SCHEMA,
+        effort: 'medium',
+      })
+      return parseAnswer(text)
     },
   }
 }

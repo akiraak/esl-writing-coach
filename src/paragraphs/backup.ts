@@ -5,7 +5,7 @@ import { describeError, log } from '../log.js'
 import { readMeta, writeMeta } from './database.js'
 
 /**
- * DB を Dropbox にバックアップする（`docs/plans/sqlite-storage.md` の Phase 4）。**同期ではなくバックアップだけ**。
+ * DB を Dropbox にバックアップする（`docs/plans/archive/sqlite-storage.md` の Phase 4）。**同期ではなくバックアップだけ**。
  *
  * - `VACUUM INTO` で DB を 1 ファイルにして、`<保存先>/backups/esl-writing-YYYY-MM-DD.db` に上げる（1 日 1 ファイル。同じ日は上書き）
  * - サーバは起動時と 1 時間ごとに、**前のバックアップから DB が変わっていれば**上げる
@@ -40,6 +40,7 @@ export function dataStamp(db: DatabaseSync): string {
         SELECT max(updated_at) AS t FROM stages
         UNION ALL SELECT max(updated_at) FROM feedbacks
         UNION ALL SELECT max(created_at) FROM ai_results
+        UNION ALL SELECT max(created_at) FROM ai_questions
         UNION ALL SELECT max(coalesce(deleted_at, created_at)) FROM paragraphs
       )
     `)

@@ -35,6 +35,7 @@ const fakeAi = (methods: Partial<Ai>): Ai => ({
   suggestThemes: () => Promise.reject(new Error('suggestThemes は呼ばれないはず')),
   suggestIdeas: () => Promise.reject(new Error('suggestIdeas は呼ばれないはず')),
   reviewOutline: () => Promise.reject(new Error('reviewOutline は呼ばれないはず')),
+  answerQuestion: () => Promise.reject(new Error('answerQuestion は呼ばれないはず')),
   ...methods,
 })
 
@@ -374,7 +375,13 @@ describe('アイデア出しの API', () => {
       reviewOutline: async () => review,
     })
     const url = `${base}/api/paragraphs/${ID}/ai`
-    assert.deepEqual(await (await fetch(url)).json(), { themes: null, ideas: null, outline: null })
+    const noQuestions = { themes: [], ideas: [], outline: [] }
+    assert.deepEqual(await (await fetch(url)).json(), {
+      themes: null,
+      ideas: null,
+      outline: null,
+      questions: noQuestions,
+    })
     assert.equal((await post('themes', { id: ID, hint: '部活' })).status, 200)
     assert.equal((await post('ideas', { id: ID, theme: 'T', conditions: 'C' })).status, 200)
     assert.equal((await post('outline', { id: ID, theme: 'T', outline: '意見' })).status, 200)
@@ -383,6 +390,7 @@ describe('アイデア出しの API', () => {
       themes: { hint: '部活', themes: [{ en: 'Q?', ja: '問い' }], createdAt: at },
       ideas: { theme: 'T', conditions: 'C', ideas, createdAt: at },
       outline: { theme: 'T', conditions: '', outline: '意見', review, createdAt: at },
+      questions: noQuestions,
     }
     assert.deepEqual(await (await fetch(url)).json(), saved)
     // id が無ければ保存しない。形の違う id は 400（AI を呼ばない）
@@ -402,6 +410,95 @@ describe('アイデア出しの API', () => {
     assert.equal((await post('themes', { hint: 'x'.repeat(201) })).status, 400)
     assert.equal((await post('themes', { hint: 'x' })).status, 422)
     assert.equal((await fetch(`${base}/api/ai/themes`)).status, 405)
+  })
+})
+
+describe('AI案への質問の API', () => {
+  const ask = (kind: string, question: unknown) =>
+    fetch(`${base}/api/paragraphs/${ID}/ai/${kind}/questions`, {
+      method: 'POST',
+      headers: WRITE,
+      body: JSON.stringify({ question }),
+    })
+  const ideas = { sides: [] }
+  const saveIdeas = () =>
+    fetch(`${base}/api/ai/ideas`, {
+      method: 'POST',
+      headers: WRITE,
+      body: JSON.stringify({ id: ID, theme: 'T', conditions: 'C' }),
+    })
+  const errorOf = async (res: Response) => ((await res.json()) as { error: string }).error
+
+  it('保存してある AI案と前のやりとりを渡して答え、保存して返す。GET の questions にも出る', async () => {
+    const received: unknown[] = []
+    ai = fakeAi({
+      suggestIdeas: async () => ideas,
+      async answerQuestion(input) {
+        received.push(input)
+        return `答え${received.length}`
+      },
+    })
+    assert.equal((await saveIdeas()).status, 200)
+    const first = await ask('ideas', ' 理由 2 の意味は？ ')
+    assert.equal(first.status, 200)
+    assert.deepEqual(await first.json(), {
+      question: '理由 2 の意味は？',
+      answer: '答え1',
+      createdAt: '2026-11-08T01:00:00.000Z',
+    })
+    assert.equal((await ask('ideas', 'もっと具体的に？')).status, 200)
+    const at = '2026-11-08T03:00:00.000Z'
+    assert.deepEqual(received[1], {
+      context: { kind: 'ideas', saved: { theme: 'T', conditions: 'C', ideas, createdAt: at } },
+      history: [
+        { question: '理由 2 の意味は？', answer: '答え1', createdAt: '2026-11-08T01:00:00.000Z' },
+      ],
+      question: 'もっと具体的に？',
+    })
+    const got = (await (await fetch(`${base}/api/paragraphs/${ID}/ai`)).json()) as SavedAiResults
+    assert.deepEqual(
+      got.questions.ideas.map((q) => q.answer),
+      ['答え1', '答え2'],
+    )
+    assert.deepEqual(got.questions.themes, [])
+    // AI案を出し直すと、その種類の質問は消える
+    assert.equal((await saveIdeas()).status, 200)
+    const again = (await (await fetch(`${base}/api/paragraphs/${ID}/ai`)).json()) as SavedAiResults
+    assert.deepEqual(again.questions.ideas, [])
+  })
+
+  it('空・長すぎる質問、知らない種類、まだ無い AI案、キーが無いときは答えない', async () => {
+    assert.equal(await errorOf(await ask('ideas', '  ')), 'bad_question')
+    assert.equal(await errorOf(await ask('ideas', 'x'.repeat(1001))), 'bad_question')
+    assert.equal(await errorOf(await ask('scores', '何？')), 'bad_kind')
+    assert.equal((await ask('ideas', '何？')).status, 503)
+    ai = fakeAi({ suggestIdeas: async () => ideas })
+    assert.equal(await errorOf(await ask('ideas', '何？')), 'no_result')
+    assert.equal((await fetch(`${base}/api/paragraphs/${ID}/ai/ideas/questions`)).status, 405)
+  })
+
+  it('10 回までで、それを超えると 400 too_many_questions', async () => {
+    ai = fakeAi({ suggestIdeas: async () => ideas, answerQuestion: async () => 'a' })
+    await saveIdeas()
+    for (let i = 0; i < 10; i += 1) assert.equal((await ask('ideas', `q${i}`)).status, 200)
+    assert.equal(await errorOf(await ask('ideas', 'q10')), 'too_many_questions')
+  })
+
+  it('答えを待つ間に AI案が出し直されたら 409 result_changed で、質問は残さない', async () => {
+    ai = fakeAi({
+      suggestIdeas: async () => ideas,
+      async answerQuestion() {
+        store.saveAiResult(
+          ID,
+          'ideas',
+          JSON.stringify({ theme: 'T2', conditions: '', ideas, createdAt: 'later' }),
+        )
+        return 'a'
+      },
+    })
+    await saveIdeas()
+    assert.equal(await errorOf(await ask('ideas', 'q')), 'result_changed')
+    assert.deepEqual(store.readAiQuestions(ID).ideas, [])
   })
 })
 

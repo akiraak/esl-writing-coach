@@ -1,5 +1,7 @@
 import type { Feedback } from '../shared/feedback.js'
 import type {
+  AiKind,
+  AiQuestion,
   IdeaSuggestions,
   OutlineReview,
   SavedAiResults,
@@ -143,4 +145,17 @@ export async function reviewOutline(
       outline,
     })
   ).review
+}
+
+/** AI案の結果に質問する（答えはサーバが保存する）。失敗は `ApiError`（`code` が `too_many_questions` など）。 */
+export async function askAiQuestion(
+  id: string,
+  kind: AiKind,
+  question: string,
+): Promise<AiQuestion> {
+  return request<AiQuestion>(
+    'POST',
+    `/api/paragraphs/${encodeURIComponent(id)}/ai/${kind}/questions`,
+    { question },
+  )
 }

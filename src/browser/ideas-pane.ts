@@ -1,6 +1,7 @@
 import type { Assignment } from '../shared/assignment.js'
 import {
   type AiKind,
+  type AiQuestion,
   isIdeasStale,
   isOutlineReviewStale,
   type SavedIdeas,
@@ -8,6 +9,7 @@ import {
   type SavedThemes,
   STANCE_LABEL,
 } from '../shared/ideas.js'
+import { createQuestionBox } from './ai-questions.js'
 import { readAiResults, reviewOutline, suggestIdeas, suggestThemes } from './api.js'
 import { h, replace } from './dom.js'
 import { errorText, formatDate, formatTime } from './ui.js'
@@ -20,9 +22,10 @@ import { errorText, formatDate, formatTime } from './ui.js'
  *   （書き足す先のメモをなくした。見ながら自分でアウトラインに足す。`docs/plans/archive/ideas-outline.md`）
  * - **アウトラインの指摘**: 課題のテーマと条件・アウトラインから、構成の問題を日本語のヒントで（直した項目は出さない）
  * - どれもボタンを押したときだけ呼ぶ。**結果はサーバがパラグラフごとに DB に保存する**ので、画面を移っても・開き直しても残る
- *   （開いたら `readAiResults` で描き直す。`docs/plans/sqlite-storage.md`）。出したときの入力と今が違えば知らせる
+ *   （開いたら `readAiResults` で描き直す。`docs/plans/archive/sqlite-storage.md`）。出したときの入力と今が違えば知らせる
  * - 呼び出し中に画面を離れて戻ったときは、続きの「考えています…」を出して終わったら描く（呼び出し中の Promise は
  *   このモジュールにパラグラフごとに持つ。結果はサーバが保存するので、戻らなくても失われない）
+ * - 各結果の下に「質問する」欄（`ai-questions.ts`。`docs/plans/ai-followup-questions.md`）。出し直すと質問は消える
  */
 
 export interface IdeasPanelOptions {
@@ -61,24 +64,28 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
   const { id } = options
   const keyOf = (kind: AiKind) => `${id}/${kind}`
 
-  /** 1 つの種類の欄（ボタン・エラー・出した時刻と古さの知らせ・結果）。 */
+  /** 1 つの種類の欄（ボタン・エラー・出した時刻と古さの知らせ・結果・質問の欄）。 */
   function section<T>(kind: AiKind, label: string, busyLabel: string, render: (saved: T) => void) {
     const button = h('button', { class: 'btn pri', type: 'button' }, label)
     const message = h('p', { class: 'error ai-error' })
     const meta = h('p', { class: 'muted ai-meta' })
+    const qa = createQuestionBox(id, kind)
     let saved: (T & { createdAt: string }) | null = null
     let busy = false
     let disabled = false
     const paint = () => {
       button.disabled = busy || disabled
       replace(button, busy ? busyLabel : label)
+      qa.setLocked(busy)
     }
-    const show = (value: T & { createdAt: string }) => {
+    /** `questions` はその結果への質問と答え（出し直したばかりなら空）。 */
+    const show = (value: T & { createdAt: string }, questions: readonly AiQuestion[] = []) => {
       // 保存してあるものの読み込みが、押して出した新しい結果より後に届いても上書きしない
       if (saved !== null && value.createdAt < saved.createdAt) return
       saved = value
       replace(meta, createdLabel(value.createdAt))
       render(value)
+      qa.show(questions)
       sync()
     }
     /** 呼び出しの終わりを待って描く（このパネルで押したもの・前のパネルで押したもの）。 */
@@ -99,6 +106,8 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
       button,
       message,
       meta,
+      qa: qa.el,
+      setStale: qa.setStale,
       get saved(): T | null {
         return saved
       },
@@ -112,11 +121,11 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
       start(run: () => Promise<T & { createdAt: string }>) {
         void await_(track(keyOf(kind), run))
       },
-      /** 開いたとき: 呼び出し中ならその終わりを待ち、そうでなければ保存してあるものを描く。 */
-      restore(value: (T & { createdAt: string }) | null) {
+      /** 開いたとき: 呼び出し中ならその終わりを待ち、そうでなければ保存してあるもの（と質問）を描く。 */
+      restore(value: (T & { createdAt: string }) | null, questions: readonly AiQuestion[]) {
         const inFlight = pending.get(keyOf(kind))
         if (inFlight !== undefined) void await_(inFlight)
-        else if (value !== null) show(value)
+        else if (value !== null) show(value, questions)
       },
     }
   }
@@ -248,12 +257,10 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
       replace(button, current ? '今のテーマです' : '課題のテーマにする')
     }
     const savedIdeas = ideas.saved
-    replace(
-      ideasStale,
+    const ideasOld =
       savedIdeas !== null && !ideas.busy && isIdeasStale(savedIdeas, rawTheme, conditions)
-        ? '課題のテーマか条件を変える前に出した候補です。'
-        : '',
-    )
+    replace(ideasStale, ideasOld ? '課題のテーマか条件を変える前に出した候補です。' : '')
+    ideas.setStale(ideasOld)
 
     const outline = options.outline()
     const emptyOutline = outline.trim() === ''
@@ -265,14 +272,15 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     )
     review.setDisabled(emptyOutline)
     const savedReview = review.saved
+    const reviewOld =
+      savedReview !== null &&
+      !review.busy &&
+      isOutlineReviewStale(savedReview, rawTheme, conditions, outline)
     replace(
       reviewStale,
-      savedReview !== null &&
-        !review.busy &&
-        isOutlineReviewStale(savedReview, rawTheme, conditions, outline)
-        ? 'アウトラインか課題を直す前の指摘です。もう一度見てもらえます。'
-        : '',
+      reviewOld ? 'アウトラインか課題を直す前の指摘です。もう一度見てもらえます。' : '',
     )
+    review.setStale(reviewOld)
   }
 
   const el = h(
@@ -281,7 +289,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     h(
       'p',
       { class: 'muted ai-note' },
-      'ボタンを押したときだけ、入れた分野・課題のテーマと条件・アウトラインを Anthropic の API に送ります。下書きは送りません。結果はパラグラフごとに最新の 1 回分を残します。',
+      'ボタンを押したときだけ、入れた分野・課題のテーマと条件・アウトラインを Anthropic の API に送ります。質問すると、その結果と質問も送ります。下書きは送りません。結果と質問はパラグラフごとに最新の 1 回分を残します。',
     ),
     h(
       'section',
@@ -292,6 +300,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
       themes.message,
       themes.meta,
       themesList,
+      themes.qa,
     ),
     h(
       'section',
@@ -308,6 +317,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
       ideas.meta,
       ideasStale,
       ideasList,
+      ideas.qa,
     ),
     h(
       'section',
@@ -319,6 +329,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
       review.meta,
       reviewStale,
       reviewResult,
+      review.qa,
     ),
   )
   sync()
@@ -327,15 +338,15 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
   readAiResults(id).then(
     (saved) => {
       if (saved.themes !== null && hint.value === '') hint.value = saved.themes.hint
-      themes.restore(saved.themes)
-      ideas.restore(saved.ideas)
-      review.restore(saved.outline)
+      themes.restore(saved.themes, saved.questions.themes)
+      ideas.restore(saved.ideas, saved.questions.ideas)
+      review.restore(saved.outline, saved.questions.outline)
     },
     (error: unknown) => {
       replace(themes.message, `前に出した AI案を読めません: ${errorText(error)}`)
-      themes.restore(null)
-      ideas.restore(null)
-      review.restore(null)
+      themes.restore(null, [])
+      ideas.restore(null, [])
+      review.restore(null, [])
     },
   )
 

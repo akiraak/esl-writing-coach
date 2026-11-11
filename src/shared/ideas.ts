@@ -4,7 +4,7 @@
  * - テーマの候補: opinion paragraph 向けの問い（英語）と日本語訳
  * - 理由・例の候補: 賛成側・反対側それぞれの意見（日本語）と、理由（日本語）・例（日本語）
  * - 理由・例の候補は見るだけ（アイデアの段階をなくしたので書き足す先が無い。`docs/plans/archive/ideas-outline.md`）
- * - パラグラフごとに種類ごとの最新の 1 回分を、出したときの入力と一緒に DB に持つ（`SavedAiResults`。`docs/plans/sqlite-storage.md`）
+ * - パラグラフごとに種類ごとの最新の 1 回分を、出したときの入力と一緒に DB に持つ（`SavedAiResults`。`docs/plans/archive/sqlite-storage.md`）
  */
 
 export interface ThemeSuggestion {
@@ -74,11 +74,32 @@ export interface SavedOutlineReview {
   createdAt: string
 }
 
-/** パラグラフの AI案（`GET /api/paragraphs/:id/ai`）。まだ出していない種類は null。 */
+/** AI案への質問と答え（`docs/plans/ai-followup-questions.md`）。 */
+export interface AiQuestion {
+  question: string
+  /** 日本語の答え。 */
+  answer: string
+  createdAt: string
+}
+
+/** 1 つの AI案に聞ける回数。 */
+export const MAX_QUESTIONS = 10
+/** 質問の長さの上限（文字）。 */
+export const MAX_QUESTION_LENGTH = 1000
+
+/**
+ * パラグラフの AI案（`GET /api/paragraphs/:id/ai`）。まだ出していない種類は null。
+ * `questions` は種類ごとの質問と答え（古い順）。AI案を出し直すとその種類の分は消える。
+ */
 export interface SavedAiResults {
   themes: SavedThemes | null
   ideas: SavedIdeas | null
   outline: SavedOutlineReview | null
+  questions: Record<AiKind, AiQuestion[]>
+}
+
+export function isAiKind(value: string): value is AiKind {
+  return (AI_KINDS as readonly string[]).includes(value)
 }
 
 /** 理由・例の候補を出したあとで、課題のテーマか条件を変えたか（テーマは前後の空白を落として比べる）。 */

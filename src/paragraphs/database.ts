@@ -3,14 +3,14 @@ import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 
 /**
- * ローカルの SQLite（`node:sqlite`）を開き、表を用意する（`docs/plans/sqlite-storage.md`）。
+ * ローカルの SQLite（`node:sqlite`）を開き、表を用意する（`docs/plans/archive/sqlite-storage.md`）。
  *
  * - ファイルは既定で `data/esl-writing.db`（`ESL_DB_PATH`）。**Dropbox のフォルダには置かない**（同期中に書くと壊れることがある）
  * - WAL モード。サーバ 1 つから使う前提（自分専用・ローカル）
  * - 表の形は `SCHEMA_VERSION` で持ち、上げるときは `migrate()` に足す
  */
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 const SCHEMA_V1 = `
 CREATE TABLE paragraphs (
@@ -42,6 +42,19 @@ CREATE TABLE ai_results (
 CREATE TABLE meta (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
+);
+`
+
+/** 版 2（2026-11-11）: AI案への質問と答え（`docs/plans/ai-followup-questions.md`）。 */
+const SCHEMA_V2 = `
+CREATE TABLE ai_questions (
+  paragraph_id TEXT NOT NULL REFERENCES paragraphs(id),
+  kind TEXT NOT NULL,
+  seq INTEGER NOT NULL,
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (paragraph_id, kind, seq)
 );
 `
 
@@ -82,6 +95,7 @@ function migrate(db: DatabaseSync): void {
   if (version === SCHEMA_VERSION) return
   transaction(db, () => {
     if (version < 1) db.exec(SCHEMA_V1)
+    if (version < 2) db.exec(SCHEMA_V2)
     writeMeta(db, 'schema_version', String(SCHEMA_VERSION))
   })
 }

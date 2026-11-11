@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { parseAssignment } from '../shared/assignment.js'
-import type { AiKind } from '../shared/ideas.js'
+import { AI_KINDS, type AiKind, type AiQuestion } from '../shared/ideas.js'
 import {
   type ParagraphListItem,
   type SavedStage,
@@ -20,7 +20,7 @@ export {
 } from '../shared/types.js'
 
 /**
- * パラグラフの読み書き（ローカルの SQLite。表は `database.ts`。`docs/plans/sqlite-storage.md`）。
+ * パラグラフの読み書き（ローカルの SQLite。表は `database.ts`。`docs/plans/archive/sqlite-storage.md`）。
  *
  * - 段階（課題・アウトライン・下書き）は 1 行ずつ持ち、**保存も競合の判定も段階ごと**に行う
  * - `rev` は保存のたびに 1 増える `version` の文字列。`rev` が合わなければ上書きせず `StageConflictError`。
@@ -70,8 +70,12 @@ export interface ParagraphStore {
   listFeedbacks(): { id: string; theme: string; json: string }[]
   /** AI案（種類ごとの最新の 1 回分の JSON）。 */
   readAiResults(id: string): Partial<Record<AiKind, string>>
-  /** AI案を書く。パラグラフが無ければ（呼び出し中に消した）何もしない。 */
+  /** AI案を書く（その種類の質問と答えは消す）。パラグラフが無ければ（呼び出し中に消した）何もしない。 */
   saveAiResult(id: string, kind: AiKind, json: string): void
+  /** AI案への質問と答え（種類ごとに古い順）。 */
+  readAiQuestions(id: string): Record<AiKind, AiQuestion[]>
+  /** AI案への質問と答えを足す（その種類の最後に）。 */
+  addAiQuestion(id: string, kind: AiKind, question: string, answer: string): AiQuestion
 }
 
 export interface StoreOptions {
@@ -249,10 +253,49 @@ export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {
     return results
   }
 
+  const clearQuestions = db.prepare('DELETE FROM ai_questions WHERE paragraph_id = ? AND kind = ?')
+
   function saveAiResult(id: string, kind: AiKind, json: string): void {
     assertId(id)
     if (exists.get(id) === undefined) return
-    upsertAi.run(id, kind, json, now())
+    // 元の結果が変わると話がずれるので、その種類の質問は消す
+    transaction(db, () => {
+      upsertAi.run(id, kind, json, now())
+      clearQuestions.run(id, kind)
+    })
+  }
+
+  const selectQuestions = db.prepare(
+    'SELECT kind, question, answer, created_at FROM ai_questions WHERE paragraph_id = ? ORDER BY kind, seq',
+  )
+  const insertQuestion = db.prepare(`
+    INSERT INTO ai_questions (paragraph_id, kind, seq, question, answer, created_at)
+    VALUES (?, ?, (SELECT coalesce(max(seq), 0) + 1 FROM ai_questions WHERE paragraph_id = ? AND kind = ?), ?, ?, ?)
+  `)
+
+  function readAiQuestions(id: string): Record<AiKind, AiQuestion[]> {
+    assertExists(id)
+    const questions = Object.fromEntries(AI_KINDS.map((k) => [k, [] as AiQuestion[]])) as Record<
+      AiKind,
+      AiQuestion[]
+    >
+    for (const row of selectQuestions.all(id)) {
+      const kind = AI_KINDS.find((k) => k === row['kind'])
+      if (kind === undefined) continue
+      questions[kind].push({
+        question: str(row['question']),
+        answer: str(row['answer']),
+        createdAt: str(row['created_at']),
+      })
+    }
+    return questions
+  }
+
+  function addAiQuestion(id: string, kind: AiKind, question: string, answer: string): AiQuestion {
+    assertExists(id)
+    const createdAt = now()
+    insertQuestion.run(id, kind, id, kind, question, answer, createdAt)
+    return { question, answer, createdAt }
   }
 
   return {
@@ -266,5 +309,7 @@ export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {
     listFeedbacks,
     readAiResults,
     saveAiResult,
+    readAiQuestions,
+    addAiQuestion,
   }
 }

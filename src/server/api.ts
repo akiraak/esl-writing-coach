@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Ai } from '../ai/client.js'
 import { AiApiError, AiOutputError, AiRefusedError } from '../ai/errors.js'
+import type { QuestionContext } from '../ai/questions.js'
 import { dropUnquotable } from '../ai/scoring.js'
 import { describeError, log } from '../log.js'
 import { isParagraphId } from '../paragraphs/naming.js'
@@ -14,7 +15,15 @@ import {
 } from '../paragraphs/store.js'
 import { emptyAssignment, parseAssignment, serializeAssignment } from '../shared/assignment.js'
 import { type Feedback, parseFeedback, totalOf } from '../shared/feedback.js'
-import { AI_KINDS, type AiKind, type SavedAiResults } from '../shared/ideas.js'
+import {
+  AI_KINDS,
+  type AiKind,
+  type AiQuestion,
+  isAiKind,
+  MAX_QUESTION_LENGTH,
+  MAX_QUESTIONS,
+  type SavedAiResults,
+} from '../shared/ideas.js'
 import type { ReviewEntry } from '../shared/review.js'
 
 /**
@@ -29,14 +38,18 @@ import type { ReviewEntry } from '../shared/review.js'
  * | `PUT /api/paragraphs/:id/stages/:stage` `{ text, rev }` | 保存 → `{ rev, updatedAt }`。競合は 409 |
  * | `GET /api/paragraphs/:id/feedback` | AI の採点の結果 → `{ feedback, aiConfigured }`（無ければ `feedback: null`） |
  * | `POST /api/paragraphs/:id/feedback` | 保存されている下書きを AI で採点し、保存して返す → `{ feedback }` |
- * | `GET /api/paragraphs/:id/ai` | AI案（種類ごとの最新の 1 回分と、出したときの入力）→ `SavedAiResults` |
+ * | `GET /api/paragraphs/:id/ai` | AI案（種類ごとの最新の 1 回分と、出したときの入力・質問と答え）→ `SavedAiResults` |
+ * | `POST /api/paragraphs/:id/ai/:kind/questions` `{ question }` | AI案への質問に答えて保存 → `{ question, answer, createdAt }` |
  * | `GET /api/review` | 振り返り: 採点のあるパラグラフごとの最新の採点とテーマ → `{ entries }`（集計はブラウザ。`src/shared/review.ts`） |
  * | `POST /api/ai/themes` `{ id?, hint }` | テーマの候補 → `{ themes }`（`hint` は分野・キーワード。空でもよい） |
  * | `POST /api/ai/ideas` `{ id?, theme, conditions }` | 賛成・反対の理由と例の候補 → `{ ideas }` |
  * | `POST /api/ai/outline` `{ id?, theme, conditions, outline }` | アウトラインへの指摘 → `{ review }`（アウトラインが空なら 400 `empty_outline`） |
  *
  * `/api/ai/*` に `id`（パラグラフ）を付けると、AI の呼び出しが終わったときにその AI案として保存する
- * （ブラウザが画面を離れていても残る。`docs/plans/sqlite-storage.md`）。
+ * （ブラウザが画面を離れていても残る。`docs/plans/archive/sqlite-storage.md`）。
+ *
+ * AI案への質問: 空・長すぎる 400 `bad_question`、その AI案がまだ無い 400 `no_result`、回数の上限 400 `too_many_questions`、
+ * 答えを待つ間に AI案が出し直された 409 `result_changed`（質問は残さない）。
  *
  * 無いパラグラフは 404 `not_found`。
  * AI のエラー: キーが無い 503 `ai_not_configured` / 拒否 422 `ai_refusal` / API の失敗 502 `ai_error`。採点で下書きが空なら 400 `empty_draft`
@@ -120,6 +133,7 @@ const PARAGRAPH = /^\/api\/paragraphs\/([^/]+)$/
 const STAGE = /^\/api\/paragraphs\/([^/]+)\/stages\/([^/]+)$/
 const FEEDBACK = /^\/api\/paragraphs\/([^/]+)\/feedback$/
 const AI_RESULTS = /^\/api\/paragraphs\/([^/]+)\/ai$/
+const AI_QUESTIONS = /^\/api\/paragraphs\/([^/]+)\/ai\/([^/]+)\/questions$/
 
 function requireAi(options: ApiOptions): Ai {
   const ai = options.ai ?? null
@@ -165,7 +179,12 @@ function saveAiResult(
 /** 保存してある AI案。壊れた JSON は無いものとして扱う。 */
 function readAiResults(store: ParagraphStore, id: string): SavedAiResults {
   const raw = store.readAiResults(id)
-  const results: SavedAiResults = { themes: null, ideas: null, outline: null }
+  const results: SavedAiResults = {
+    themes: null,
+    ideas: null,
+    outline: null,
+    questions: store.readAiQuestions(id),
+  }
   for (const kind of AI_KINDS) {
     const json = raw[kind]
     if (json === undefined) continue
@@ -177,6 +196,49 @@ function readAiResults(store: ParagraphStore, id: string): SavedAiResults {
     }
   }
   return results
+}
+
+/** その種類の保存してある AI案（質問の元）。まだ無ければ null。 */
+function questionContext(saved: SavedAiResults, kind: AiKind): QuestionContext | null {
+  switch (kind) {
+    case 'themes':
+      return saved.themes === null ? null : { kind, saved: saved.themes }
+    case 'ideas':
+      return saved.ideas === null ? null : { kind, saved: saved.ideas }
+    case 'outline':
+      return saved.outline === null ? null : { kind, saved: saved.outline }
+  }
+}
+
+/** AI案への質問に答え、保存して返す（`docs/plans/ai-followup-questions.md`）。 */
+async function askQuestion(
+  id: string,
+  rawKind: string,
+  body: unknown,
+  options: ApiOptions,
+): Promise<AiQuestion> {
+  const { store } = options
+  if (!isAiKind(rawKind)) throw new HttpError(400, 'bad_kind', `AI案の種類が不正です: ${rawKind}`)
+  const kind = rawKind
+  const question = stringField(body, 'question', MAX_QUESTION_LENGTH).trim()
+  if (question === '') throw new HttpError(400, 'bad_question', '質問が空です')
+  const ai = requireAi(options)
+  const saved = readAiResults(store, id)
+  const context = questionContext(saved, kind)
+  if (context === null) throw new HttpError(400, 'no_result', 'まだ AI案を出していません')
+  const history = saved.questions[kind]
+  if (history.length >= MAX_QUESTIONS) {
+    throw new HttpError(400, 'too_many_questions', `質問は ${MAX_QUESTIONS} 回までです`)
+  }
+  const answer = await ai.answerQuestion({ context, history, question })
+  // 答えを待つ間に AI案が出し直されていたら、元の結果が違うので残さない
+  if (
+    questionContext(readAiResults(store, id), kind)?.saved.createdAt !== context.saved.createdAt
+  ) {
+    throw new HttpError(409, 'result_changed', 'AI案が出し直されたので、質問は残していません')
+  }
+  log.info(`AI案への質問: ${id}/${kind}（${history.length + 1} 回目）`)
+  return store.addAiQuestion(id, kind, question, answer)
 }
 
 const nowOf = (options: ApiOptions) => (options.now ?? (() => new Date().toISOString()))()
@@ -298,6 +360,15 @@ export async function handleApi(
         return
       }
       throw new HttpError(405, 'method_not_allowed', '使えないメソッドです')
+    }
+
+    m = AI_QUESTIONS.exec(pathname)
+    if (m !== null) {
+      if (method !== 'POST') throw new HttpError(405, 'method_not_allowed', '使えないメソッドです')
+      const body = await readJson(req)
+      const id = decodeURIComponent(m[1] ?? '')
+      sendJson(res, 200, await askQuestion(id, decodeURIComponent(m[2] ?? ''), body, options))
+      return
     }
 
     m = AI_RESULTS.exec(pathname)

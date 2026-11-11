@@ -362,6 +362,19 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .ai-meta:empty { display: none; }
 .ai-stale { margin: 0; font-size: 12px; line-height: 1.6; color: var(--warn); font-weight: 600; }
 .ai-stale:empty { display: none; }
+.ai-qa { display: flex; flex-direction: column; gap: .45rem; margin-top: .2rem; padding-top: .55rem; border-top: 1px dashed var(--line); }
+.ai-qa[hidden] { display: none; }
+.ai-qa-log { display: flex; flex-direction: column; gap: .4rem; }
+.ai-qa-log:empty { display: none; }
+.ai-q, .ai-a { margin: 0; font-size: 12.5px; line-height: 1.65; white-space: pre-wrap; border-radius: 10px; padding: .4rem .6rem; max-width: 92%; }
+.ai-q { align-self: flex-end; background: var(--brand-soft); }
+.ai-a { align-self: flex-start; background: #fff; border: 1px solid var(--line-soft); }
+.ai-a.pending { color: var(--soft); }
+.ai-qa-form { display: flex; gap: .4rem; align-items: flex-end; }
+.ai-qa-form[hidden] { display: none; }
+.ai-qa-input { flex: 1; font: inherit; font-size: 12.5px; line-height: 1.5; padding: .35rem .55rem; border: 1px solid var(--line); border-radius: 8px; background: #fff; resize: vertical; }
+.ai-qa-input:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
+.ai-qa-form .btn { font-size: 12px; padding: .3rem .8rem; white-space: nowrap; }
 .ai-review { display: flex; flex-direction: column; gap: .5rem; }
 .ai-review-summary { margin: 0; font-size: 13px; line-height: 1.7; background: var(--brand-soft); border-radius: 8px; padding: .45rem .65rem; }
 

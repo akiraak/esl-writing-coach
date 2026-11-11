@@ -39,6 +39,34 @@ describe('DB を開く', () => {
   })
 })
 
+describe('DB の版', () => {
+  it('版 1 の DB を開くと、データを残したまま版 2（AI案への質問の表）に上がる', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'esl-db-'))
+    try {
+      const file = path.join(dir, 'v1.db')
+      // 版 1 の形を手で作る（ai_questions が無い。保存層は版 2 の表を前提にするので SQL で入れる）
+      const v1 = openDatabase(file)
+      v1.exec(`
+        DROP TABLE ai_questions;
+        UPDATE meta SET value = '1' WHERE key = 'schema_version';
+        INSERT INTO paragraphs (id, created_on, created_at) VALUES ('2026-11-11-old', '2026-11-11', '2026-11-11T00:00:00.000Z');
+      `)
+      v1.close()
+      const db = openDatabase(file)
+      assert.equal(readMeta(db, 'schema_version'), '2')
+      const store = createParagraphStore(db)
+      const id = store.listParagraphs()[0]?.id ?? ''
+      assert.equal(id, '2026-11-11-old')
+      store.saveAiResult(id, 'ideas', '{}')
+      store.addAiQuestion(id, 'ideas', 'q', 'a')
+      assert.equal(store.readAiQuestions(id).ideas.length, 1)
+      db.close()
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('作成と一覧', () => {
   it('作成で課題の本文も入り、一覧にテーマと進み具合が出る', () => {
     const { store } = setup()
@@ -142,5 +170,29 @@ describe('採点と AI案', () => {
     assert.deepEqual(store.readAiResults(id), { ideas: '{"v":2}', outline: '{"o":1}' })
     store.deleteParagraph(id)
     assert.doesNotThrow(() => store.saveAiResult(id, 'themes', '{}'))
+  })
+
+  it('AI案への質問は種類ごとに古い順。AI案を出し直すと、その種類の分だけ消える', () => {
+    const { store } = setup()
+    const id = store.createParagraph('2026-11-11', 'A', assignment('A'))
+    store.saveAiResult(id, 'ideas', '{}')
+    store.saveAiResult(id, 'outline', '{}')
+    const first = store.addAiQuestion(id, 'ideas', 'q1', 'a1')
+    store.addAiQuestion(id, 'ideas', 'q2', 'a2')
+    store.addAiQuestion(id, 'outline', 'q3', 'a3')
+    assert.deepEqual(first, { question: 'q1', answer: 'a1', createdAt: first.createdAt })
+    const before = store.readAiQuestions(id)
+    assert.deepEqual(
+      before.ideas.map((q) => q.question),
+      ['q1', 'q2'],
+    )
+    assert.deepEqual(before.themes, [])
+    store.saveAiResult(id, 'ideas', '{"v":2}')
+    const after = store.readAiQuestions(id)
+    assert.deepEqual(after.ideas, [])
+    assert.deepEqual(
+      after.outline.map((q) => q.question),
+      ['q3'],
+    )
   })
 })
