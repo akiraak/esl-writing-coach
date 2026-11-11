@@ -18,7 +18,7 @@ export const DEFAULT_PORT = 3016
 /** 待ち受けるアドレス。認証を付けないので、ループバックの外には開かない。 */
 export const BIND_HOST = '127.0.0.1'
 
-/** 既定の保存先（`CLAUDE.md` の「データ保存」。daily-note の日誌フォルダの隣）。 */
+/** Dropbox のバックアップ先（`CLAUDE.md` の「データ保存」。daily-note の日誌フォルダの隣）。 */
 export const DEFAULT_DROPBOX_ROOT = '/akira/Documents/esl-writing'
 
 /** 値を読んで前後の空白を落とす。空文字と未設定は同じ「未設定」として扱う。 */
@@ -36,12 +36,22 @@ export function parsePort(raw: string | undefined): number {
   return port
 }
 
+/**
+ * DB のファイル（`ESL_DB_PATH`。無ければ `defaultPath`）。相対パスは `baseDir` から。
+ * Dropbox で同期しているフォルダには置かない（同期中に書くと壊れることがある）。
+ */
+export function loadDbPath(env: Env, baseDir: string, defaultPath: string): string {
+  const raw = read(env, 'ESL_DB_PATH')
+  if (raw === undefined) return defaultPath
+  return raw === ':memory:' || raw.startsWith('/') ? raw : `${baseDir.replace(/\/+$/, '')}/${raw}`
+}
+
 export interface DropboxSettings {
   appKey: string
   appSecret: string
   /** daily-note と共用の refresh token（取り直すのは daily-note の `npm run dropbox:auth`）。 */
   refreshToken: string
-  /** 保存先（Dropbox ルートからのパス。末尾に `/` を付けない）。 */
+  /** バックアップを置くフォルダの親（Dropbox ルートからのパス。末尾に `/` を付けない）。 */
   root: string
 }
 

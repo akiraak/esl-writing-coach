@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { createFeedbackReader } from '../src/paragraphs/feedbacks.js'
 import type { Feedback, Finding } from '../src/shared/feedback.js'
 import { type ReviewEntry, summarizeReview } from '../src/shared/review.js'
-import type { ParagraphSummary } from '../src/shared/types.js'
 
 function feedback(
   scoredAt: string,
@@ -94,46 +92,5 @@ describe('summarizeReview', () => {
         ['古い', 'T-old'],
       ],
     )
-  })
-})
-
-describe('createFeedbackReader', () => {
-  const summary = (id: string, rev?: string): ParagraphSummary => ({
-    id,
-    createdOn: '2026-11-08',
-    updatedAt: '2026-11-08T00:00:00Z',
-    files: {},
-    started: { assignment: false, outline: false, draft: false },
-    ...(rev === undefined ? {} : { feedback: { rev, size: 10, serverModified: '' } }),
-  })
-
-  it('採点のあるものだけ読み、rev が同じなら読み直さない。壊れたものは飛ばす。テーマを付ける', async () => {
-    const reads: string[] = []
-    const files: Record<string, { text: string; rev: string }> = {
-      '2026-11-08-a': {
-        text: JSON.stringify(feedback('2026-11-08T00:00:00Z', [1, 2, 3, 4, 5])),
-        rev: 'f1',
-      },
-      '2026-11-08-b': { text: '{ broken', rev: 'f2' },
-    }
-    const reader = createFeedbackReader({
-      async readFeedback(id) {
-        reads.push(id)
-        return files[id] ?? null
-      },
-    })
-    const list = [
-      summary('2026-11-08-a', 'f1'),
-      summary('2026-11-08-b', 'f2'),
-      summary('2026-11-08-c'),
-    ]
-    const themes = new Map([['2026-11-08-a', 'Uniforms']])
-    const first = await reader.entries(list, themes)
-    assert.deepEqual(
-      first.map((e) => [e.id, e.theme, e.feedback.total]),
-      [['2026-11-08-a', 'Uniforms', 15]],
-    )
-    await reader.entries(list, themes)
-    assert.deepEqual(reads, ['2026-11-08-a', '2026-11-08-b'])
   })
 })

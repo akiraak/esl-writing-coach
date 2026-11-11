@@ -1,13 +1,16 @@
 import type { Assignment } from '../shared/assignment.js'
 import {
-  type IdeaSuggestions,
-  type OutlineReview,
+  type AiKind,
+  isIdeasStale,
+  isOutlineReviewStale,
+  type SavedIdeas,
+  type SavedOutlineReview,
+  type SavedThemes,
   STANCE_LABEL,
-  type ThemeSuggestion,
 } from '../shared/ideas.js'
-import { reviewOutline, suggestIdeas, suggestThemes } from './api.js'
+import { readAiResults, reviewOutline, suggestIdeas, suggestThemes } from './api.js'
 import { h, replace } from './dom.js'
-import { errorText } from './ui.js'
+import { errorText, formatDate, formatTime } from './ui.js'
 
 /**
  * 編集画面の右ペインの「AI 案」タブ（AI のアイデア出し。`docs/plans/archive/ai-ideas.md`）。
@@ -16,10 +19,15 @@ import { errorText } from './ui.js'
  * - **理由・例の候補**: 課題のテーマ（手元の最新）から、賛成・反対それぞれの理由と例（日本語）。**見るだけ**
  *   （書き足す先のメモをなくした。見ながら自分でアウトラインに足す。`docs/plans/archive/ideas-outline.md`）
  * - **アウトラインの指摘**: 課題のテーマと条件・アウトラインから、構成の問題を日本語のヒントで（直した項目は出さない）
- * - どれもボタンを押したときだけ呼ぶ。結果は保存しない（編集画面を開いている間だけ持つ）
+ * - どれもボタンを押したときだけ呼ぶ。**結果はサーバがパラグラフごとに DB に保存する**ので、画面を移っても・開き直しても残る
+ *   （開いたら `readAiResults` で描き直す。`docs/plans/sqlite-storage.md`）。出したときの入力と今が違えば知らせる
+ * - 呼び出し中に画面を離れて戻ったときは、続きの「考えています…」を出して終わったら描く（呼び出し中の Promise は
+ *   このモジュールにパラグラフごとに持つ。結果はサーバが保存するので、戻らなくても失われない）
  */
 
 export interface IdeasPanelOptions {
+  /** パラグラフの id（AI案の保存先）。 */
+  id: string
   /** 手元の最新の課題。 */
   assignment(): Assignment
   /** 課題のテーマを書き換える。 */
@@ -30,32 +38,91 @@ export interface IdeasPanelOptions {
 
 export interface IdeasPanel {
   el: HTMLElement
-  /** 課題・アウトラインが変わったら（テーマの表示と、押せるかを更新する）。 */
+  /** 課題・アウトラインが変わったら（テーマの表示・押せるか・古さの知らせを更新する）。 */
   sync(): void
 }
 
-/** 押している間は押せなくし、終わったら戻す。失敗は `message` に出す。 */
-async function running(
-  button: HTMLButtonElement,
-  message: HTMLElement,
-  label: string,
-  run: () => Promise<void>,
-) {
-  const idle = button.textContent ?? ''
-  button.disabled = true
-  replace(button, label)
-  replace(message)
-  try {
-    await run()
-  } catch (error) {
-    replace(message, `出せませんでした: ${errorText(error)}`)
-  } finally {
-    button.disabled = false
-    replace(button, idle)
+/** 呼び出し中の AI案（`<id>/<種類>` → 結果の Promise）。画面を作り直しても残る。 */
+const pending = new Map<string, Promise<unknown>>()
+
+function track<T>(key: string, run: () => Promise<T>): Promise<T> {
+  const promise = run()
+  pending.set(key, promise)
+  const forget = () => {
+    if (pending.get(key) === promise) pending.delete(key)
   }
+  promise.then(forget, forget)
+  return promise
 }
 
+const createdLabel = (iso: string) => `${formatDate(iso)} ${formatTime(iso)} に出しました`
+
 export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
+  const { id } = options
+  const keyOf = (kind: AiKind) => `${id}/${kind}`
+
+  /** 1 つの種類の欄（ボタン・エラー・出した時刻と古さの知らせ・結果）。 */
+  function section<T>(kind: AiKind, label: string, busyLabel: string, render: (saved: T) => void) {
+    const button = h('button', { class: 'btn pri', type: 'button' }, label)
+    const message = h('p', { class: 'error ai-error' })
+    const meta = h('p', { class: 'muted ai-meta' })
+    let saved: (T & { createdAt: string }) | null = null
+    let busy = false
+    let disabled = false
+    const paint = () => {
+      button.disabled = busy || disabled
+      replace(button, busy ? busyLabel : label)
+    }
+    const show = (value: T & { createdAt: string }) => {
+      // 保存してあるものの読み込みが、押して出した新しい結果より後に届いても上書きしない
+      if (saved !== null && value.createdAt < saved.createdAt) return
+      saved = value
+      replace(meta, createdLabel(value.createdAt))
+      render(value)
+      sync()
+    }
+    /** 呼び出しの終わりを待って描く（このパネルで押したもの・前のパネルで押したもの）。 */
+    const await_ = async (promise: Promise<unknown>) => {
+      busy = true
+      paint()
+      replace(message)
+      try {
+        show((await promise) as T & { createdAt: string })
+      } catch (error) {
+        replace(message, `出せませんでした: ${errorText(error)}`)
+      } finally {
+        busy = false
+        paint()
+      }
+    }
+    return {
+      button,
+      message,
+      meta,
+      get saved(): T | null {
+        return saved
+      },
+      get busy() {
+        return busy
+      },
+      setDisabled(value: boolean) {
+        disabled = value
+        paint()
+      },
+      start(run: () => Promise<T & { createdAt: string }>) {
+        void await_(track(keyOf(kind), run))
+      },
+      /** 開いたとき: 呼び出し中ならその終わりを待ち、そうでなければ保存してあるものを描く。 */
+      restore(value: (T & { createdAt: string }) | null) {
+        const inFlight = pending.get(keyOf(kind))
+        if (inFlight !== undefined) void await_(inFlight)
+        else if (value !== null) show(value)
+      },
+    }
+  }
+
+  const now = () => new Date().toISOString()
+
   // --- テーマの候補 ---
   const hint = h('input', {
     class: 'ai-hint',
@@ -64,20 +131,20 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     placeholder: '分野・キーワード（任意）例: 部活、スマホ、環境',
     'aria-label': 'テーマの分野・キーワード',
   })
-  const themesButton = h('button', { class: 'btn pri', type: 'button' }, 'テーマの候補を出す')
-  const themesMessage = h('p', { class: 'error ai-error' })
   const themesList = h('div', { class: 'ai-themes' })
-
-  const renderThemes = (themes: ThemeSuggestion[]) =>
+  /** 候補ごとの「課題のテーマにする」（今のテーマと同じなら押せなくする）。 */
+  let themeButtons: { en: string; button: HTMLButtonElement }[] = []
+  const themes = section<SavedThemes>('themes', 'テーマの候補を出す', '考えています…', (saved) => {
+    themeButtons = []
     replace(
       themesList,
-      ...themes.map((theme) => {
+      ...saved.themes.map((theme) => {
         const use = h('button', { class: 'btn ai-use', type: 'button' }, '課題のテーマにする')
         use.addEventListener('click', () => {
           options.setTheme(theme.en)
-          replace(use, 'テーマにしました')
           sync()
         })
+        themeButtons.push({ en: theme.en, button: use })
         return h(
           'div',
           { class: 'ai-theme' },
@@ -87,23 +154,25 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
         )
       }),
     )
-
-  themesButton.addEventListener('click', () =>
-    running(themesButton, themesMessage, '考えています…', async () => {
-      renderThemes(await suggestThemes(hint.value.trim()))
-    }),
-  )
+  })
+  themes.button.addEventListener('click', () => {
+    const value = hint.value.trim()
+    themes.start(async () => ({
+      hint: value,
+      themes: await suggestThemes(id, value),
+      createdAt: now(),
+    }))
+  })
 
   // --- 理由・例の候補 ---
   const currentTheme = h('p', { class: 'ai-current' })
-  const ideasButton = h('button', { class: 'btn pri', type: 'button' }, '理由・例の候補を出す')
-  const ideasMessage = h('p', { class: 'error ai-error' })
+  const ideasStale = h('p', { class: 'ai-stale' })
   const ideasList = h('div', { class: 'ai-ideas' })
-
-  const renderIdeas = (ideas: IdeaSuggestions) =>
+  const ideas = section<SavedIdeas>('ideas', '理由・例の候補を出す', '考えています…', (saved) =>
     replace(
       ideasList,
-      ...ideas.sides.map((side) =>
+      h('p', { class: 'muted ai-sub-note' }, `テーマ: ${saved.theme}`),
+      ...saved.ideas.sides.map((side) =>
         h(
           'div',
           { class: `ai-side ${side.stance}` },
@@ -120,56 +189,90 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
           ),
         ),
       ),
-    )
-
-  ideasButton.addEventListener('click', () =>
-    running(ideasButton, ideasMessage, '考えています…', async () => {
-      const { theme, conditions } = options.assignment()
-      renderIdeas(await suggestIdeas(theme, conditions))
-    }),
+    ),
   )
+  ideas.button.addEventListener('click', () => {
+    const { theme, conditions } = options.assignment()
+    ideas.start(async () => ({
+      theme: theme.trim(),
+      conditions,
+      ideas: await suggestIdeas(id, theme, conditions),
+      createdAt: now(),
+    }))
+  })
 
   // --- アウトラインの指摘 ---
-  const reviewButton = h('button', { class: 'btn pri', type: 'button' }, 'アウトラインを見てもらう')
   const reviewNote = h('p', { class: 'muted ai-sub-note' })
-  const reviewMessage = h('p', { class: 'error ai-error' })
+  const reviewStale = h('p', { class: 'ai-stale' })
   const reviewResult = h('div', { class: 'ai-review' })
-
-  const renderReview = (review: OutlineReview) =>
-    replace(
-      reviewResult,
-      review.summary === '' ? null : h('p', { class: 'ai-review-summary' }, review.summary),
-      review.findings.length === 0
-        ? h('p', { class: 'muted' }, '大きな指摘はありません。')
-        : h(
-            'ol',
-            { class: 'findings' },
-            ...review.findings.map((f) =>
-              h('li', {}, f.quote === '' ? null : h('q', {}, f.quote), h('p', {}, f.hint)),
+  const review = section<SavedOutlineReview>(
+    'outline',
+    'アウトラインを見てもらう',
+    '見ています…',
+    ({ review: result }) =>
+      replace(
+        reviewResult,
+        result.summary === '' ? null : h('p', { class: 'ai-review-summary' }, result.summary),
+        result.findings.length === 0
+          ? h('p', { class: 'muted' }, '大きな指摘はありません。')
+          : h(
+              'ol',
+              { class: 'findings' },
+              ...result.findings.map((f) =>
+                h('li', {}, f.quote === '' ? null : h('q', {}, f.quote), h('p', {}, f.hint)),
+              ),
             ),
-          ),
-    )
-
-  reviewButton.addEventListener('click', () =>
-    running(reviewButton, reviewMessage, '見ています…', async () => {
-      const { theme, conditions } = options.assignment()
-      renderReview(await reviewOutline(theme, conditions, options.outline()))
-    }),
+      ),
   )
+  review.button.addEventListener('click', () => {
+    const { theme, conditions } = options.assignment()
+    const outline = options.outline()
+    review.start(async () => ({
+      theme,
+      conditions,
+      outline,
+      review: await reviewOutline(id, theme, conditions, outline),
+      createdAt: now(),
+    }))
+  })
 
   function sync(): void {
-    const theme = options.assignment().theme.trim()
+    const { theme: rawTheme, conditions } = options.assignment()
+    const theme = rawTheme.trim()
     replace(currentTheme, theme === '' ? '課題のテーマを入れると出せます。' : `テーマ: ${theme}`)
     currentTheme.classList.toggle('empty', theme === '')
-    if (!ideasButton.textContent?.includes('考えています')) ideasButton.disabled = theme === ''
-    const emptyOutline = options.outline().trim() === ''
+    ideas.setDisabled(theme === '')
+    for (const { en, button } of themeButtons) {
+      const current = en === theme
+      button.disabled = current
+      replace(button, current ? '今のテーマです' : '課題のテーマにする')
+    }
+    const savedIdeas = ideas.saved
+    replace(
+      ideasStale,
+      savedIdeas !== null && !ideas.busy && isIdeasStale(savedIdeas, rawTheme, conditions)
+        ? '課題のテーマか条件を変える前に出した候補です。'
+        : '',
+    )
+
+    const outline = options.outline()
+    const emptyOutline = outline.trim() === ''
     replace(
       reviewNote,
       emptyOutline
         ? 'アウトラインを作ると見てもらえます。'
         : '意見・理由・例・結論のつながりを見て、直すところをヒントで返します（直した項目は出しません）。',
     )
-    if (!reviewButton.textContent?.includes('見ています')) reviewButton.disabled = emptyOutline
+    review.setDisabled(emptyOutline)
+    const savedReview = review.saved
+    replace(
+      reviewStale,
+      savedReview !== null &&
+        !review.busy &&
+        isOutlineReviewStale(savedReview, rawTheme, conditions, outline)
+        ? 'アウトラインか課題を直す前の指摘です。もう一度見てもらえます。'
+        : '',
+    )
   }
 
   const el = h(
@@ -178,15 +281,16 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     h(
       'p',
       { class: 'muted ai-note' },
-      'ボタンを押したときだけ、入れた分野・課題のテーマと条件・アウトラインを Anthropic の API に送ります。下書きは送りません。',
+      'ボタンを押したときだけ、入れた分野・課題のテーマと条件・アウトラインを Anthropic の API に送ります。下書きは送りません。結果はパラグラフごとに最新の 1 回分を残します。',
     ),
     h(
       'section',
       { class: 'ai-section' },
       h('h3', {}, 'テーマの候補'),
       hint,
-      themesButton,
-      themesMessage,
+      themes.button,
+      themes.message,
+      themes.meta,
       themesList,
     ),
     h(
@@ -199,8 +303,10 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
         '見るだけ。使えそうなものは自分の言葉でアウトラインに足す。',
       ),
       currentTheme,
-      ideasButton,
-      ideasMessage,
+      ideas.button,
+      ideas.message,
+      ideas.meta,
+      ideasStale,
       ideasList,
     ),
     h(
@@ -208,11 +314,30 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
       { class: 'ai-section' },
       h('h3', {}, 'アウトラインの指摘'),
       reviewNote,
-      reviewButton,
-      reviewMessage,
+      review.button,
+      review.message,
+      review.meta,
+      reviewStale,
       reviewResult,
     ),
   )
   sync()
+
+  // 保存してある AI案を描く（呼び出し中のものは、その終わりを待つ）
+  readAiResults(id).then(
+    (saved) => {
+      if (saved.themes !== null && hint.value === '') hint.value = saved.themes.hint
+      themes.restore(saved.themes)
+      ideas.restore(saved.ideas)
+      review.restore(saved.outline)
+    },
+    (error: unknown) => {
+      replace(themes.message, `前に出した AI案を読めません: ${errorText(error)}`)
+      themes.restore(null)
+      ideas.restore(null)
+      review.restore(null)
+    },
+  )
+
   return { el, sync }
 }

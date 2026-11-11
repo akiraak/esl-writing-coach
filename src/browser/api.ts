@@ -1,5 +1,10 @@
 import type { Feedback } from '../shared/feedback.js'
-import type { IdeaSuggestions, OutlineReview, ThemeSuggestion } from '../shared/ideas.js'
+import type {
+  IdeaSuggestions,
+  OutlineReview,
+  SavedAiResults,
+  ThemeSuggestion,
+} from '../shared/ideas.js'
 import type { ReviewEntry } from '../shared/review.js'
 import type {
   ApiErrorBody,
@@ -93,15 +98,29 @@ export async function scoreParagraph(id: string): Promise<Feedback> {
   ).feedback
 }
 
-/** テーマの候補（`hint` は分野・キーワード。空でもよい）。 */
-export async function suggestThemes(hint: string): Promise<ThemeSuggestion[]> {
-  return (await request<{ themes: ThemeSuggestion[] }>('POST', '/api/ai/themes', { hint })).themes
+/** パラグラフの AI案（種類ごとの最新の 1 回分と、出したときの入力）。 */
+export async function readAiResults(id: string): Promise<SavedAiResults> {
+  return request<SavedAiResults>('GET', `/api/paragraphs/${encodeURIComponent(id)}/ai`)
+}
+
+/**
+ * テーマの候補（`hint` は分野・キーワード。空でもよい）。
+ * 以下の AI案は `id` のパラグラフの AI案としてサーバが保存する（画面を離れても残る）。
+ */
+export async function suggestThemes(id: string, hint: string): Promise<ThemeSuggestion[]> {
+  return (await request<{ themes: ThemeSuggestion[] }>('POST', '/api/ai/themes', { id, hint }))
+    .themes
 }
 
 /** 賛成・反対の理由と例の候補。 */
-export async function suggestIdeas(theme: string, conditions: string): Promise<IdeaSuggestions> {
-  return (await request<{ ideas: IdeaSuggestions }>('POST', '/api/ai/ideas', { theme, conditions }))
-    .ideas
+export async function suggestIdeas(
+  id: string,
+  theme: string,
+  conditions: string,
+): Promise<IdeaSuggestions> {
+  return (
+    await request<{ ideas: IdeaSuggestions }>('POST', '/api/ai/ideas', { id, theme, conditions })
+  ).ideas
 }
 
 /** 振り返り: 採点のあるパラグラフごとの最新の採点とテーマ。 */
@@ -111,12 +130,14 @@ export async function readReview(): Promise<ReviewEntry[]> {
 
 /** アウトラインへの AI の指摘（ヒントだけ）。 */
 export async function reviewOutline(
+  id: string,
   theme: string,
   conditions: string,
   outline: string,
 ): Promise<OutlineReview> {
   return (
     await request<{ review: OutlineReview }>('POST', '/api/ai/outline', {
+      id,
       theme,
       conditions,
       outline,

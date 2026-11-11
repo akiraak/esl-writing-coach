@@ -40,7 +40,7 @@ export function openStageEditor(id: string, stage: Stage, content: StageContent)
 
   const autosave: Autosave = createAutosave({
     text: content.text,
-    base: { rev: content.rev, format: content.format },
+    base: { rev: content.rev },
     save: (text, base) => saveStage(id, stage, text, base),
     isConflict: (error) => error instanceof ApiError && error.isConflict,
     describeError: errorText,

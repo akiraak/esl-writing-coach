@@ -24,10 +24,10 @@ import { renderOutlineView } from './outline.js'
 /**
  * 編集画面（3 ペイン）。左 = 段階のタイル、中央 = 選んだ段階の編集欄、右 = 学習ガイド。
  *
- * - 開いたら 4 つの段階のファイルを並べて読み、段階ごとに自動保存（`StageEditor`）を作って、
+ * - 開いたら 3 つの段階を並べて読み、段階ごとに自動保存（`StageEditor`）を作って、
  *   **パラグラフを開いている間は持ち続ける**。同じパラグラフの中で段階を移るときは中央だけを描き直す（読み直さない）
  * - 段階を離れるときはその段階を待たずに保存する。rev は保存が終わったときに手元で新しくなるので、戻っても古い rev にはならない
- * - ヘッダの保存の状態は 4 つをまとめて出し、タイルには段階ごとの状態の行と保存の印を出す
+ * - ヘッダの保存の状態は 3 つをまとめて出し、タイルには段階ごとの状態の行と保存の印を出す
  * - 中央の中身は段階ごとに `views/` の各ファイル（課題・アウトライン・下書き）。一番下に次のステップへのボタン
  */
 
@@ -100,10 +100,11 @@ export function renderEdit(
   })
 
   /**
-   * 右ペインの「AI 案」。「課題のテーマにする」を押したときだけ課題の本文を書き換える
-   * （課題を開いていれば中央も描き直す）。
+   * 右ペインの「AI 案」。結果はサーバがパラグラフごとに保存する（開いたら描き直す）。
+   * 「課題のテーマにする」を押したときだけ課題の本文を書き換える（課題を開いていれば中央も描き直す）。
    */
   const ideasPanel = createIdeasPanel({
+    id,
     assignment: () => parseAssignment(editors?.assignment.text ?? ''),
     setTheme(theme) {
       if (editors === null) return
@@ -168,7 +169,7 @@ export function renderEdit(
     for (const s of STAGES) editors?.[s].retry()
   }
 
-  /** ヘッダの保存の状態（4 つをまとめる）と、タイルの状態の行・保存の印。 */
+  /** ヘッダの保存の状態（3 つをまとめる）と、タイルの状態の行・保存の印。 */
   function refresh(s: Stage): void {
     if (editors === null) return
     const editor = editors[s]

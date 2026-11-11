@@ -127,12 +127,12 @@ free_port "$PORT_TO_USE"
 
 if [[ "$MODE" == foreground ]]; then
   echo "$TAG 起動します: http://esl-writing.localhost:$PORT_TO_USE/"
-  exec node --env-file-if-exists=.env dist/main.js
+  exec node --env-file-if-exists=.env --disable-warning=ExperimentalWarning dist/main.js
 fi
 
 # --- バックグラウンド ---
 mkdir -p "$LOG_DIR"
-PORT="$PORT_TO_USE" nohup node --env-file-if-exists=.env dist/main.js >"$LOG_FILE" 2>&1 </dev/null &
+PORT="$PORT_TO_USE" nohup node --env-file-if-exists=.env --disable-warning=ExperimentalWarning dist/main.js >"$LOG_FILE" 2>&1 </dev/null &
 SERVER_PID=$!
 disown "$SERVER_PID" 2>/dev/null || true
 

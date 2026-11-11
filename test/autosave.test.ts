@@ -40,8 +40,6 @@ function fakeTimer() {
   }
 }
 
-const FORMAT = { eol: 'lf', bom: false, finalNewline: false } as const
-
 class Conflict extends Error {}
 
 /** 保存の偽物。`hold` にすると終わらせるまで待たせる。 */
@@ -56,7 +54,7 @@ function fakeSave() {
     if (hold) await new Promise<void>((resolve) => held.push(resolve))
     if (failure !== null) throw failure
     revs += 1
-    return { rev: `r${revs}`, size: text.length, serverModified: `2026-11-08T00:00:0${revs}Z` }
+    return { rev: `r${revs}`, updatedAt: `2026-11-08T00:00:0${revs}Z` }
   }
   return {
     save,
@@ -83,7 +81,7 @@ function setup(text = '', rev: string | null = null) {
   const states: SaveState[] = []
   const autosave = createAutosave({
     text,
-    base: { rev, format: FORMAT },
+    base: { rev },
     save: s.save,
     isConflict: (error) => error instanceof Conflict,
     describeError: (error) => (error instanceof Error ? error.message : String(error)),

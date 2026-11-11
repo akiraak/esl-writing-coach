@@ -1,5 +1,5 @@
 /**
- * AI の採点の結果（`feedback.json`。`docs/plans/archive/ai-scoring.md`）。サーバとブラウザで共有する。
+ * AI の採点の結果（DB の `feedbacks` に JSON で持つ。`docs/plans/archive/ai-scoring.md`）。サーバとブラウザで共有する。
  *
  * - 固定基準で 100 点満点: 構成 30 / 内容 25 / 文法 20 / 語彙・表現 15 / 課題の条件 10
  * - 合計はアプリが観点の点数を足して出す（AI の合計は使わない）
@@ -56,8 +56,6 @@ export interface Feedback {
   findings: Finding[]
 }
 
-export const FEEDBACK_FILE = 'feedback.json'
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -72,7 +70,7 @@ export function totalOf(scores: Record<CriterionKey, CriterionScore>): number {
   return CRITERION_KEYS.reduce((sum, key) => sum + scores[key].score, 0)
 }
 
-/** `feedback.json` を読む。形が合わなければ null（手で壊しても画面は落とさない）。 */
+/** 保存した採点の JSON を読む。形が合わなければ null（手で壊しても画面は落とさない）。 */
 export function parseFeedback(text: string): Feedback | null {
   let value: unknown
   try {

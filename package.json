@@ -11,13 +11,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && npm run build:web --silent",
     "build:web": "esbuild src/browser/main.ts --bundle --format=iife --target=es2022 --outfile=dist/browser/app.js --log-level=warning",
-    "start": "node --env-file-if-exists=.env dist/main.js",
+    "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning dist/main.js",
     "typecheck": "tsc -p tsconfig.test.json --noEmit && tsc -p tsconfig.web.json",
-    "test": "tsc -p tsconfig.test.json && node --test \"dist-test/test/**/*.test.js\"",
+    "test": "tsc -p tsconfig.test.json && node --disable-warning=ExperimentalWarning --test \"dist-test/test/**/*.test.js\"",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "dropbox:check": "npm run build --silent && node --env-file-if-exists=.env dist/scripts/dropbox-check.js",
-    "dropbox:smoke": "npm run build --silent && node --env-file-if-exists=.env dist/scripts/dropbox-smoke.js"
+    "db:backup": "npm run build --silent && node --env-file-if-exists=.env --disable-warning=ExperimentalWarning dist/scripts/db-backup.js"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.6",

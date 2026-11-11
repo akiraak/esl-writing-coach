@@ -79,7 +79,7 @@ function card(p: ParagraphListItem, onRemoved: () => void): HTMLElement {
   )
   remove.addEventListener('click', () => {
     const ok = window.confirm(
-      `「${title}」を削除しますか？\n\nフォルダごと消します（Dropbox の削除済みファイルから戻せます）。`,
+      `「${title}」を削除しますか？\n\n一覧から消します（DB には印を付けて残すので、手で戻せます）。`,
     )
     if (!ok) return
     remove.disabled = true

@@ -7,99 +7,26 @@ import path from 'node:path'
 import { after, before, beforeEach, describe, it } from 'node:test'
 import type { Ai } from '../src/ai/client.js'
 import { AiApiError, AiRefusedError } from '../src/ai/errors.js'
-import {
-  FeedbackConflictError,
-  InvalidParagraphIdError,
-  NEW_FILE_FORMAT,
-  type ParagraphStore,
-  type ParagraphSummary,
-  type SaveBase,
-  type Stage,
-  StageConflictError,
-} from '../src/paragraphs/store.js'
+import { openDatabase } from '../src/paragraphs/database.js'
+import { createParagraphStore, type ParagraphStore } from '../src/paragraphs/store.js'
 import { CONTENT_SECURITY_POLICY } from '../src/server/guard.js'
 import { createAppHandler, listen } from '../src/server/server.js'
 import type { Feedback } from '../src/shared/feedback.js'
+import type { SavedAiResults } from '../src/shared/ideas.js'
 import type { ParagraphListItem } from '../src/shared/types.js'
 
 /**
- * サーバを空きポートで立て、`fetch` で叩く。保存層は偽物（Dropbox は叩かない）。
+ * サーバを空きポートで立て、`fetch` で叩く。保存層は `:memory:` の SQLite（テストごとに作り直す）。
  * Host のチェックはポートまで見るので、立てたあとのポートを handler に渡す。
+ * 各テストの初めに `2026-11-08-a`（テーマ Uniforms）を 1 つ作っておく。
  */
 
-interface Call {
-  op: string
-  args: unknown[]
-}
-
-function fakeStore() {
-  const calls: Call[] = []
-  const texts = new Map<string, { text: string; rev: string }>()
-  let revs = 0
-  const check = (id: string) => {
-    if (!/^\d{4}-\d{2}-\d{2}-[a-z0-9-]+$/.test(id)) throw new InvalidParagraphIdError(id)
-  }
-  const store: ParagraphStore = {
-    async listParagraphs(): Promise<ParagraphSummary[]> {
-      calls.push({ op: 'list', args: [] })
-      return [
-        {
-          id: '2026-11-08-a',
-          createdOn: '2026-11-08',
-          updatedAt: '2026-11-08T01:00:00Z',
-          files: {
-            assignment: { rev: 'a1', size: 10, serverModified: '2026-11-08T01:00:00Z' },
-          },
-          started: { assignment: true, outline: false, draft: false },
-        },
-      ]
-    },
-    async readStage(id: string, stage: Stage) {
-      check(id)
-      calls.push({ op: 'read', args: [id, stage] })
-      const got = texts.get(`${id}/${stage}`)
-      return got === undefined
-        ? { text: '', rev: null, format: NEW_FILE_FORMAT }
-        : { text: got.text, rev: got.rev, format: NEW_FILE_FORMAT }
-    },
-    async saveStage(id: string, stage: Stage, text: string, base: SaveBase) {
-      check(id)
-      calls.push({ op: 'save', args: [id, stage, text, base] })
-      const key = `${id}/${stage}`
-      if ((texts.get(key)?.rev ?? null) !== base.rev) throw new StageConflictError(id, stage)
-      revs += 1
-      texts.set(key, { text, rev: `r${revs}` })
-      return { rev: `r${revs}`, size: text.length, serverModified: '2026-11-08T02:00:00Z' }
-    },
-    async createParagraph(date: string, theme: string) {
-      calls.push({ op: 'create', args: [date, theme] })
-      return `${date}-new`
-    },
-    async deleteParagraph(id: string) {
-      check(id)
-      calls.push({ op: 'delete', args: [id] })
-    },
-    async readFeedback(id: string) {
-      check(id)
-      calls.push({ op: 'readFeedback', args: [id] })
-      return feedback
-    },
-    async saveFeedback(id: string, text: string, rev: string | null) {
-      check(id)
-      calls.push({ op: 'saveFeedback', args: [id, rev] })
-      if ((feedback?.rev ?? null) !== rev) throw new FeedbackConflictError(id)
-      revs += 1
-      feedback = { text, rev: `f${revs}` }
-    },
-  }
-  let feedback: { text: string; rev: string } | null = null
-  return { store, calls }
-}
+const ID = '2026-11-08-a'
 
 let server: Server
 let base: string
 let port: number
-let fake: ReturnType<typeof fakeStore>
+let store: ParagraphStore
 let webDir: string
 /** 偽の AI（テストごとに差し替える。null ならキーが無い扱い）。使わないメソッドは呼ばれたら落ちる。 */
 let ai: Ai | null = null
@@ -124,7 +51,7 @@ before(async () => {
   handler = (req, res) =>
     createAppHandler({
       port,
-      store: fake.store,
+      store,
       webDir,
       bundleDir: webDir,
       today: () => '2026-11-08',
@@ -138,45 +65,41 @@ after(() => {
 })
 
 beforeEach(() => {
-  fake = fakeStore()
+  store = createParagraphStore(openDatabase(':memory:'), { now: () => '2026-11-08T01:00:00.000Z' })
+  store.createParagraph('2026-11-08', 'a', '# Uniforms\n')
   ai = null
 })
 
 const WRITE = { 'content-type': 'application/json', 'x-esl-request': '1' }
 
 describe('API', () => {
-  it('GET /api/paragraphs は一覧（assignment.md のテーマ付き）', async () => {
-    await fake.store.saveStage('2026-11-08-a', 'assignment', '# Uniforms\n', {
-      rev: null,
-      format: NEW_FILE_FORMAT,
-    })
+  it('GET /api/paragraphs は一覧（課題のテーマ付き）', async () => {
     const res = await fetch(`${base}/api/paragraphs`)
     assert.equal(res.status, 200)
     const body = (await res.json()) as { paragraphs: ParagraphListItem[] }
-    assert.equal(body.paragraphs[0]?.id, '2026-11-08-a')
-    assert.equal(body.paragraphs[0]?.theme, 'Uniforms')
+    assert.deepEqual(body.paragraphs, [
+      {
+        id: ID,
+        createdOn: '2026-11-08',
+        updatedAt: '2026-11-08T01:00:00.000Z',
+        started: { assignment: true, outline: false, draft: false },
+        theme: 'Uniforms',
+      },
+    ])
   })
 
-  it('POST /api/paragraphs はサーバの今日の日付で作り、テーマ入りの assignment.md を書く（前後の空白は落とす）', async () => {
+  it('POST /api/paragraphs はサーバの今日の日付で作り、テーマ入りの課題を書く（前後の空白は落とす）', async () => {
     const res = await fetch(`${base}/api/paragraphs`, {
       method: 'POST',
       headers: WRITE,
       body: JSON.stringify({ theme: '  School uniforms ' }),
     })
     assert.equal(res.status, 201)
-    assert.deepEqual(await res.json(), { id: '2026-11-08-new' })
-    assert.deepEqual(fake.calls, [
-      { op: 'create', args: ['2026-11-08', 'School uniforms'] },
-      {
-        op: 'save',
-        args: [
-          '2026-11-08-new',
-          'assignment',
-          '# School uniforms\n\n- 語数:\n- 文数:\n\n## 条件\n',
-          { rev: null, format: NEW_FILE_FORMAT },
-        ],
-      },
-    ])
+    assert.deepEqual(await res.json(), { id: '2026-11-08-school-uniforms' })
+    assert.deepEqual(store.readStage('2026-11-08-school-uniforms', 'assignment'), {
+      text: '# School uniforms\n\n- 語数:\n- 文数:\n\n## 条件\n',
+      rev: '1',
+    })
   })
 
   it('POST のテーマが文字列でなければ 400', async () => {
@@ -186,69 +109,64 @@ describe('API', () => {
       body: JSON.stringify({ theme: 1 }),
     })
     assert.equal(res.status, 400)
-    assert.equal(fake.calls.length, 0)
+    assert.equal(store.listParagraphs().length, 1)
   })
 
-  it('段階のファイルを読み、rev を付けて保存し、古い rev なら 409', async () => {
-    const url = `${base}/api/paragraphs/2026-11-08-a/stages/draft`
+  it('段階を読み、rev を付けて保存し、古い rev なら 409', async () => {
+    const url = `${base}/api/paragraphs/${ID}/stages/draft`
     const opened = (await (await fetch(url)).json()) as { text: string; rev: string | null }
-    assert.deepEqual(opened, { text: '', rev: null, format: NEW_FILE_FORMAT })
+    assert.deepEqual(opened, { text: '', rev: null })
 
     const put = (rev: string | null, text: string) =>
-      fetch(url, {
-        method: 'PUT',
-        headers: WRITE,
-        body: JSON.stringify({ text, rev, format: NEW_FILE_FORMAT }),
-      })
+      fetch(url, { method: 'PUT', headers: WRITE, body: JSON.stringify({ text, rev }) })
     const first = await put(null, 'In my opinion')
     assert.equal(first.status, 200)
-    const saved = (await first.json()) as { rev: string }
-    assert.equal(saved.rev, 'r1')
+    assert.deepEqual(await first.json(), { rev: '1', updatedAt: '2026-11-08T01:00:00.000Z' })
 
-    const second = await put('r1', 'In my opinion, ...')
+    const second = await put('1', 'In my opinion, ...')
     assert.equal(second.status, 200)
 
-    const stale = await put('r1', 'stale')
+    const stale = await put('1', 'stale')
     assert.equal(stale.status, 409)
     assert.equal(((await stale.json()) as { error: string }).error, 'conflict')
+    assert.equal(store.readStage(ID, 'draft').text, 'In my opinion, ...')
   })
 
-  it('PUT の本文・rev・format が不正なら 400（保存層に渡さない）', async () => {
-    const url = `${base}/api/paragraphs/2026-11-08-a/stages/draft`
-    for (const body of [
-      { rev: null, format: NEW_FILE_FORMAT },
-      { text: 'x', rev: '', format: NEW_FILE_FORMAT },
-      { text: 'x', rev: null, format: { eol: 'cr', bom: false, finalNewline: false } },
-    ]) {
+  it('PUT の本文・rev が不正なら 400（保存しない）', async () => {
+    const url = `${base}/api/paragraphs/${ID}/stages/draft`
+    for (const body of [{ rev: null }, { text: 'x', rev: '' }, { text: 'x', rev: 1 }]) {
       const res = await fetch(url, { method: 'PUT', headers: WRITE, body: JSON.stringify(body) })
       assert.equal(res.status, 400, JSON.stringify(body))
     }
     const bad = await fetch(url, { method: 'PUT', headers: WRITE, body: '{' })
     assert.equal(bad.status, 400)
-    assert.equal(fake.calls.length, 0)
+    assert.deepEqual(store.readStage(ID, 'draft'), { text: '', rev: null })
   })
 
-  it('知らない段階・不正な id は 400', async () => {
-    assert.equal((await fetch(`${base}/api/paragraphs/2026-11-08-a/stages/notes`)).status, 400)
+  it('知らない段階・不正な id は 400、無いパラグラフは 404', async () => {
+    assert.equal((await fetch(`${base}/api/paragraphs/${ID}/stages/notes`)).status, 400)
     assert.equal((await fetch(`${base}/api/paragraphs/..%2Fsecret/stages/draft`)).status, 400)
+    const missing = await fetch(`${base}/api/paragraphs/2026-11-08-none/stages/draft`)
+    assert.equal(missing.status, 404)
+    assert.equal(((await missing.json()) as { error: string }).error, 'not_found')
   })
 
-  it('DELETE /api/paragraphs/:id は 204', async () => {
-    const res = await fetch(`${base}/api/paragraphs/2026-11-08-a`, {
+  it('DELETE /api/paragraphs/:id は 204 で、一覧から消える', async () => {
+    const res = await fetch(`${base}/api/paragraphs/${ID}`, {
       method: 'DELETE',
       headers: WRITE,
     })
     assert.equal(res.status, 204)
-    assert.deepEqual(fake.calls, [{ op: 'delete', args: ['2026-11-08-a'] }])
+    assert.deepEqual(store.listParagraphs(), [])
   })
 
   it('書き込みに X-ESL-Request が無ければ 403（別のサイトから送らせない）', async () => {
-    const res = await fetch(`${base}/api/paragraphs/2026-11-08-a`, {
+    const res = await fetch(`${base}/api/paragraphs/${ID}`, {
       method: 'DELETE',
       headers: { 'content-type': 'application/json' },
     })
     assert.equal(res.status, 403)
-    assert.equal(fake.calls.length, 0)
+    assert.equal(store.listParagraphs().length, 1)
   })
 
   it('知らない API は 404、使えないメソッドは 405', async () => {
@@ -269,8 +187,7 @@ const SCORES = {
 }
 
 describe('採点の API', () => {
-  const putDraft = (text: string) =>
-    fake.store.saveStage('2026-11-08-a', 'draft', text, { rev: null, format: NEW_FILE_FORMAT })
+  const putDraft = (text: string) => store.saveStage(ID, 'draft', text, null)
   const post = () =>
     fetch(`${base}/api/paragraphs/2026-11-08-a/feedback`, {
       method: 'POST',
@@ -283,7 +200,7 @@ describe('採点の API', () => {
     assert.deepEqual(await res.json(), { feedback: null, aiConfigured: false })
   })
 
-  it('POST は保存されている下書きと課題で採点し、feedback.json に書いて返す。合計はアプリが足す', async () => {
+  it('POST は保存されている下書きと課題で採点し、保存して返す。合計はアプリが足す', async () => {
     let received: unknown = null
     ai = fakeAi({
       async score(input) {
@@ -301,10 +218,7 @@ describe('採点の API', () => {
         }
       },
     })
-    await fake.store.saveStage('2026-11-08-a', 'assignment', '# Uniforms\n\n- 語数: 100-\n', {
-      rev: null,
-      format: NEW_FILE_FORMAT,
-    })
+    store.saveStage(ID, 'assignment', '# Uniforms\n\n- 語数: 100-\n', '1')
     await putDraft('I agree.')
     const res = await post()
     assert.equal(res.status, 200)
@@ -320,10 +234,8 @@ describe('採点の API', () => {
       min: 100,
       max: null,
     })
-    // 2 回目は読んだ rev で update（最新の 1 回分だけ）
+    // 2 回目は上書き（最新の 1 回分だけ）
     assert.equal((await post()).status, 200)
-    const saves = fake.calls.filter((c) => c.op === 'saveFeedback').map((c) => c.args[1])
-    assert.deepEqual(saves, [null, 'f3'])
     const got = await (await fetch(`${base}/api/paragraphs/2026-11-08-a/feedback`)).json()
     assert.equal((got as { feedback: Feedback; aiConfigured: boolean }).feedback.total, 78)
     assert.equal((got as { aiConfigured: boolean }).aiConfigured, true)
@@ -345,7 +257,7 @@ describe('採点の API', () => {
     assert.equal(called, false)
   })
 
-  it('拒否は 422 ai_refusal、API の失敗は 502 ai_error（feedback.json は書かない）', async () => {
+  it('拒否は 422 ai_refusal、API の失敗は 502 ai_error（採点は保存しない）', async () => {
     await putDraft('I agree.')
     ai = fakeAi({
       async score() {
@@ -366,15 +278,31 @@ describe('採点の API', () => {
       error: 'ai_error',
       message: 'API キーが正しくありません',
     })
-    assert.equal(fake.calls.filter((c) => c.op === 'saveFeedback').length, 0)
+    assert.equal(store.readFeedback(ID), null)
   })
 })
 
 describe('振り返りの API', () => {
-  it('GET /api/review は採点のあるパラグラフの最新の採点（無ければ空）', async () => {
+  it('GET /api/review は採点のあるパラグラフの最新の採点（無ければ空。読めないものは飛ばす）', async () => {
     const res = await fetch(`${base}/api/review`)
     assert.equal(res.status, 200)
     assert.deepEqual(await res.json(), { entries: [] })
+    const feedback: Feedback = {
+      version: 1,
+      scoredAt: '2026-11-08T03:00:00.000Z',
+      model: 'm',
+      draft: 'I agree.',
+      total: 78,
+      scores: SCORES,
+      strengths: [],
+      findings: [],
+    }
+    store.saveFeedback(ID, JSON.stringify(feedback))
+    const other = store.createParagraph('2026-11-08', 'b', '# B\n')
+    store.saveFeedback(other, '{ broken')
+    assert.deepEqual(await (await fetch(`${base}/api/review`)).json(), {
+      entries: [{ id: ID, theme: 'Uniforms', feedback }],
+    })
     assert.equal(
       (await fetch(`${base}/api/review`, { method: 'POST', headers: WRITE, body: '{}' })).status,
       405,
@@ -435,6 +363,33 @@ describe('アイデア出しの API', () => {
     const empty = await post('outline', { theme: 'T', outline: ' \n' })
     assert.equal(empty.status, 400)
     assert.equal(((await empty.json()) as { error: string }).error, 'empty_outline')
+  })
+
+  it('id を付けると、終わったときに入力と一緒に AI案として保存し、GET /api/paragraphs/:id/ai で返す', async () => {
+    const ideas = { sides: [] }
+    const review = { summary: 'よい', findings: [] }
+    ai = fakeAi({
+      suggestThemes: async () => [{ en: 'Q?', ja: '問い' }],
+      suggestIdeas: async () => ideas,
+      reviewOutline: async () => review,
+    })
+    const url = `${base}/api/paragraphs/${ID}/ai`
+    assert.deepEqual(await (await fetch(url)).json(), { themes: null, ideas: null, outline: null })
+    assert.equal((await post('themes', { id: ID, hint: '部活' })).status, 200)
+    assert.equal((await post('ideas', { id: ID, theme: 'T', conditions: 'C' })).status, 200)
+    assert.equal((await post('outline', { id: ID, theme: 'T', outline: '意見' })).status, 200)
+    const at = '2026-11-08T03:00:00.000Z'
+    const saved: SavedAiResults = {
+      themes: { hint: '部活', themes: [{ en: 'Q?', ja: '問い' }], createdAt: at },
+      ideas: { theme: 'T', conditions: 'C', ideas, createdAt: at },
+      outline: { theme: 'T', conditions: '', outline: '意見', review, createdAt: at },
+    }
+    assert.deepEqual(await (await fetch(url)).json(), saved)
+    // id が無ければ保存しない。形の違う id は 400（AI を呼ばない）
+    assert.equal((await post('themes', { hint: 'x' })).status, 200)
+    assert.equal(((await (await fetch(url)).json()) as SavedAiResults).themes?.hint, '部活')
+    assert.equal((await post('themes', { id: '../x', hint: 'x' })).status, 400)
+    assert.equal((await fetch(`${base}/api/paragraphs/2026-11-08-none/ai`)).status, 404)
   })
 
   it('キーが無ければ 503、長すぎる hint は 400、拒否は 422、GET は 405', async () => {

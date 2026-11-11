@@ -9,7 +9,7 @@ import { h, replace } from '../dom.js'
 import type { StageEditor } from '../stage-editor.js'
 
 /**
- * STEP 1 課題: テーマ・語数／文数の指定・構成や表現の条件（`assignment.md`。書式は `src/shared/assignment.ts`）。
+ * STEP 1 課題: テーマ・語数／文数の指定・構成や表現の条件（書式は `src/shared/assignment.ts`）。
  * 打つたびに本文を組み直して自動保存に渡す。
  */
 

@@ -3,7 +3,7 @@ import { CRITERIA, type CriterionKey, type Feedback, type Finding } from './feed
 /**
  * 間違いの振り返りの集計（`docs/plans/archive/review.md`）。純関数。
  *
- * パラグラフごとの最新の採点（`feedback.json`）を横断して、観点ごとの平均・いちばん低い観点・点数の推移・観点ごとの指摘を出す。
+ * パラグラフごとの最新の採点を横断して、観点ごとの平均・いちばん低い観点・点数の推移・観点ごとの指摘を出す。
  */
 
 /** 振り返りの 1 件（`GET /api/review`）。 */

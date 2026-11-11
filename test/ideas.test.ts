@@ -10,6 +10,7 @@ import {
   stripOrdinal,
   THEMES_SYSTEM,
 } from '../src/ai/ideas.js'
+import { isIdeasStale, isOutlineReviewStale } from '../src/shared/ideas.js'
 
 describe('テーマの候補', () => {
   it('プロンプト: 分野があれば入れ、無ければ指定なし。システムは 5 つ・賛否を取れる問い', () => {
@@ -84,5 +85,23 @@ describe('stripOrdinal', () => {
     assert.equal(stripOrdinal('２. 疲れる'), '疲れる')
     assert.equal(stripOrdinal('ファーストフードが増える'), 'ファーストフードが増える')
     assert.equal(stripOrdinal('Firstly the cost'), 'Firstly the cost')
+  })
+})
+
+describe('保存した AI案の古さ', () => {
+  const at = '2026-11-11T00:00:00.000Z'
+  it('理由・例の候補: テーマ（前後の空白は見ない）か条件が変われば古い', () => {
+    const saved = { theme: 'Uniforms', conditions: 'C', ideas: { sides: [] }, createdAt: at }
+    assert.equal(isIdeasStale(saved, ' Uniforms ', 'C'), false)
+    assert.equal(isIdeasStale(saved, 'Phones', 'C'), true)
+    assert.equal(isIdeasStale(saved, 'Uniforms', 'C2'), true)
+  })
+
+  it('アウトラインの指摘: アウトライン・テーマ・条件のどれかが変われば古い', () => {
+    const review = { summary: '', findings: [] }
+    const saved = { theme: 'T', conditions: 'C', outline: '意見', review, createdAt: at }
+    assert.equal(isOutlineReviewStale(saved, 'T', 'C', '意見'), false)
+    assert.equal(isOutlineReviewStale(saved, 'T', 'C', '意見\n\t理由'), true)
+    assert.equal(isOutlineReviewStale(saved, 'T2', 'C', '意見'), true)
   })
 })

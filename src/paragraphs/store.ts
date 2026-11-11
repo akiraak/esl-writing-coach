@@ -1,304 +1,258 @@
-import { type DropboxClient, isConflictError, isNotFoundError } from '../dropbox/client.js'
-import { FEEDBACK_FILE } from '../shared/feedback.js'
+import type { DatabaseSync } from 'node:sqlite'
+import { parseAssignment } from '../shared/assignment.js'
+import type { AiKind } from '../shared/ideas.js'
 import {
-  type ParagraphSummary,
-  type SaveBase,
+  type ParagraphListItem,
   type SavedStage,
-  STAGE_FILES,
   STAGES,
   type Stage,
   type StageContent,
-  type StageFileInfo,
-  type StageTextFormat,
 } from '../shared/types.js'
+import { transaction } from './database.js'
 import { dateOfParagraphId, isParagraphId, paragraphIdCandidate } from './naming.js'
-import { decodeStageText, encodeStageText } from './text.js'
 
 export {
-  type ParagraphSummary,
-  type SaveBase,
+  type ParagraphListItem,
   type SavedStage,
-  STAGE_FILES,
   STAGES,
   type Stage,
   type StageContent,
-  type StageFileInfo,
 } from '../shared/types.js'
 
 /**
- * パラグラフの読み書き（Dropbox 上のファイル。`CLAUDE.md` の「ファイルの配置」）。
+ * パラグラフの読み書き（ローカルの SQLite。表は `database.ts`。`docs/plans/sqlite-storage.md`）。
  *
- * ```
- * <root>/paragraphs/<id>/assignment.md | ideas.txt | outline.txt | draft.txt
- * ```
- *
- * - 段階ごとにファイルを分け、**保存も競合の判定もファイル単位**で行う
- * - 保存は `rev` があれば `update`、無ければ `add`。**上書き（overwrite）はしない**。
- *   `rev` が合わない・既にある、は `StageConflictError` にして呼び出し側に知らせる
- * - 新規作成ではフォルダだけを作る（空のファイルは作らない）。段階のファイルが「無い・0 バイト」なら未着手
+ * - 段階（課題・アウトライン・下書き）は 1 行ずつ持ち、**保存も競合の判定も段階ごと**に行う
+ * - `rev` は保存のたびに 1 増える `version` の文字列。`rev` が合わなければ上書きせず `StageConflictError`。
+ *   `rev` が null の保存は「まだ無いときだけ作る」（タブを 2 つ開いて同時に書いたときの上書きを防ぐ）
+ * - 削除は印（`deleted_at`）を付けるだけ。一覧にも読み込みにも出さず、同じ id は使い回さない
+ * - 段階が「無い・空」なら未着手（一覧の進み具合）
  */
 
-/** パラグラフのフォルダを並べるフォルダ（保存先の直下）。 */
-export const PARAGRAPHS_DIR = 'paragraphs'
-
-/** このアプリが新しく作るファイルの形式（LF・BOM なし・末尾の改行は足さない）。 */
-export const NEW_FILE_FORMAT: StageTextFormat = { eol: 'lf', bom: false, finalNewline: false }
-
-/** 1 回の list_folder で取る件数（Dropbox の上限は 2000）。 */
-const LIST_LIMIT = 2000
-
-/** フォルダ名の重複を避けて試す回数の上限。 */
+/** id の重複を避けて試す回数の上限。 */
 const MAX_CREATE_ATTEMPTS = 50
 
 export class InvalidParagraphIdError extends Error {
   override name = 'InvalidParagraphIdError'
 }
 
-/** 保存しようとしたら、他（別の端末・別のタブ）が先に書いていた。上書きはしていない。 */
+/** 無い（消した）パラグラフ。 */
+export class ParagraphNotFoundError extends Error {
+  override name = 'ParagraphNotFoundError'
+}
+
+/** 保存しようとしたら、他（別のタブ）が先に書いていた。上書きはしていない。 */
 export class StageConflictError extends Error {
   override name = 'StageConflictError'
   readonly id: string
   readonly stage: Stage
 
   constructor(id: string, stage: Stage) {
-    super(`${id} の ${STAGE_FILES[stage]} は他で更新されています（上書きしていません）`)
+    super(`${id} の ${stage} は他で更新されています（上書きしていません）`)
     this.id = id
     this.stage = stage
   }
 }
 
-/** `feedback.json` を書こうとしたら、他が先に書いていた。 */
-export class FeedbackConflictError extends Error {
-  override name = 'FeedbackConflictError'
-}
-
 export interface ParagraphStore {
-  listParagraphs(): Promise<ParagraphSummary[]>
-  readStage(id: string, stage: Stage): Promise<StageContent>
-  saveStage(id: string, stage: Stage, text: string, base: SaveBase): Promise<SavedStage>
-  /** フォルダを作って id を返す。同名があれば `-2`, `-3` … を付ける。 */
-  createParagraph(date: string, theme: string): Promise<string>
-  /** フォルダごと消す（Dropbox の削除済みファイルから戻せる）。既に無ければ何もしない。 */
-  deleteParagraph(id: string): Promise<void>
-  /** AI の採点の結果（`feedback.json`）。無ければ null。中身の解釈は呼び出し側（`parseFeedback`）。 */
-  readFeedback(id: string): Promise<{ text: string; rev: string } | null>
-  /** `feedback.json` を書く（`rev` があれば `update`、無ければ `add`）。合わなければ `FeedbackConflictError`。 */
-  saveFeedback(id: string, text: string, rev: string | null): Promise<void>
+  /** 新しく保存した順（同じなら id の降順）。テーマは課題の本文から読む。 */
+  listParagraphs(): ParagraphListItem[]
+  readStage(id: string, stage: Stage): StageContent
+  saveStage(id: string, stage: Stage, text: string, rev: string | null): SavedStage
+  /** パラグラフを作り、課題の本文（テーマだけ）も入れて id を返す。同名があれば `-2`, `-3` … を付ける。 */
+  createParagraph(date: string, theme: string, assignmentText: string): string
+  /** 印を付けて一覧から外す。既に無ければ何もしない。 */
+  deleteParagraph(id: string): void
+  /** AI の採点の最新の結果（JSON）。無ければ null。中身の解釈は呼び出し側（`parseFeedback`）。 */
+  readFeedback(id: string): string | null
+  saveFeedback(id: string, json: string): void
+  /** 採点のある全パラグラフ（振り返り）。 */
+  listFeedbacks(): { id: string; theme: string; json: string }[]
+  /** AI案（種類ごとの最新の 1 回分の JSON）。 */
+  readAiResults(id: string): Partial<Record<AiKind, string>>
+  /** AI案を書く。パラグラフが無ければ（呼び出し中に消した）何もしない。 */
+  saveAiResult(id: string, kind: AiKind, json: string): void
 }
 
-interface ListFolderEntry {
-  '.tag': string
-  name?: string
-  path_lower?: string
-  path_display?: string
-  rev?: string
-  size?: number
-  server_modified?: string
-}
-
-interface ListFolderResult {
-  entries: ListFolderEntry[]
-  cursor: string
-  has_more: boolean
-}
-
-function stageOfFileName(name: string): Stage | null {
-  const lower = name.toLowerCase()
-  return STAGES.find((stage) => STAGE_FILES[stage] === lower) ?? null
+export interface StoreOptions {
+  /** 保存の時刻。差し替えられるのはテストのため。 */
+  now?: () => string
 }
 
 function assertId(id: string): void {
   if (!isParagraphId(id)) throw new InvalidParagraphIdError(`パラグラフの id が不正です: ${id}`)
 }
 
-function emptyStarted(): Record<Stage, boolean> {
-  return { assignment: false, outline: false, draft: false }
+function str(value: unknown): string {
+  return typeof value === 'string' ? value : ''
 }
 
-/**
- * list_folder の結果（再帰）をパラグラフごとにまとめる。純関数（テスト用に公開）。
- * `base` は `<root>/paragraphs`。id の形でないフォルダ・段階以外のファイル・深い階層は無視する。
- */
-export function summarizeEntries(base: string, entries: ListFolderEntry[]): ParagraphSummary[] {
-  const prefix = `${base.toLowerCase()}/`
-  const byId = new Map<string, ParagraphSummary>()
+export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {}): ParagraphStore {
+  const now = options.now ?? (() => new Date().toISOString())
 
-  const summaryOf = (id: string): ParagraphSummary | null => {
-    const createdOn = dateOfParagraphId(id)
-    if (createdOn === null) return null
-    let summary = byId.get(id)
-    if (summary === undefined) {
-      summary = {
-        id,
-        createdOn,
-        updatedAt: `${createdOn}T00:00:00Z`,
-        files: {},
-        started: emptyStarted(),
+  const exists = db.prepare('SELECT 1 FROM paragraphs WHERE id = ? AND deleted_at IS NULL')
+  /** 消したものも含めてあるか（id を使い回さないため）。 */
+  const taken = db.prepare('SELECT 1 FROM paragraphs WHERE id = ?')
+
+  function assertExists(id: string): void {
+    assertId(id)
+    if (exists.get(id) === undefined)
+      throw new ParagraphNotFoundError(`パラグラフがありません: ${id}`)
+  }
+
+  const listRows = db.prepare(`
+    SELECT p.id, p.created_on, p.created_at, s.stage, s.text, s.updated_at
+    FROM paragraphs p LEFT JOIN stages s ON s.paragraph_id = p.id
+    WHERE p.deleted_at IS NULL
+  `)
+
+  function listParagraphs(): ParagraphListItem[] {
+    const byId = new Map<string, ParagraphListItem>()
+    for (const row of listRows.all()) {
+      const id = str(row['id'])
+      let item = byId.get(id)
+      if (item === undefined) {
+        item = {
+          id,
+          createdOn: str(row['created_on']) || (dateOfParagraphId(id) ?? ''),
+          updatedAt: str(row['created_at']),
+          started: { assignment: false, outline: false, draft: false },
+          theme: '',
+        }
+        byId.set(id, item)
       }
-      byId.set(id, summary)
+      const stage = STAGES.find((s) => s === row['stage'])
+      if (stage === undefined) continue
+      const text = str(row['text'])
+      item.started[stage] = text !== ''
+      if (stage === 'assignment') item.theme = parseAssignment(text).theme
+      const updatedAt = str(row['updated_at'])
+      // ISO8601（UTC）なので文字列の大小で比べられる
+      if (updatedAt > item.updatedAt) item.updatedAt = updatedAt
     }
-    return summary
+    return [...byId.values()].sort((a, b) =>
+      a.updatedAt === b.updatedAt ? (a.id < b.id ? 1 : -1) : a.updatedAt < b.updatedAt ? 1 : -1,
+    )
   }
 
-  for (const entry of entries) {
-    const lower = entry.path_lower
-    if (lower === undefined || !lower.startsWith(prefix)) continue
-    // 大文字小文字はサーバの表示どおり（path_display）を使う。長さは path_lower と同じ
-    const display = entry.path_display ?? lower
-    const segments = display.slice(prefix.length).split('/')
-    const id = segments[0]
-    if (id === undefined || id === '') continue
-
-    if (entry['.tag'] === 'folder' && segments.length === 1) {
-      summaryOf(id)
-    } else if (entry['.tag'] === 'file' && segments.length === 2) {
-      const fileName = (segments[1] ?? '').toLowerCase()
-      const stage = stageOfFileName(fileName)
-      if (stage === null && fileName !== FEEDBACK_FILE) continue
-      const summary = summaryOf(id)
-      if (summary === null || entry.rev === undefined) continue
-      const info: StageFileInfo = {
-        rev: entry.rev,
-        size: entry.size ?? 0,
-        serverModified: entry.server_modified ?? '',
-      }
-      if (stage === null) {
-        // feedback.json（AI の採点）。振り返りで使う。更新日には数えない
-        summary.feedback = info
-        continue
-      }
-      summary.files[stage] = info
-      summary.started[stage] = info.size > 0
-    }
-  }
-
-  for (const summary of byId.values()) {
-    const times = Object.values(summary.files)
-      .map((info) => info.serverModified)
-      .filter((time) => time !== '')
-    // ISO8601（UTC・同じ桁数）なので文字列の大小で比べられる
-    const latest = times.sort().at(-1)
-    if (latest !== undefined) summary.updatedAt = latest
-  }
-
-  return [...byId.values()].sort((a, b) =>
-    a.updatedAt === b.updatedAt ? (a.id < b.id ? 1 : -1) : a.updatedAt < b.updatedAt ? 1 : -1,
+  const selectStage = db.prepare(
+    'SELECT text, version FROM stages WHERE paragraph_id = ? AND stage = ?',
   )
-}
 
-export function createParagraphStore(client: DropboxClient, root: string): ParagraphStore {
-  const base = `${root}/${PARAGRAPHS_DIR}`
-  const folderPath = (id: string) => `${base}/${id}`
-  const filePath = (id: string, stage: Stage) => `${base}/${id}/${STAGE_FILES[stage]}`
-
-  async function listParagraphs(): Promise<ParagraphSummary[]> {
-    const entries: ListFolderEntry[] = []
-    let result: ListFolderResult
-    try {
-      result = await client.rpc<ListFolderResult>('/2/files/list_folder', {
-        path: base,
-        recursive: true,
-        limit: LIST_LIMIT,
-      })
-    } catch (error) {
-      // まだ 1 つも作っていなければ paragraphs/ が無い
-      if (isNotFoundError(error)) return []
-      throw error
-    }
-    entries.push(...result.entries)
-    // 件数が少なくても has_more が付くことがある（daily-note の実測）。必ず最後まで辿る
-    while (result.has_more) {
-      result = await client.rpc<ListFolderResult>('/2/files/list_folder/continue', {
-        cursor: result.cursor,
-      })
-      entries.push(...result.entries)
-    }
-    return summarizeEntries(base, entries)
+  function readStage(id: string, stage: Stage): StageContent {
+    assertExists(id)
+    const row = selectStage.get(id, stage)
+    if (row === undefined) return { text: '', rev: null }
+    return { text: str(row['text']), rev: String(row['version']) }
   }
 
-  async function readStage(id: string, stage: Stage): Promise<StageContent> {
-    assertId(id)
-    try {
-      const file = await client.download(filePath(id, stage))
-      const decoded = decodeStageText(file.bytes)
-      return { text: decoded.text, rev: file.rev, format: decoded.format }
-    } catch (error) {
-      if (isNotFoundError(error)) return { text: '', rev: null, format: NEW_FILE_FORMAT }
-      throw error
+  const insertStage = db.prepare(`
+    INSERT INTO stages (paragraph_id, stage, text, version, updated_at) VALUES (?, ?, ?, 1, ?)
+    ON CONFLICT (paragraph_id, stage) DO NOTHING
+  `)
+  const updateStage = db.prepare(`
+    UPDATE stages SET text = ?, version = version + 1, updated_at = ?
+    WHERE paragraph_id = ? AND stage = ? AND version = ?
+  `)
+
+  function saveStage(id: string, stage: Stage, text: string, rev: string | null): SavedStage {
+    assertExists(id)
+    const updatedAt = now()
+    if (rev === null) {
+      if (insertStage.run(id, stage, text, updatedAt).changes === 0) {
+        throw new StageConflictError(id, stage)
+      }
+      return { rev: '1', updatedAt }
     }
+    const version = Number(rev)
+    // 数字でない rev（Dropbox の頃に開いたままのタブなど）は合わないものとして扱う
+    if (!Number.isSafeInteger(version)) throw new StageConflictError(id, stage)
+    if (updateStage.run(text, updatedAt, id, stage, version).changes === 0) {
+      throw new StageConflictError(id, stage)
+    }
+    return { rev: String(version + 1), updatedAt }
   }
 
-  async function saveStage(
-    id: string,
-    stage: Stage,
-    text: string,
-    saveBase: SaveBase,
-  ): Promise<SavedStage> {
-    assertId(id)
-    const bytes = encodeStageText(text, saveBase.format)
-    try {
-      const meta = await client.upload(
-        filePath(id, stage),
-        bytes,
-        saveBase.rev === null ? { tag: 'add' } : { tag: 'update', rev: saveBase.rev },
-      )
-      return { rev: meta.rev, size: meta.size, serverModified: meta.serverModified }
-    } catch (error) {
-      if (isConflictError(error)) throw new StageConflictError(id, stage)
-      throw error
-    }
-  }
+  const insertParagraph = db.prepare(
+    'INSERT INTO paragraphs (id, created_on, created_at) VALUES (?, ?, ?)',
+  )
 
-  async function createParagraph(date: string, theme: string): Promise<string> {
-    for (let attempt = 1; attempt <= MAX_CREATE_ATTEMPTS; attempt += 1) {
-      const id = paragraphIdCandidate(date, theme, attempt)
-      try {
-        await client.createFolder(folderPath(id))
+  function createParagraph(date: string, theme: string, assignmentText: string): string {
+    return transaction(db, () => {
+      for (let attempt = 1; attempt <= MAX_CREATE_ATTEMPTS; attempt += 1) {
+        const id = paragraphIdCandidate(date, theme, attempt)
+        if (taken.get(id) !== undefined) continue
+        const at = now()
+        insertParagraph.run(id, date, at)
+        insertStage.run(id, 'assignment', assignmentText, at)
         return id
-      } catch (error) {
-        if (isConflictError(error)) continue
-        throw error
+      }
+      throw new Error(`id が重複し続けて作れません（${date} / ${MAX_CREATE_ATTEMPTS} 回）`)
+    })
+  }
+
+  const markDeleted = db.prepare(
+    'UPDATE paragraphs SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL',
+  )
+
+  function deleteParagraph(id: string): void {
+    assertId(id)
+    markDeleted.run(now(), id)
+  }
+
+  const selectFeedback = db.prepare('SELECT json FROM feedbacks WHERE paragraph_id = ?')
+  const upsertFeedback = db.prepare(`
+    INSERT INTO feedbacks (paragraph_id, json, updated_at) VALUES (?, ?, ?)
+    ON CONFLICT (paragraph_id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at
+  `)
+  const allFeedbacks = db.prepare(`
+    SELECT p.id, f.json, s.text AS assignment
+    FROM feedbacks f
+    JOIN paragraphs p ON p.id = f.paragraph_id AND p.deleted_at IS NULL
+    LEFT JOIN stages s ON s.paragraph_id = p.id AND s.stage = 'assignment'
+  `)
+
+  function readFeedback(id: string): string | null {
+    assertExists(id)
+    const row = selectFeedback.get(id)
+    return row === undefined ? null : str(row['json'])
+  }
+
+  function saveFeedback(id: string, json: string): void {
+    assertExists(id)
+    upsertFeedback.run(id, json, now())
+  }
+
+  function listFeedbacks(): { id: string; theme: string; json: string }[] {
+    return allFeedbacks.all().map((row) => ({
+      id: str(row['id']),
+      theme: parseAssignment(str(row['assignment'])).theme,
+      json: str(row['json']),
+    }))
+  }
+
+  const selectAi = db.prepare('SELECT kind, json FROM ai_results WHERE paragraph_id = ?')
+  const upsertAi = db.prepare(`
+    INSERT INTO ai_results (paragraph_id, kind, json, created_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT (paragraph_id, kind) DO UPDATE SET json = excluded.json, created_at = excluded.created_at
+  `)
+
+  function readAiResults(id: string): Partial<Record<AiKind, string>> {
+    assertExists(id)
+    const results: Partial<Record<AiKind, string>> = {}
+    for (const row of selectAi.all(id)) {
+      const kind = row['kind']
+      if (kind === 'themes' || kind === 'ideas' || kind === 'outline') {
+        results[kind] = str(row['json'])
       }
     }
-    throw new Error(`フォルダ名が重複し続けて作れません（${date} / ${MAX_CREATE_ATTEMPTS} 回）`)
+    return results
   }
 
-  async function deleteParagraph(id: string): Promise<void> {
+  function saveAiResult(id: string, kind: AiKind, json: string): void {
     assertId(id)
-    try {
-      await client.remove(folderPath(id))
-    } catch (error) {
-      if (isNotFoundError(error)) return
-      throw error
-    }
-  }
-
-  const feedbackPath = (id: string) => `${base}/${id}/${FEEDBACK_FILE}`
-
-  async function readFeedback(id: string): Promise<{ text: string; rev: string } | null> {
-    assertId(id)
-    try {
-      const file = await client.download(feedbackPath(id))
-      return { text: new TextDecoder().decode(file.bytes), rev: file.rev }
-    } catch (error) {
-      if (isNotFoundError(error)) return null
-      throw error
-    }
-  }
-
-  async function saveFeedback(id: string, text: string, rev: string | null): Promise<void> {
-    assertId(id)
-    try {
-      await client.upload(
-        feedbackPath(id),
-        new TextEncoder().encode(text),
-        rev === null ? { tag: 'add' } : { tag: 'update', rev },
-      )
-    } catch (error) {
-      if (isConflictError(error))
-        throw new FeedbackConflictError(`${id} の ${FEEDBACK_FILE} は他で更新されています`)
-      throw error
-    }
+    if (exists.get(id) === undefined) return
+    upsertAi.run(id, kind, json, now())
   }
 
   return {
@@ -309,5 +263,8 @@ export function createParagraphStore(client: DropboxClient, root: string): Parag
     deleteParagraph,
     readFeedback,
     saveFeedback,
+    listFeedbacks,
+    readAiResults,
+    saveAiResult,
   }
 }

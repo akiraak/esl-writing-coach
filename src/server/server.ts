@@ -3,9 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import path from 'node:path'
 import type { Ai } from '../ai/client.js'
 import { describeError, log } from '../log.js'
-import { createFeedbackReader } from '../paragraphs/feedbacks.js'
 import type { ParagraphStore } from '../paragraphs/store.js'
-import { createThemeReader } from '../paragraphs/themes.js'
 import { handleApi, sendJson } from './api.js'
 import { CONTENT_SECURITY_POLICY, checkRequest, REQUEST_HEADER } from './guard.js'
 
@@ -79,13 +77,7 @@ async function serveStatic(
   res.end(method === 'HEAD' ? undefined : body)
 }
 
-export function createAppHandler(appOptions: AppOptions) {
-  // 一覧のテーマは rev で覚えておくので、サーバで 1 つを使い回す
-  const options = {
-    ...appOptions,
-    themes: createThemeReader(appOptions.store),
-    feedbacks: createFeedbackReader(appOptions.store),
-  }
+export function createAppHandler(options: AppOptions) {
   return (req: IncomingMessage, res: ServerResponse): void => {
     const method = req.method ?? 'GET'
     const rejection = checkRequest(

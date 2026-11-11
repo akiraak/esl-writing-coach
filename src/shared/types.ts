@@ -1,12 +1,12 @@
 /**
  * サーバとブラウザで共有する型と定数（Node にも DOM にも依存しない）。
  *
- * API の応答の形はここで決める。サーバ側は `src/paragraphs/store.ts`、ブラウザ側は `src/browser/api.ts` が使う。
+ * API の応答の形はここで決める。サーバ側は `src/paragraphs/store.ts`（SQLite）、ブラウザ側は `src/browser/api.ts` が使う。
  */
 
 /**
- * 段階（= 段階のファイル）。2026-11-09 にアイデアの段階をなくし、最初からアウトラインを作るようにした
- * （`docs/plans/archive/ideas-outline.md`）。以前の `ideas.txt` は Dropbox に残っていても読まない。
+ * 段階。2026-11-09 にアイデアの段階をなくし、最初からアウトラインを作るようにした
+ * （`docs/plans/archive/ideas-outline.md`）。
  */
 export const STAGES = ['assignment', 'outline', 'draft'] as const
 export type Stage = (typeof STAGES)[number]
@@ -15,72 +15,39 @@ export function isStage(value: string): value is Stage {
   return (STAGES as readonly string[]).includes(value)
 }
 
-export const STAGE_FILES: Readonly<Record<Stage, string>> = {
-  assignment: 'assignment.md',
-  outline: 'outline.txt',
-  draft: 'draft.txt',
-}
-
-export type Eol = 'lf' | 'crlf'
-
-/** 段階のファイルの元の形式。読み込み時に控え、保存時にそのまま返す。 */
-export interface StageTextFormat {
-  /** 元の改行コード。CRLF を 1 つでも含めば 'crlf'。 */
-  eol: Eol
-  /** 先頭に BOM があったか。 */
-  bom: boolean
-  /** 末尾に改行があったか。 */
-  finalNewline: boolean
-}
-
-export interface StageFileInfo {
-  rev: string
-  size: number
-  /** サーバ側の更新時刻（ISO8601）。 */
-  serverModified: string
-}
-
 export interface ParagraphSummary {
-  /** フォルダ名。 */
+  /** パラグラフの id（`作成日-テーマのスラッグ`。`src/paragraphs/naming.ts`）。 */
   id: string
-  /** 作成日（フォルダ名の先頭。`YYYY-MM-DD`）。 */
+  /** 作成日（id の先頭。`YYYY-MM-DD`）。 */
   createdOn: string
-  /** 段階のファイルの最新の更新時刻。ファイルが 1 つも無ければ作成日の 0 時（UTC）。 */
+  /** 段階の最新の保存時刻（ISO8601）。1 つも保存していなければ作成時刻。 */
   updatedAt: string
-  /** ある段階のファイルだけを持つ。 */
-  files: Partial<Record<Stage, StageFileInfo>>
-  /** 段階ごとの着手済みか（ファイルがあって 1 バイト以上）。一覧の進み具合に使う。 */
+  /** 段階ごとの着手済みか（1 文字以上ある）。一覧の進み具合に使う。 */
   started: Record<Stage, boolean>
-  /** AI の採点の結果（`feedback.json`）があればそのメタデータ。更新日には数えない。 */
-  feedback?: StageFileInfo
 }
 
 /** 一覧の 1 件（`GET /api/paragraphs`）。 */
 export interface ParagraphListItem extends ParagraphSummary {
-  /** `assignment.md` のテーマ。無い・読めなければ空文字。 */
+  /** 課題のテーマ（課題の書式の `# ` 行）。無ければ空文字。 */
   theme: string
 }
 
 export interface StageContent {
-  /** LF に正規化した本文。ファイルが無ければ空文字。 */
+  /** 本文（LF）。まだ無ければ空文字。 */
   text: string
-  /** 保存のときに渡す版番号。ファイルが無ければ null（保存は `add` になる）。 */
+  /** 保存のときに渡す版番号。まだ無ければ null（保存は「無いときだけ作る」になる）。 */
   rev: string | null
-  /** 保存のときに渡す、元のファイルの形式。 */
-  format: StageTextFormat
 }
 
 export interface SaveBase {
   /** 読んだときの `rev`（無ければ null）。 */
   rev: string | null
-  /** 読んだときの形式。 */
-  format: StageTextFormat
 }
 
 export interface SavedStage {
   rev: string
-  size: number
-  serverModified: string
+  /** 保存した時刻（ISO8601）。 */
+  updatedAt: string
 }
 
 /** API がエラーのときに返す本文。 */

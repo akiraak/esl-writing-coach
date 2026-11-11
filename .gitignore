@@ -3,6 +3,9 @@ dist/
 dist-test/
 logs/
 
+# ローカルの DB（データの本体。バックアップは Dropbox の backups/）
+data/
+
 # 認証情報（Dropbox のトークン等）。絶対にコミットしない
 .env
 .env.*

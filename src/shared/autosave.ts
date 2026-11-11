@@ -8,7 +8,7 @@ import type { SaveBase, SavedStage } from './types.js'
  * - 保存中に打てば、保存が終わってからもう一度保存する（同時に 2 つは送らない）
  * - 保存できたら新しい `rev` を持ち、次の保存に使う
  * - **競合を 1 度でも見たら自動保存を止める**。手元の内容は消さず、知らせるだけ（黙って再送しない。daily-note と同じ）
- * - 通信・Dropbox の失敗は `error`。次に打ったとき・`retry()`・`flush()` で保存し直す
+ * - 通信・サーバの失敗は `error`。次に打ったとき・`retry()`・`flush()` で保存し直す
  * - 画面を離れるときは `flush()` で待たずに保存する
  */
 
@@ -18,7 +18,7 @@ export type SaveState =
   /** 打ったが、まだ保存していない。 */
   | { kind: 'dirty' }
   | { kind: 'saving' }
-  /** 保存できなかった（通信・Dropbox の失敗）。手元の内容は残っている。 */
+  /** 保存できなかった（通信・サーバの失敗）。手元の内容は残っている。 */
   | { kind: 'error'; message: string }
   /** 他（別の端末・別のタブ）が先に保存していた。自動保存は止めた。 */
   | { kind: 'conflict' }
@@ -105,7 +105,7 @@ export function createAutosave(options: AutosaveOptions): Autosave {
         savedText = text
         base = { ...base, rev: saved.rev }
         if (current === savedText) {
-          setState({ kind: 'saved', at: saved.serverModified })
+          setState({ kind: 'saved', at: saved.updatedAt })
         } else {
           // 保存中に打った分をもう一度
           setState({ kind: 'dirty' })
