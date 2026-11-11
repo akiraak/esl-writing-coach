@@ -127,7 +127,10 @@ a { color: var(--brand); }
 .btn:disabled { opacity: .6; cursor: default; }
 
 /* --- 編集（3 ペイン） ------------------------------------------------------ */
-.panes { flex: 1; display: grid; grid-template-columns: 200px 1fr 340px; min-height: 0; overflow: hidden; }
+.panes {
+  --right: 340px;
+  position: relative; flex: 1; display: grid; grid-template-columns: 200px 1fr var(--right); min-height: 0; overflow: hidden;
+}
 .stages { padding: 1rem .8rem; display: flex; flex-direction: column; gap: .55rem; border-right: 1px solid var(--line); overflow: auto; }
 .tile {
   position: relative; background: var(--card); border-radius: 12px; padding: .7rem .85rem;
@@ -300,8 +303,68 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .n-ex { background: var(--ex-bg); color: #8a5418; border-left: 4px solid var(--ex); }
 .n-cs { background: var(--cs-bg); color: #64407d; border-left: 4px solid var(--cs); }
 
-.guide { background: var(--card); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
-.seg { display: flex; margin: .8rem .9rem .3rem; background: var(--bg); border-radius: 9px; padding: 3px; }
+/* --- 右ペイン（AI）と学習ガイドの引き出し（docs/plans/archive/right-pane-layout.md） --- */
+.side { background: var(--card); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.ai-pane-head { display: flex; align-items: baseline; gap: .6rem; padding: .85rem 1rem .5rem; border-bottom: 1px solid var(--line-soft); flex: none; }
+.ai-pane-head h2 { margin: 0; font-size: 14.5px; }
+.ai-pane-head small { font-size: 11px; color: var(--faint); }
+.ai-pane .gbody { display: flex; flex-direction: column; gap: .7rem; padding-top: .8rem; }
+.ai-step { margin: 0; font-size: 12px; color: var(--brand); letter-spacing: .04em; }
+.ai-now { display: flex; flex-direction: column; gap: .7rem; }
+/* AI の 1 つの機能のカード（ai-pane.ts の cardFrame） */
+.ai-card { display: flex; flex-direction: column; gap: .45rem; padding: .7rem .8rem .8rem; border: 1px solid var(--line-soft); border-radius: 12px; background: #fff; }
+.ai-card-head { display: flex; align-items: baseline; gap: .5rem; }
+.ai-card-head h4 { margin: 0; font-size: 13.5px; white-space: nowrap; }
+.ai-card-head .ai-when { margin-left: auto; font-size: 11px; color: var(--faint); white-space: nowrap; }
+.ai-card-desc { margin: 0; font-size: 12px; line-height: 1.6; }
+.ai-card-act { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem .7rem; }
+.ai-card-act .btn { font-size: 12.5px; padding: .3rem .85rem; }
+.ai-sends { font-size: 11px; color: var(--faint); }
+/* 長い結果を畳む（理由・例の候補） */
+.ai-fold > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--brand); }
+.ai-fold[open] > summary { margin-bottom: .4rem; }
+.ai-fold[hidden] { display: none; }
+/* ほかの段階の AI（畳んだ行。開くとカード） */
+.ai-others { margin-top: .3rem; padding-top: .7rem; border-top: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: .35rem; }
+.ai-others[hidden] { display: none; }
+.ai-others > h3 { margin: 0 0 .1rem; font-size: 11.5px; color: var(--faint); letter-spacing: .04em; }
+.ai-others > div { display: flex; flex-direction: column; gap: .35rem; }
+.ai-other > summary {
+  display: flex; align-items: baseline; gap: .5rem; padding: .4rem .65rem; border-radius: 10px;
+  background: var(--bg); cursor: pointer; font-size: 12.5px; list-style: none; white-space: nowrap; overflow: hidden;
+}
+.ai-other > summary::-webkit-details-marker { display: none; }
+.ai-other > summary::before { content: '▸'; color: var(--faint); font-size: 11px; }
+.ai-other[open] > summary::before { content: '▾'; }
+.ai-other > summary b { font-weight: 600; }
+.ai-other-step { font-size: 10.5px; color: var(--soft); background: var(--line-soft); padding: 0 .35rem; border-radius: 4px; }
+.ai-other > summary .ai-when { margin-left: auto; font-size: 11px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; }
+.ai-other > .ai-card { margin-top: .35rem; }
+.ai-foot { margin: .3rem 0 0; font-size: 11px; line-height: 1.6; color: var(--faint); }
+/* 引き出し: 右ペインの上に同じ幅で重ねる（中央は隠さない） */
+.drawer {
+  position: absolute; top: 0; right: 0; bottom: 0; width: var(--right); z-index: 5;
+  box-shadow: -10px 0 24px rgba(42, 38, 32, .12);
+}
+.drawer[hidden] { display: none; }
+.drawer-head { display: flex; align-items: center; gap: .5rem; padding: .75rem 1rem 0; flex: none; }
+.drawer-head h2 { margin: 0; font-size: 14.5px; }
+.drawer-page { margin-left: auto; font-size: 11.5px; }
+.drawer-x {
+  font: inherit; font-size: 17px; line-height: 1; border: 0; background: none; color: var(--soft);
+  cursor: pointer; padding: .15rem .4rem; border-radius: 6px;
+}
+.drawer-x:hover { background: var(--line-soft); color: var(--ink); }
+.top .btn.on { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
+/* 右ペインの幅を変える境（右ペインの左端。引き出しより上） */
+.pane-resizer { position: absolute; top: 0; bottom: 0; right: calc(var(--right) - 4px); width: 8px; cursor: col-resize; z-index: 6; touch-action: none; }
+.pane-resizer::after { content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; transition: background .15s; }
+.pane-resizer:hover::after, .pane-resizer.drag::after, .pane-resizer:focus-visible::after { background: var(--brand); }
+.pane-resizer:focus { outline: none; }
+body.resizing { cursor: col-resize; user-select: none; }
+/* 学習ガイドのタブの、段階ごとのおすすめの印 */
+.gtab-rec { margin-left: .25rem; font-size: 9px; color: var(--brand); vertical-align: middle; }
+.seg { display: flex; margin: .6rem .9rem .3rem; background: var(--bg); border-radius: 9px; padding: 3px; flex: none; }
 .seg button {
   flex: 1; font: inherit; text-align: center; padding: .3rem 0; border: 0; border-radius: 7px; background: none;
   font-size: 12.5px; color: var(--soft); font-weight: 600; cursor: pointer;
@@ -309,18 +372,13 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
 .gbody { padding: .6rem 1rem 4rem; overflow: auto; flex: 1; }
 
-/* --- 右ペインの「採点」（AI の採点と指摘） ---------------------------------- */
-.feedback-panel { display: flex; flex-direction: column; gap: .7rem; }
-.score-head { display: flex; flex-direction: column; gap: .4rem; }
-.score-btn { align-self: flex-start; }
-.score-note { margin: 0; font-size: 12px; line-height: 1.6; }
+/* --- 右ペインの採点（AI の採点と指摘） ---------------------------------- */
 .score-error, .score-stale { margin: 0; font-size: 12.5px; font-weight: 600; }
 .score-error:empty, .score-stale:empty { display: none; }
 .score-stale { color: var(--warn); }
 .score-total { display: flex; align-items: baseline; gap: .2rem; flex-wrap: wrap; }
 .score-total b { font-size: 34px; line-height: 1.1; color: var(--brand); }
 .score-total span { font-size: 15px; color: var(--soft); }
-.score-total small { width: 100%; font-size: 11.5px; color: var(--faint); }
 .score-criteria { display: flex; flex-direction: column; gap: .6rem; margin-top: .3rem; }
 .crit-head { display: flex; justify-content: space-between; font-size: 12.5px; }
 .crit-head b { font-weight: 700; }
@@ -334,12 +392,7 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .findings q { display: block; margin-top: .2rem; font-family: var(--serif); font-size: 14px; color: var(--ink); background: var(--bg); border-radius: 6px; padding: .15rem .45rem; }
 .crit-tag { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 0 .4rem; border-radius: 4px; background: var(--brand-soft); color: var(--brand); }
 
-/* --- 右ペインの「AI 案」（AI のアイデア出し） ------------------------------- */
-.ideas-panel { display: flex; flex-direction: column; gap: .9rem; }
-.ai-note { margin: 0; font-size: 12px; line-height: 1.6; }
-.ai-section { display: flex; flex-direction: column; gap: .45rem; }
-.ai-section h3 { margin: 0; font-size: 13px; }
-.ai-section > .btn { align-self: flex-start; }
+/* --- 右ペインの AI 案（AI のアイデア出し） ------------------------------- */
 .ai-hint { font: inherit; font-size: 13px; padding: .35rem .55rem; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .ai-hint:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
 .ai-error { margin: 0; font-size: 12.5px; font-weight: 600; }
@@ -352,20 +405,21 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .ai-theme-ja { margin: 0; font-size: 12px; color: var(--soft); }
 .ai-use { align-self: flex-end; font-size: 12px; padding: .2rem .7rem; }
 .ai-side { display: flex; flex-direction: column; gap: .4rem; }
-.ai-side h4 { margin: .3rem 0 0; font-size: 13px; line-height: 1.5; }
+.ai-side h5 { margin: .3rem 0 0; font-size: 13px; line-height: 1.5; }
 .ai-stance { display: inline-block; font-size: 11px; padding: 0 .45rem; border-radius: 4px; margin-right: .4rem; color: #fff; background: var(--brand); }
 .ai-side.against .ai-stance { background: var(--ex); }
 .ai-reason-text { margin: 0; font-weight: 600; font-size: 13px; }
 .ai-reason ul { margin: 0; padding-left: 1.1rem; font-size: 12.5px; color: var(--soft); line-height: 1.6; }
 .ai-sub-note { margin: 0; font-size: 12px; line-height: 1.6; }
-.ai-meta { margin: 0; font-size: 11.5px; }
-.ai-meta:empty { display: none; }
 .ai-stale { margin: 0; font-size: 12px; line-height: 1.6; color: var(--warn); font-weight: 600; }
 .ai-stale:empty { display: none; }
 .ai-qa { display: flex; flex-direction: column; gap: .45rem; margin-top: .2rem; padding-top: .55rem; border-top: 1px dashed var(--line); }
 .ai-qa[hidden] { display: none; }
 .ai-qa-log { display: flex; flex-direction: column; gap: .4rem; }
 .ai-qa-log:empty { display: none; }
+/* 最新より前の質問と答え（畳む） */
+.ai-qa-older > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--brand); }
+.ai-qa-older[open] > summary { margin-bottom: .4rem; }
 .ai-q, .ai-a { margin: 0; font-size: 12.5px; line-height: 1.65; white-space: pre-wrap; border-radius: 10px; padding: .4rem .6rem; max-width: 92%; }
 .ai-q { align-self: flex-end; background: var(--brand-soft); }
 .ai-a { align-self: flex-start; background: #fff; border: 1px solid var(--line-soft); }

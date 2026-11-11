@@ -31,12 +31,17 @@ export function logo(): HTMLElement {
   )
 }
 
-/** ヘッダ。`middle` はロゴの右（パンくず）、`right` は学習ガイドの左（保存の状態など）。 */
+/**
+ * ヘッダの右端。既定は学習ガイド画面へのリンク。学習ガイド画面では「パラグラフ一覧へ」（モックと同じ）、
+ * 編集画面では学習ガイドの引き出しを開け閉めするボタン（`guide-pane.ts`）を渡す。
+ */
+export type HeaderEnd = 'guide' | 'list' | HTMLElement
+
+/** ヘッダ。`middle` はロゴの右（パンくず）、`right` は振り返りの左（保存の状態など）。 */
 export function header(
   middle: (Node | string)[] = [],
   right: (Node | string)[] = [],
-  /** 学習ガイド画面では右端を「パラグラフ一覧へ」にする（モックと同じ）。 */
-  onGuide = false,
+  end: HeaderEnd = 'guide',
 ): HTMLElement {
   return h(
     'header',
@@ -46,9 +51,11 @@ export function header(
     h('span', { class: 'sp' }),
     ...right,
     h('a', { class: 'btn', href: '#/review' }, '振り返り'),
-    onGuide
-      ? h('a', { class: 'btn', href: '#/' }, 'パラグラフ一覧へ')
-      : h('a', { class: 'btn', href: '#/guide' }, '学習ガイド'),
+    end === 'guide'
+      ? h('a', { class: 'btn', href: '#/guide' }, '学習ガイド')
+      : end === 'list'
+        ? h('a', { class: 'btn', href: '#/' }, 'パラグラフ一覧へ')
+        : end,
   )
 }
 

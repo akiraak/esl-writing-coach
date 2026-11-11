@@ -3,12 +3,14 @@ import { combineSaveStates, type SaveState } from '../../shared/autosave.js'
 import { type Route, routeHash } from '../../shared/route.js'
 import { summarizeStage } from '../../shared/stage-summary.js'
 import { STAGES, type Stage } from '../../shared/types.js'
+import { createAiPane } from '../ai-pane.js'
 import { readStage } from '../api.js'
 import { h, replace } from '../dom.js'
 import { openExportDialog } from '../export-dialog.js'
 import { createFeedbackPanel } from '../feedback-pane.js'
-import { guidePane } from '../guide-pane.js'
+import { createGuideDrawer } from '../guide-pane.js'
 import { createIdeasPanel } from '../ideas-pane.js'
+import { mountPaneResizer } from '../pane-resizer.js'
 import {
   conflictBanner,
   openStageEditor,
@@ -22,7 +24,8 @@ import { renderDraftView } from './draft.js'
 import { renderOutlineView } from './outline.js'
 
 /**
- * 編集画面（3 ペイン）。左 = 段階のタイル、中央 = 選んだ段階の編集欄、右 = 学習ガイド。
+ * 編集画面（3 ペイン）。左 = 段階のタイル、中央 = 選んだ段階の編集欄、右 = AI（今の段階で使うものを上に。`ai-pane.ts`）。
+ * 学習ガイドはヘッダの「学習ガイド」で、右ペインの上に引き出しで重ねて開く（`guide-pane.ts`。`docs/plans/archive/right-pane-layout.md`）。
  *
  * - 開いたら 3 つの段階を並べて読み、段階ごとに自動保存（`StageEditor`）を作って、
  *   **パラグラフを開いている間は持ち続ける**。同じパラグラフの中で段階を移るときは中央だけを描き直す（読み直さない）
@@ -82,7 +85,7 @@ export function renderEdit(
   const footer = h('div', { class: 'stage-next' })
   const center = h('main', { class: 'center' }, title, banner, body, footer)
 
-  /** 右ペインの「採点」。採点の前に全部の段階を保存し終え、下書きが保存できていなければ採点しない。 */
+  /** 右ペインの採点。採点の前に全部の段階を保存し終え、下書きが保存できていなければ採点しない。 */
   const feedback = createFeedbackPanel({
     id,
     draftText: () => editors?.draft.text ?? '',
@@ -100,7 +103,7 @@ export function renderEdit(
   })
 
   /**
-   * 右ペインの「AI 案」。結果はサーバがパラグラフごとに保存する（開いたら描き直す）。
+   * 右ペインの AI 案。結果はサーバがパラグラフごとに保存する（開いたら描き直す）。
    * 「課題のテーマにする」を押したときだけ課題の本文を書き換える（課題を開いていれば中央も描き直す）。
    */
   const ideasPanel = createIdeasPanel({
@@ -135,19 +138,27 @@ export function renderEdit(
     tiles[s] = { el, summary, mark }
   })
 
+  const aiPane = createAiPane({ ...ideasPanel.cards, score: feedback.card })
+  const guide = createGuideDrawer()
+  const panes = h(
+    'div',
+    { class: 'panes' },
+    h('nav', { class: 'stages' }, ...STAGES.map((s) => tiles[s].el)),
+    center,
+    aiPane.el,
+    guide.el,
+  )
+  /** 右ペインの幅を変える境（引き出しも同じ幅）。 */
+  const resizer = mountPaneResizer(panes)
+  panes.append(resizer.el)
   replace(
     app,
-    header([h('span', { class: 'crumb' }, '／ ', crumbTheme)], [status, exportButton()]),
-    h(
-      'div',
-      { class: 'panes' },
-      h('nav', { class: 'stages' }, ...STAGES.map((s) => tiles[s].el)),
-      center,
-      guidePane([
-        { key: 'ideas', label: 'AI案', el: ideasPanel.el },
-        { key: 'feedback', label: '採点', el: feedback.el },
-      ]),
+    header(
+      [h('span', { class: 'crumb' }, '／ ', crumbTheme)],
+      [status, exportButton()],
+      guide.button,
     ),
+    panes,
   )
 
   /** 書き出し（下書きの手元の最新。まだ保存していない分も含む）。読み込み中は何もしない。 */
@@ -231,6 +242,8 @@ export function renderEdit(
     }
     stage = next
     for (const s of STAGES) tiles[s].el.classList.toggle('on', s === stage)
+    aiPane.setStage(stage)
+    guide.setStage(stage)
     replace(title, STAGE_LABELS[stage])
     renderFooter()
     renderBanner()
@@ -312,6 +325,7 @@ export function renderEdit(
     },
     async dispose() {
       clearBody()
+      resizer.destroy()
       closed = true
       await Promise.all(all().map((editor) => editor.close()))
     },

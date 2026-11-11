@@ -1,16 +1,17 @@
 import { CRITERIA, criterionOf, type Feedback } from '../shared/feedback.js'
+import { type AiCard, cardFrame, whenLabels } from './ai-pane.js'
 import { readFeedback, scoreParagraph } from './api.js'
 import { h, replace } from './dom.js'
 import { errorText, formatDate, formatTime } from './ui.js'
 
 /**
- * 編集画面の右ペインの「採点」タブ（AI の採点と指摘。`docs/plans/archive/ai-scoring.md`）。
+ * 編集画面の右ペインの採点のカード（AI の採点と指摘。`docs/plans/archive/ai-scoring.md`）。並べ方は `ai-pane.ts`。
  *
  * - 「採点する」を押したときだけ採点する（自動では走らせない）。押したら手元の未保存を保存し終えてから、
  *   サーバが保存された下書きを読んで採点する
  * - 結果は合計・観点ごとの点数と一言・よかった点・指摘（観点・引用・ヒント）。直した文は出ない
  * - 採点した後に本文を直したら知らせる（もう一度採点できる）
- * - 編集画面を開いている間は 1 つを持ち続ける（段階やタブを移っても、採点中の状態と結果を保つ）
+ * - 編集画面を開いている間は 1 つを持ち続ける（段階を移っても、採点中の状態と結果を保つ）
  */
 
 export interface FeedbackPanelOptions {
@@ -24,7 +25,7 @@ export interface FeedbackPanelOptions {
 }
 
 export interface FeedbackPanel {
-  el: HTMLElement
+  card: AiCard
   /** 下書きが変わったら（「本文が変わっています」・空なら押せない、を更新する）。 */
   sync(): void
 }
@@ -36,19 +37,23 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
   let busy = false
   let error = ''
 
-  const button = h('button', { class: 'btn pri score-btn', type: 'button' }, '採点する')
-  const note = h('p', { class: 'muted score-note' })
+  const button = h('button', { class: 'btn pri', type: 'button' }, '採点する')
+  const note = h('p', { class: 'muted ai-card-desc' })
   const message = h('p', { class: 'error score-error' })
   const stale = h('p', { class: 'score-stale' })
   const result = h('div', { class: 'score-result' })
-  const el = h(
-    'div',
-    { class: 'feedback-panel' },
-    h('div', { class: 'score-head' }, button, note),
-    message,
-    stale,
-    result,
-  )
+  const when = whenLabels()
+  const card: AiCard = {
+    el: cardFrame({
+      title: '採点',
+      when: when.create('head'),
+      desc: note,
+      button,
+      sends: '下書き・課題・語数と文数',
+      after: [message, stale, result],
+    }),
+    whenLabel: () => when.create('row'),
+  }
 
   function sync(): void {
     const empty = options.draftText().trim() === ''
@@ -64,7 +69,7 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
             ? '30 秒〜1 分ほどかかります。'
             : empty
               ? '下書きを書くと採点できます。'
-              : '押すと、下書きと課題の条件を Anthropic の API に送って採点します。直した文は出さず、ヒントだけを出します。',
+              : '100 点満点と観点ごとの点数、直すところのヒント（直した文は出しません）。',
     )
     replace(message, error)
     replace(
@@ -76,6 +81,11 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
   }
 
   function renderResult(): void {
+    when.set(
+      feedback === null || feedback.scoredAt === ''
+        ? ''
+        : `${formatDate(feedback.scoredAt)} ${formatTime(feedback.scoredAt)}`,
+    )
     if (feedback === null) {
       replace(result, loaded ? h('p', { class: 'muted' }, 'まだ採点していません。') : null)
       return
@@ -83,17 +93,7 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
     const fb = feedback
     replace(
       result,
-      h(
-        'div',
-        { class: 'score-total' },
-        h('b', {}, String(fb.total)),
-        h('span', {}, ' / 100'),
-        h(
-          'small',
-          {},
-          fb.scoredAt === '' ? '' : `採点 ${formatDate(fb.scoredAt)} ${formatTime(fb.scoredAt)}`,
-        ),
-      ),
+      h('div', { class: 'score-total' }, h('b', {}, String(fb.total)), h('span', {}, ' / 100')),
       h(
         'div',
         { class: 'score-criteria' },
@@ -185,5 +185,5 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
 
   renderResult()
   sync()
-  return { el, sync }
+  return { card, sync }
 }

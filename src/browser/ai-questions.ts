@@ -11,7 +11,8 @@ import { errorText } from './ui.js'
 /**
  * AI案の結果の下の「質問する」欄（`docs/plans/archive/ai-followup-questions.md`）。右ペインの「AI案」の 3 つの欄で使う。
  *
- * - それまでの質問（右寄せ）と答え（左）を並べ、その下に質問の欄。Ctrl+Enter でも送れる
+ * - 最新の質問（右寄せ）と答え（左）を 1 往復だけ出し、それより前は「前の質問（n）」に畳む（開いた状態は保つ）。
+ *   その下に質問の欄。Ctrl+Enter でも送れる
  * - 答えはサーバが保存する。呼び出し中に画面を離れて戻ったときは、このモジュールに持った Promise の終わりを待って描く
  * - `MAX_QUESTIONS` 回で欄を閉じる。AI案を出し直したら空から（サーバもその種類の質問を消している）
  */
@@ -46,6 +47,10 @@ export function createQuestionBox(id: string, kind: AiKind): QuestionBox {
   let locked = false
 
   const log = h('div', { class: 'ai-qa-log' })
+  /** 最新より前のやりとり（開け閉めの状態を保つよう作り置く）。 */
+  const olderSummary = h('summary', {})
+  const olderBox = h('div', { class: 'ai-qa-log' })
+  const older = h('details', { class: 'ai-qa-older' }, olderSummary, olderBox)
   const stale = h('p', { class: 'ai-stale' })
   const input = h('textarea', {
     class: 'ai-qa-input',
@@ -61,10 +66,18 @@ export function createQuestionBox(id: string, kind: AiKind): QuestionBox {
   const el = h('div', { class: 'ai-qa', hidden: true }, log, stale, form, message, limit)
 
   function paint(): void {
+    const entries: { question: string; answer?: string }[] = [
+      ...questions,
+      ...(inFlight === null ? [] : [{ question: inFlight.question }]),
+    ]
+    const latest = entries.at(-1)
+    const before = entries.slice(0, -1)
+    replace(olderSummary, `前の質問（${before.length}）`)
+    replace(olderBox, ...before.flatMap((q) => bubble(q)))
     replace(
       log,
-      ...questions.flatMap((q) => bubble(q)),
-      ...(inFlight === null ? [] : bubble({ question: inFlight.question })),
+      before.length === 0 ? null : older,
+      ...(latest === undefined ? [] : bubble(latest)),
     )
     const full = questions.length >= MAX_QUESTIONS
     form.hidden = full

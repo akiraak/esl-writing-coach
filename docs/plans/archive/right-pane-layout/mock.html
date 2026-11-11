@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>右ペインのモック</title>
+<!--
+  編集画面の右ペインの見直し（docs/plans/archive/right-pane-layout.md の Phase 1）のモック。
+  上のバーで「今の形」と「新しい形」、段階、ほかの段階の AI の出し方、学習ガイドの引き出しを切り替えて見比べる。右ペインの幅は左端をドラッグして変える。
+  中央と左は雰囲気だけ（動かない）。色・フォントは web/style.css と同じ。
+-->
+<style>
+:root {
+  --bg: #f6f3ec; --card: #fffdf8; --ink: #2a2620; --soft: #6e675c; --faint: #a39b8e;
+  --line: #e3ddd0; --line-soft: #eee9de;
+  --brand: #2f6f62; --brand-soft: #e3efeb;
+  --ts: #3b6ea5; --ts-bg: #e3ecf5; --rs: #4a8a55; --rs-bg: #e3f0e1;
+  --ex: #c07a2c; --ex-bg: #f8ecda; --cs: #82589e; --cs-bg: #efe6f3;
+  --warn: #b26b00; --danger: #b42318;
+  --shadow: 0 1px 2px rgba(42, 38, 32, .05), 0 6px 18px rgba(42, 38, 32, .05);
+  --sans: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+  --serif: Georgia, "Times New Roman", serif;
+  --right: 340px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #e6e1d6; color: var(--ink); font-family: var(--sans); font-size: 14px; line-height: 1.6; min-width: 1240px; }
+.muted { color: var(--soft); }
+.btn { font: inherit; font-size: 13px; padding: .38rem 1rem; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-weight: 600; cursor: pointer; }
+.btn.pri { background: var(--brand); border-color: var(--brand); color: #fff; }
+.btn:disabled { opacity: .6; cursor: default; }
+
+/* --- モックの操作バー（アプリの外） --- */
+.ctl { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: .6rem 1.4rem; align-items: center; padding: .7rem 1.4rem; background: #2a2620; color: #f6f3ec; font-size: 13px; }
+.ctl h1 { margin: 0 .6rem 0 0; font-size: 14px; }
+.ctl .grp { display: flex; align-items: center; gap: .4rem; }
+.ctl .grp > span { color: #bdb5a6; }
+.ctl button { font: inherit; font-size: 12.5px; padding: .2rem .7rem; border-radius: 6px; border: 1px solid #5a5347; background: none; color: #f6f3ec; cursor: pointer; }
+.ctl button.on { background: #f6f3ec; color: #2a2620; border-color: #f6f3ec; font-weight: 700; }
+.wrap { padding: 1.2rem 1.4rem 3rem; }
+
+/* --- アプリの枠 --- */
+.frame { height: 820px; display: flex; flex-direction: column; background: var(--bg); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(42, 38, 32, .18); }
+.top { display: flex; align-items: center; gap: 1rem; height: 54px; padding: 0 1.4rem; flex: none; background: var(--card); border-bottom: 1px solid var(--line); }
+.logo { display: flex; align-items: center; gap: .55rem; font-weight: 800; font-size: 15px; }
+.logo i { width: 26px; height: 26px; border-radius: 7px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 4px; background: var(--ink); }
+.logo i b { border-radius: 2px; }
+.logo i b:nth-child(1) { background: var(--ts); } .logo i b:nth-child(2) { background: var(--rs); }
+.logo i b:nth-child(3) { background: var(--ex); } .logo i b:nth-child(4) { background: var(--cs); }
+.crumb { color: var(--soft); } .crumb b { color: var(--ink); font-family: var(--serif); }
+.sp { flex: 1; }
+.save { font-size: 12px; color: var(--soft); }
+.panes { flex: 1; display: grid; grid-template-columns: 200px 1fr var(--right); min-height: 0; }
+.stages { padding: 1rem .8rem; display: flex; flex-direction: column; gap: .55rem; border-right: 1px solid var(--line); }
+.tile { position: relative; background: var(--card); border-radius: 12px; padding: .7rem .85rem; border: 1.5px solid var(--line-soft); cursor: pointer; }
+.tile .k { font-size: 11px; color: var(--faint); font-weight: 700; letter-spacing: .06em; }
+.tile .t { font-weight: 700; font-size: 14.5px; }
+.tile .s { font-size: 12px; color: var(--soft); }
+.tile.on { border-color: var(--brand); background: var(--brand-soft); }
+.tile.on .k { color: var(--brand); }
+.tile .lang { position: absolute; top: .65rem; right: .7rem; font-size: 10.5px; padding: 0 .35rem; border-radius: 4px; background: var(--line-soft); color: var(--soft); }
+.tile .lang.en { background: var(--brand); color: #fff; }
+.center { display: flex; flex-direction: column; min-width: 0; padding: 1rem 1.2rem 1rem; gap: .7rem; overflow: auto; }
+.center h2 { margin: 0; font-size: 17px; }
+.next { display: flex; justify-content: flex-end; }
+.next .btn { font-size: 14px; padding: .55rem 1.3rem; }
+
+/* 中央（雰囲気だけ） */
+.field { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: .9rem 1.1rem 1rem; }
+.field label { display: block; font-size: 12px; font-weight: 700; color: var(--soft); margin-bottom: .45rem; }
+.fake-input { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: .45rem .6rem; }
+.fake-input.theme { font-family: var(--serif); font-size: 20px; }
+.brief-theme { font-family: var(--serif); font-size: 18px; font-weight: 600; }
+.req { font-size: 12.5px; color: var(--soft); background: var(--card); border-radius: 10px; padding: .5rem .85rem; border-left: 4px solid var(--brand); display: flex; gap: 1rem; }
+.req b { color: var(--ink); }
+.checks { display: flex; flex-wrap: wrap; gap: .35rem .5rem; font-size: 12px; }
+.checks span { padding: .15rem .55rem; border-radius: 999px; background: var(--brand-soft); color: var(--brand); }
+.checks span.ng { background: #fdf0e1; color: var(--warn); }
+.prompt { font-size: 13px; padding: .45rem .85rem; border-radius: 10px; background: var(--card); border-left: 4px solid var(--rs); }
+.prompt b { font-size: 11.5px; padding: .05rem .5rem; border-radius: 999px; background: var(--rs-bg); color: var(--rs); margin-right: .6rem; }
+.prompt em { font-style: normal; color: var(--soft); margin-left: .8rem; }
+.map { flex: 1; min-height: 330px; background: var(--card); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+.meters { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+.meter { background: var(--card); border-radius: 12px; padding: .6rem .9rem .9rem; box-shadow: var(--shadow); font-size: 12px; color: var(--soft); }
+.meter b { font-size: 18px; color: var(--ink); }
+.meter .bar { position: relative; height: 10px; border-radius: 5px; background: var(--line-soft); margin-top: .4rem; }
+.meter .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--warn); }
+.work { flex: 1; display: grid; grid-template-columns: 1fr 230px; gap: .8rem; min-height: 0; }
+.paper { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: 1rem 1.2rem; font-family: var(--serif); font-size: 16px; line-height: 1.9; overflow: hidden; }
+.struct { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: .8rem; font-size: 12px; overflow: hidden; }
+.node { border-radius: 8px; padding: .3rem .55rem; margin-bottom: .3rem; line-height: 1.45; }
+.node small { display: block; font-size: 10px; font-weight: 700; letter-spacing: .05em; }
+.n-ts { background: var(--ts-bg); color: #2c5585; border-left: 4px solid var(--ts); }
+.n-rs { background: var(--rs-bg); color: #356b3f; border-left: 4px solid var(--rs); margin-left: .6rem; }
+.n-ex { background: var(--ex-bg); color: #8a5418; border-left: 4px solid var(--ex); margin-left: 1.2rem; }
+.n-cs { background: var(--cs-bg); color: #64407d; border-left: 4px solid var(--cs); margin-left: .6rem; }
+
+/* --- 右ペイン（共通） --- */
+.guide { background: var(--card); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.seg { display: flex; margin: .8rem .9rem .3rem; background: var(--bg); border-radius: 9px; padding: 3px; flex: none; }
+.seg button { flex: 1; font: inherit; padding: .3rem 0; border: 0; border-radius: 7px; background: none; font-size: 12.5px; color: var(--soft); font-weight: 600; cursor: pointer; }
+.seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+.gbody { padding: .6rem 1rem 3rem; overflow: auto; flex: 1; }
+
+/* 新しい形: 右ペインは AI だけ。見出しの行 */
+.ai-title { display: flex; align-items: baseline; gap: .6rem; padding: .85rem 1rem .5rem; border-bottom: 1px solid var(--line-soft); flex: none; }
+.ai-title h2 { margin: 0; font-size: 14.5px; }
+.ai-title small { font-size: 11px; color: var(--faint); }
+/* 学習ガイドの引き出し（編集画面でヘッダの「学習ガイド」を押すと、右ペインの上に重ねて開く。中央は隠さない） */
+.panes { position: relative; }
+.drawer { position: absolute; top: 0; right: 0; bottom: 0; width: var(--right); background: var(--card); border-left: 1px solid var(--line); box-shadow: -10px 0 24px rgba(42, 38, 32, .12); display: flex; flex-direction: column; z-index: 5; }
+.drawer[hidden] { display: none; }
+/* 右ペインの幅を変える境（右ペインの左端。ドラッグ・ダブルクリックで既定・← →） */
+.resizer { position: absolute; top: 0; bottom: 0; right: calc(var(--right) - 4px); width: 8px; cursor: col-resize; z-index: 6; }
+.resizer::after { content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; transition: background .15s; }
+.resizer:hover::after, .resizer.drag::after, .resizer:focus-visible::after { background: var(--brand); }
+.resizer:focus { outline: none; }
+.resizer .tip { position: absolute; top: 50%; left: 12px; transform: translateY(-50%); font-size: 11px; white-space: nowrap; background: var(--ink); color: #fff; padding: .15rem .45rem; border-radius: 5px; display: none; }
+.resizer:hover .tip, .resizer.drag .tip { display: block; }
+body.resizing { cursor: col-resize; user-select: none; }
+.drawer-h { display: flex; align-items: center; gap: .5rem; padding: .75rem 1rem .1rem; }
+.drawer-h h2 { margin: 0; font-size: 14.5px; }
+.drawer-h a { margin-left: auto; font-size: 11.5px; color: var(--brand); }
+.drawer-h .x { font: inherit; font-size: 16px; line-height: 1; border: 0; background: none; color: var(--soft); cursor: pointer; padding: .2rem .35rem; border-radius: 6px; }
+.drawer-h .x:hover { background: var(--line-soft); }
+.top .btn.on { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
+.sub-tabs { display: flex; gap: 1rem; margin: .7rem 1rem 0; border-bottom: 1px solid var(--line-soft); flex: none; }
+.sub-tabs button { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--soft); background: none; border: 0; padding: .3rem 0 .45rem; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; }
+.sub-tabs button.on { color: var(--ink); border-bottom-color: var(--brand); }
+.sub-tabs .rec { font-size: 10px; font-weight: 700; color: var(--brand); margin-left: .25rem; }
+.ai-head { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; margin: .1rem 0 .55rem; }
+.ai-head h3 { margin: 0; font-size: 12px; color: var(--brand); letter-spacing: .04em; }
+.ai-head small { font-size: 11px; color: var(--faint); }
+
+/* AI の欄（カード） */
+.tool { border: 1px solid var(--line-soft); border-radius: 12px; padding: .7rem .8rem .8rem; margin-bottom: .7rem; background: #fff; display: flex; flex-direction: column; gap: .45rem; }
+.tool-h { display: flex; align-items: baseline; gap: .5rem; }
+.tool-h h4 { margin: 0; font-size: 13.5px; }
+.tool-h .when { margin-left: auto; font-size: 11px; color: var(--faint); white-space: nowrap; }
+.tool-desc { margin: 0; font-size: 12px; color: var(--soft); line-height: 1.55; }
+.tool-act { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.tool-act .btn { font-size: 12.5px; padding: .3rem .85rem; }
+.sends { font-size: 11px; color: var(--faint); }
+.stale { margin: 0; font-size: 12px; color: var(--warn); font-weight: 600; }
+.fold-result > summary { cursor: pointer; font-size: 12px; color: var(--brand); font-weight: 600; list-style: none; }
+.fold-result > summary::before { content: '▸ '; }
+.fold-result[open] > summary::before { content: '▾ '; }
+.fold-result > div { margin-top: .45rem; }
+
+/* ほかの段階の AI */
+.others { margin-top: .4rem; border-top: 1px solid var(--line-soft); padding-top: .6rem; }
+.others > h3 { margin: 0 0 .4rem; font-size: 11.5px; color: var(--faint); letter-spacing: .04em; }
+.other { border-radius: 10px; margin-bottom: .3rem; }
+.other > summary { display: flex; align-items: baseline; gap: .5rem; padding: .4rem .6rem; border-radius: 10px; background: var(--bg); cursor: pointer; list-style: none; font-size: 12.5px; }
+.other > summary::before { content: '▸'; color: var(--faint); font-size: 11px; }
+.other[open] > summary::before { content: '▾'; }
+.other > summary b { font-weight: 600; }
+.other > summary .st { font-size: 10.5px; color: var(--soft); background: var(--line-soft); padding: 0 .35rem; border-radius: 4px; }
+.other > summary .when { margin-left: auto; font-size: 11px; color: var(--faint); }
+.other > .tool { margin: .35rem 0 .5rem; }
+.ai-foot { margin-top: .8rem; font-size: 11px; color: var(--faint); line-height: 1.6; }
+
+/* AI の結果の中身（今のアプリと同じ見た目） */
+.ai-theme, .ai-reason { border: 1px solid var(--line-soft); border-radius: 10px; padding: .45rem .6rem; display: flex; flex-direction: column; gap: .2rem; margin-bottom: .4rem; }
+.ai-theme-en { margin: 0; font-family: var(--serif); font-size: 14px; line-height: 1.45; }
+.ai-theme-ja { margin: 0; font-size: 12px; color: var(--soft); }
+.ai-use { align-self: flex-end; font-size: 11.5px; padding: .15rem .6rem; }
+.ai-side h5 { margin: .3rem 0 .3rem; font-size: 12.5px; }
+.ai-stance { display: inline-block; font-size: 10.5px; padding: 0 .45rem; border-radius: 4px; margin-right: .4rem; color: #fff; background: var(--brand); }
+.ai-side.against .ai-stance { background: var(--ex); }
+.ai-reason p { margin: 0; font-weight: 600; font-size: 12.5px; }
+.ai-reason ul { margin: 0; padding-left: 1.1rem; font-size: 12px; color: var(--soft); }
+.summary-box { margin: 0; font-size: 12.5px; line-height: 1.7; background: var(--brand-soft); border-radius: 8px; padding: .45rem .6rem; }
+.findings { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .5rem; font-size: 12.5px; }
+.findings p { margin: .15rem 0 0; line-height: 1.6; }
+.findings q { display: block; margin-top: .15rem; font-family: var(--serif); font-size: 13.5px; background: var(--bg); border-radius: 6px; padding: .1rem .45rem; }
+.crit-tag { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 0 .4rem; border-radius: 4px; background: var(--brand-soft); color: var(--brand); }
+.qa { display: flex; flex-direction: column; gap: .4rem; padding-top: .5rem; border-top: 1px dashed var(--line); }
+.qa .q, .qa .a { margin: 0; font-size: 12.5px; line-height: 1.6; border-radius: 10px; padding: .35rem .6rem; max-width: 92%; }
+.qa .q { align-self: flex-end; background: var(--brand-soft); }
+.qa .a { align-self: flex-start; background: #fff; border: 1px solid var(--line-soft); }
+.qa-form { display: flex; gap: .4rem; }
+.qa-form .fake { flex: 1; font-size: 12px; color: var(--faint); border: 1px solid var(--line); border-radius: 8px; padding: .35rem .55rem; background: #fff; }
+.qa-form .btn { font-size: 12px; padding: .3rem .7rem; }
+.qa-more { font-size: 12px; color: var(--brand); font-weight: 600; cursor: pointer; }
+.score-total { display: flex; align-items: baseline; gap: .2rem; }
+.score-total b { font-size: 32px; line-height: 1.1; color: var(--brand); }
+.score-total span { color: var(--soft); }
+.crit { margin-top: .45rem; }
+.crit-head { display: flex; justify-content: space-between; font-size: 12.5px; }
+.crit-bar { height: 6px; border-radius: 3px; background: var(--line-soft); margin-top: .2rem; overflow: hidden; }
+.crit-bar i { display: block; height: 100%; background: var(--brand); }
+.crit p { margin: .2rem 0 0; font-size: 12px; color: var(--soft); }
+.sub-h { margin: .6rem 0 .35rem; font-size: 12px; color: var(--soft); }
+
+/* ガイドの中身（詰めた形） */
+.part { border: 1px solid var(--line-soft); border-top: 4px solid; border-radius: 12px; padding: .6rem .8rem; margin-bottom: .55rem; background: #fff; }
+.part h4 { margin: 0; font-size: 14px; } .part h4 small { font-weight: 400; color: var(--soft); margin-left: .3rem; font-size: 12px; }
+.part p { margin: .2rem 0 0; font-size: 12.5px; color: var(--soft); }
+.p-ts { border-top-color: var(--ts); } .p-rs { border-top-color: var(--rs); } .p-ex { border-top-color: var(--ex); } .p-cs { border-top-color: var(--cs); }
+.model { font-family: var(--serif); font-size: 14.5px; line-height: 1.85; margin: .3rem 0 .6rem; }
+.hl-ts { background: var(--ts-bg); } .hl-rs { background: var(--rs-bg); } .hl-ex { background: var(--ex-bg); } .hl-cs { background: var(--cs-bg); }
+.gsub { margin: .9rem 0 .4rem; font-size: 12px; }
+.pg { border: 1px solid var(--line-soft); border-left: 4px solid; border-radius: 10px; padding: .55rem .75rem; margin-bottom: .55rem; background: #fff; }
+.pg h4 { margin: 0 0 .35rem; font-size: 13px; }
+.phrases { display: flex; flex-wrap: wrap; gap: .3rem; }
+.phrase { font: inherit; text-align: left; display: inline-flex; flex-direction: column; padding: .2rem .5rem; border-radius: 8px; border: 1px solid var(--line); background: var(--card); }
+.phrase code { font-family: var(--serif); font-size: 13px; }
+.phrase small { font-size: 10.5px; color: var(--soft); }
+button.phrase { cursor: pointer; } button.phrase:hover { border-color: var(--brand); background: var(--brand-soft); }
+span.phrase { border-style: dashed; }
+.phr-note { margin: 0 0 .55rem; font-size: 12px; padding: .35rem .6rem; border-radius: 8px; background: var(--bg); color: var(--soft); }
+.phr-note.ok { background: var(--brand-soft); color: var(--brand); }
+.pg.p-ts { border-left-color: var(--ts); } .pg.p-rs { border-left-color: var(--rs); } .pg.p-ex { border-left-color: var(--ex); } .pg.p-cs { border-left-color: var(--cs); } .pg.p-tr { border-left-color: var(--faint); }
+
+/* 今の形の AI案（縦に積む） */
+.old-note { margin: 0 0 .9rem; font-size: 12px; color: var(--soft); line-height: 1.6; }
+.old-sec { margin-bottom: 1rem; display: flex; flex-direction: column; gap: .45rem; }
+.old-sec h4 { margin: 0; font-size: 13px; }
+.old-sec > .btn { align-self: flex-start; font-size: 12.5px; }
+.old-hint { font-size: 12.5px; color: var(--faint); border: 1px solid var(--line); border-radius: 8px; padding: .35rem .55rem; background: #fff; }
+
+/* 下の説明 */
+.notes { display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.4rem; margin-top: 1.4rem; }
+.notes section { background: var(--card); border-radius: 12px; padding: 1rem 1.3rem; box-shadow: var(--shadow); }
+.notes h2 { margin: 0 0 .5rem; font-size: 15px; }
+.notes h3 { margin: .8rem 0 .3rem; font-size: 13px; }
+.notes ul, .notes ol { margin: 0; padding-left: 1.2rem; font-size: 13px; line-height: 1.75; }
+.notes table { border-collapse: collapse; font-size: 12.5px; width: 100%; }
+.notes td, .notes th { border-bottom: 1px solid var(--line-soft); padding: .3rem .4rem; text-align: left; vertical-align: top; }
+.notes .rec { color: var(--brand); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="ctl" id="ctl"></div>
+<div class="wrap">
+  <div class="frame">
+    <div class="top">
+      <span class="logo"><i><b></b><b></b><b></b><b></b></i>ESL Writing</span>
+      <span class="crumb">／ <b>Should students wear school uniforms?</b></span>
+      <span class="sp"></span>
+      <span class="save">保存済み</span>
+      <button class="btn">書き出し</button><button class="btn">振り返り</button><button class="btn" id="guide-btn" data-act="d:toggle">学習ガイド</button>
+    </div>
+    <div class="panes">
+      <nav class="stages" id="tiles"></nav>
+      <main class="center" id="center"></main>
+      <aside class="guide" id="right"></aside>
+      <div class="drawer" id="drawer" hidden></div>
+      <div class="resizer" id="resizer" tabindex="0" role="separator" aria-orientation="vertical" aria-label="右ペインの幅" title="ドラッグで幅を変える（ダブルクリックで戻す）"><span class="tip" id="resizer-tip"></span></div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <section>
+      <h2>新しい形で変えたところ</h2>
+      <ul>
+        <li><b>右ペインは AI だけにした</b>。学習ガイドの中身はパラグラフにも段階にもよらない固定のもの（<code>src/shared/guide.ts</code>）なので、右ペインのタブから外して<b>ヘッダの「学習ガイド」に統合</b>する（2026-11-11 要望）</li>
+        <li><b>編集画面でヘッダの「学習ガイド」を押すと、右から引き出しで重ねて開く</b>（AI の上に重なり、中央は隠さない。もう一度押すか × で閉じる）。書きながら見られて、STEP 3 なら表現集を押して本文に入れられる。
+          一覧・振り返りの画面では今どおり学習ガイドの画面へ移る。引き出しの「別の画面で開く」でも移れる</li>
+        <li><b>AI は今の段階で使うものを上に出す</b>（STEP 1 = テーマの候補・理由と例、STEP 2 = アウトラインの指摘・理由と例、STEP 3 = 採点）。見出しに「STEP 2 で使う AI」</li>
+        <li><b>ほかの段階の AI は下に畳んで残す</b>（前に出した結果を見返せる。出した日時だけ見える）。操作バーで「出さない」にも切り替えて比べられる</li>
+        <li><b>引き出しの初めのタブを段階に合わせる</b>: STEP 1 = 構成、STEP 2 = モデル文（アウトラインの見本がある）、STEP 3 = 表現集。おすすめに「●」。自分で選んだらその段階ではそれを覚える</li>
+        <li><b>送るものの注意は欄ごとに 1 行</b>（「送るもの: テーマ・条件」）。先頭の 5 行の注意書きはやめ、一番下に短く</li>
+        <li><b>表現集</b>: STEP 3 だけ押せる形（実線）。ほかの段階では点線の見るだけの形にして、上に「STEP 3 で押すと本文に入ります」</li>
+        <li><b>質問のやりとり</b>は最新の 1 往復だけ出し、前のものは「前の質問（n）」で開く</li>
+      </ul>
+      <h3>今の形で分かりにくいところ（操作バーの「今の形」で見られる）</h3>
+      <ul>
+        <li>5 つのタブが同じ見た目で並び、どれが AI か・どの段階のためのものかが分からない</li>
+        <li>「AI案」は 3 つの機能を縦に積んだ 1 枚。STEP 2 で使う「アウトラインの指摘」は一番下</li>
+        <li>選んだタブは段階を移っても残る（STEP 3 でもテーマの候補が出ている）</li>
+      </ul>
+    </section>
+    <section>
+      <h2>決めたこと（2026-11-11）</h2>
+      <table>
+        <tr><th>項目</th><th>決定</th></tr>
+        <tr><td>形</td><td>右ペイン = AI だけ・学習ガイドはヘッダに統合</td></tr>
+        <tr><td>編集画面での学習ガイドの開き方</td><td>右から引き出しで重ねる（一覧・振り返りでは学習ガイドの画面へ）</td></tr>
+        <tr><td>ほかの段階の AI</td><td>畳んで残す</td></tr>
+        <tr><td>引き出しの初めのタブ</td><td>段階に合わせる（選んだら段階ごとに覚える）</td></tr>
+        <tr><td>右ペインの幅</td><td><b>ドラッグで変えられる</b>（300〜560px・既定 340px・ダブルクリックで戻す・← → で 20px ずつ・ブラウザに覚える）。このモックでも右ペインの左端をドラッグできる</td></tr>
+        <tr><td>質問のやりとり</td><td>最新の 1 往復＋前のものは畳む</td></tr>
+      </table>
+    </section>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// 状態（操作バーと右ペインのクリックで変わる）
+// ---------------------------------------------------------------------------
+const state = {
+  version: 'new',            // 'old' = 今の形 / 'new' = 新しい形
+  step: 2,
+  others: 'fold',            // 'fold' = 畳んで残す / 'hide' = 出さない
+  width: 340,               // 右ペインの幅（ドラッグで変える）
+  drawer: false,             // 新しい形の学習ガイドの引き出し
+  guideTab: { 1: 'structure', 2: 'model', 3: 'phrases' },    // 引き出しのタブ（段階ごと）
+  oldTab: 'ideas',           // 今の形のタブ（段階を移っても残る）
+}
+const REC_GUIDE = { 1: 'structure', 2: 'model', 3: 'phrases' }
+const STEPS = [
+  { n: 1, name: '課題', lang: '日本語可', s: '120–150 語・8–10 文' },
+  { n: 2, name: 'アウトライン', lang: '日本語可', s: '理由 2' },
+  { n: 3, name: '下書き・推敲', lang: '英語のみ', s: '118 語・9 文' },
+]
+const GUIDE = [
+  { key: 'structure', label: '構成' },
+  { key: 'model', label: 'モデル文' },
+  { key: 'phrases', label: '表現集' },
+]
+
+// ---------------------------------------------------------------------------
+// 操作バー
+// ---------------------------------------------------------------------------
+function ctl() {
+  const group = (label, items) =>
+    `<div class="grp"><span>${label}</span>${items.map(([on, text, act]) => `<button class="${on ? 'on' : ''}" data-act="${act}">${text}</button>`).join('')}</div>`
+  document.getElementById('ctl').innerHTML =
+    '<h1>右ペインのモック</h1>' +
+    group('形', [[state.version === 'old', '今の形', 'v:old'], [state.version === 'new', '新しい形', 'v:new']]) +
+    group('段階', STEPS.map((s) => [state.step === s.n, `STEP ${s.n}`, `s:${s.n}`])) +
+    group('ほかの段階の AI', [[state.others === 'fold', '畳んで残す', 'o:fold'], [state.others === 'hide', '出さない', 'o:hide']]) +
+    `<div class="grp"><span>幅</span><b style="min-width:3.5rem">${state.width}px</b><button data-act="w:reset">既定に戻す</button></div>` +
+    group('学習ガイド', [[!state.drawer, '閉じる', 'd:close'], [state.drawer, '開く（ヘッダのボタンと同じ）', 'd:open']])
+}
+
+// ---------------------------------------------------------------------------
+// 左と中央（雰囲気だけ）
+// ---------------------------------------------------------------------------
+function tiles() {
+  document.getElementById('tiles').innerHTML = STEPS.map((s) =>
+    `<div class="tile ${state.step === s.n ? 'on' : ''}" data-act="s:${s.n}">
+      <span class="lang ${s.lang === '英語のみ' ? 'en' : ''}">${s.lang}</span>
+      <div class="k">STEP ${s.n}</div><div class="t">${s.name}</div><div class="s">${s.s}</div></div>`).join('')
+}
+
+const req = '<div class="req"><b>課題の条件</b><span>120–150 語</span><span>8–10 文</span><span>理由を 3 つ挙げ、First / Second / Finally を使う</span></div>'
+
+function mapSvg() {
+  const box = (x, y, w, text, cls = '') =>
+    `<rect x="${x}" y="${y}" width="${w}" height="30" rx="6" fill="${cls === 'root' ? '#e3efeb' : '#fff'}" stroke="${cls === 'root' ? '#2f6f62' : cls === 'sel' ? '#2f6f62' : '#e3ddd0'}" stroke-width="${cls ? 2 : 1}"/><text x="${x + 10}" y="${y + 20}" font-size="13" fill="#2a2620" font-weight="${cls === 'root' ? 700 : 400}">${text}</text>`
+  const edge = (x1, y1, x2, y2) => `<path d="M${x1} ${y1} C ${x1 + 30} ${y1}, ${x2 - 30} ${y2}, ${x2} ${y2}" fill="none" stroke="#6e675c" stroke-width="1.5" opacity=".5"/>`
+  return `<svg width="100%" height="100%" viewBox="0 0 760 330" preserveAspectRatio="xMinYMin meet">
+    ${edge(230, 165, 270, 70)}${edge(230, 165, 270, 165)}${edge(230, 165, 270, 260)}
+    ${edge(470, 70, 500, 50)}${edge(470, 70, 500, 95)}${edge(470, 165, 500, 165)}
+    ${box(20, 150, 210, '制服を着るべきだ', 'root')}
+    ${box(270, 55, 200, '朝の服選びの時間が省ける')}${box(500, 35, 220, '毎朝 10 分は迷っていた')}${box(500, 80, 200, '友だちと比べなくて済む')}
+    ${box(270, 150, 200, '学校への帰属意識', 'sel')}${box(500, 150, 180, 'お金の差が見えない')}
+    ${box(270, 245, 200, '服の費用が抑えられる')}
+  </svg>`
+}
+
+function center() {
+  const el = document.getElementById('center')
+  const nextLabel = { 1: 'STEP 2 アウトラインへ →', 2: 'STEP 3 下書き・推敲へ →', 3: '書き出し →' }[state.step]
+  let body = ''
+  if (state.step === 1) {
+    body = `<h2>課題</h2>
+      <div class="field"><label>テーマ</label><div class="fake-input theme">Should students wear school uniforms?</div></div>
+      <div class="field"><label>語数・文数</label><div>語数 <b>120</b> 〜 <b>150</b> 語　　文数 <b>8</b> 〜 <b>10</b> 文</div></div>
+      <div class="field" style="flex:1"><label>構成や表現の条件</label><div class="fake-input" style="height:120px">理由を 3 つ挙げ、First / Second / Finally を使う。</div></div>`
+  } else if (state.step === 2) {
+    body = `<h2>アウトライン</h2>
+      <div class="brief-theme">Should students wear school uniforms?</div>${req}
+      <div class="checks"><span>✓ 意見（中心）が 1 つ</span><span>✓ 理由が 2〜3 つ</span><span class="ng">! どの理由にも例・詳細</span><span class="ng">! 結論</span></div>
+      <div class="prompt"><b>理由</b>なぜそう思うのかを 1 つ<em>次に → たとえば？ 体験・数字・場面を子に足す</em></div>
+      <div class="map">${mapSvg()}</div>`
+  } else {
+    body = `<h2>下書き・推敲</h2>
+      <div class="meters"><div class="meter"><b>118</b> 語 <span style="float:right;color:var(--warn);font-weight:600">あと 2 語</span><div class="bar"><i style="width:78%"></i></div></div>
+      <div class="meter"><b>9</b> 文 <span style="float:right;color:var(--brand);font-weight:600">範囲内</span><div class="bar"><i style="width:70%;background:var(--brand)"></i></div></div></div>
+      ${req}
+      <div class="work"><div class="paper">I think students should wear school uniforms. First, uniforms save time in the morning. Student can choose clothes very quickly because they do not need to think. Second, uniforms make students feel that they belong to their school. When we wear the same clothes, we feel like one team. Finally, uniforms are very very good for families because…</div>
+      <div class="struct"><div class="node n-ts"><small>OPINION</small>制服を着るべきだ</div><div class="node n-rs"><small>REASON 1</small>朝の服選びの時間が省ける</div><div class="node n-ex"><small>EXAMPLE</small>毎朝 10 分は迷っていた</div><div class="node n-rs"><small>REASON 2</small>学校への帰属意識</div><div class="node n-ex"><small>EXAMPLE</small>お金の差が見えない</div><div class="node n-rs"><small>REASON 3</small>服の費用が抑えられる</div></div></div>`
+  }
+  el.innerHTML = body + `<div class="next"><button class="btn pri">${nextLabel}</button></div>`
+}
+
+// ---------------------------------------------------------------------------
+// 右ペインの中身の部品
+// ---------------------------------------------------------------------------
+function structureBody() {
+  const parts = [
+    ['ts', 'Topic sentence', '意見', '段落の最初の 1 文。テーマに対する自分の意見をはっきり書く。'],
+    ['rs', 'Reasons', '理由', '意見を支える理由を 2〜3 つ。First, / Second, / Finally, などで始める。'],
+    ['ex', 'Examples / Details', '例・詳細', '理由ごとに、具体的な例・数字・体験を 1〜2 文。'],
+    ['cs', 'Concluding sentence', '結論', '最後の 1 文。意見を別の言葉で言い換えて締める。'],
+  ]
+  return parts.map(([k, en, ja, d]) => `<div class="part p-${k}"><h4>${en}<small>${ja}</small></h4><p>${d}</p></div>`).join('')
+}
+function modelBody() {
+  return `<p style="margin:0;font-family:var(--serif);font-weight:600">High school students should have part-time jobs</p>
+    <p class="model"><span class="hl-ts">I believe that high school students should have part-time jobs.</span> <span class="hl-rs">First, working teaches them how to manage money.</span> <span class="hl-ex">For example, when I worked at a bakery, I learned to save part of my pay every month.</span> <span class="hl-rs">Second, a job helps students build social skills.</span> <span class="hl-ex">They talk with customers and coworkers of all ages.</span> <span class="hl-cs">For these reasons, part-time jobs are valuable for high school students.</span></p>
+    <h4 class="gsub">このモデル文のアウトライン（STEP 2 の見本）</h4>
+    <div class="node n-ts">高校生はアルバイトをすべき</div><div class="node n-rs">お金の管理を学べる</div><div class="node n-ex">パン屋で毎月貯金した</div><div class="node n-rs">人と話す力がつく</div><div class="node n-ex">いろいろな年の人と話す</div><div class="node n-cs">結論: アルバイトは価値がある</div>`
+}
+function phrasesBody(insertable) {
+  const groups = [
+    ['ts', '意見を述べる', [['I believe that …', '私は…と思う'], ['In my opinion, …', '私の意見では']]],
+    ['rs', '理由を述べる', [['First, …', 'まず'], ['Second, …', '次に'], ['Finally, …', '最後に']]],
+    ['ex', '例を挙げる', [['For example, …', 'たとえば'], ['For instance, …', 'たとえば']]],
+    ['cs', '結論を述べる', [['For these reasons, …', 'これらの理由で'], ['In conclusion, …', '結論として']]],
+  ]
+  const tag = insertable ? 'button' : 'span'
+  return (insertable
+    ? '<p class="phr-note ok">押すと下書きのカーソルの位置に入ります。</p>'
+    : '<p class="phr-note">STEP 3（下書き）で押すと本文に入ります。ここでは見るだけ。</p>') +
+    groups.map(([k, t, ps]) => `<div class="pg p-${k}"><h4>${t}</h4><div class="phrases">${ps.map(([en, ja]) => `<${tag} class="phrase"><code>${en}</code><small>${ja}</small></${tag}>`).join('')}</div></div>`).join('')
+}
+function guideBody(key, step) {
+  if (key === 'structure') return structureBody()
+  if (key === 'model') return modelBody()
+  return phrasesBody(step === 3)
+}
+
+// AI の結果の中身（どちらの形でも同じものを使う）
+const themesResult = () => [
+  ['Should students wear school uniforms?', '生徒は制服を着るべきか', true],
+  ['Should schools ban smartphones in class?', '授業中のスマホを禁止すべきか', false],
+  ['Should homework be optional?', '宿題は自由にすべきか', false],
+].map(([en, ja, cur]) => `<div class="ai-theme"><p class="ai-theme-en">${en}</p><p class="ai-theme-ja">${ja}</p><button class="btn ai-use" ${cur ? 'disabled' : ''}>${cur ? '今のテーマです' : '課題のテーマにする'}</button></div>`).join('')
+
+const ideasResult = () => {
+  const side = (stance, label, opinion, reasons) => `<div class="ai-side ${stance}"><h5><span class="ai-stance">${label}</span>${opinion}</h5>${reasons.map(([r, ex]) => `<div class="ai-reason"><p>${r}</p><ul><li>${ex}</li></ul></div>`).join('')}</div>`
+  return side('for', '賛成', '制服を着るべき', [['朝の服選びの時間が省ける', '毎朝何を着るか迷わなくて済む'], ['学校への帰属意識が生まれる', '行事で同じ服を着るとまとまる'], ['家庭による服の差が見えにくい', 'ブランドの服で比べられない']]) +
+    side('against', '反対', '着なくてよい', [['個性を表現できない', '好きな色や形を選べない'], ['季節に合わせにくい', '夏の上着は暑い'], ['制服代が高い', '一式で 3〜5 万円かかる']])
+}
+
+const outlineResult = () => `<p class="summary-box">意見と理由のつながりは分かりやすいです。例が理由になっているところと、結論が無いところを見直しましょう。</p>
+  <ol class="findings">
+    <li><q>お金の差が見えない</q><p>これは「帰属意識」の例になっていますか？ 理由 3 の「費用」の話に近いかもしれません。どの理由を支える話か考えてみましょう。</p></li>
+    <li><p>中心の最後の子に「結論: …」を足して、意見を別の言葉で言い換えましょう。</p></li>
+  </ol>`
+
+const scoreResult = () => {
+  const crit = [['構成', 24, 30, 'Topic sentence と理由の順番は明確。結論がまだありません。'], ['内容', 17, 25, '理由 3 の例がまだ書かれていません。'], ['文法', 14, 20, '名詞の数と冠詞に気をつけましょう。'], ['語彙・表現', 10, 15, '同じ強調の言葉が続いています。'], ['課題の条件', 7, 10, '語数が少し足りません。']]
+  return `<div class="score-total"><b>72</b><span>/ 100</span></div>
+    ${crit.map(([l, s, m, c]) => `<div class="crit"><div class="crit-head"><span>${l}</span><b>${s} / ${m}</b></div><div class="crit-bar"><i style="width:${(s / m) * 100}%"></i></div><p>${c}</p></div>`).join('')}
+    <h5 class="sub-h">直すところ（3）</h5>
+    <ol class="findings">
+      <li><span class="crit-tag">文法</span><q>Student can choose</q><p>主語は数えられる名詞の単数形です。冠詞か複数形を考えましょう。</p></li>
+      <li><span class="crit-tag">語彙・表現</span><q>very very good</q><p>強調を重ねず、1 語で強い意味の形容詞を探しましょう。</p></li>
+      <li><span class="crit-tag">課題の条件</span><p>語数が 118 語で、指定の 120 語に少し足りません。</p></li>
+    </ol>`
+}
+
+const qaFull = () => `<div class="qa"><p class="q">例はいくつ書けばいいですか？</p><p class="a">理由 1 つにつき 1〜2 個が目安です。数より、理由とつながっているかを先に確かめましょう。</p><div class="qa-form"><span class="fake">この結果について質問する（Ctrl+Enter で送る）</span><button class="btn">質問する</button></div></div>`
+const qaNew = () => `<div class="qa"><span class="qa-more">▸ 前の質問（1）</span><p class="q">結論は意見と同じ文でもいいですか？</p><p class="a">同じ文だと繰り返しに見えます。意見の中心の言葉は残しつつ、別の言い方にしてみましょう。</p><div class="qa-form"><span class="fake">この結果について質問する（Ctrl+Enter で送る）</span><button class="btn">質問する</button></div></div>`
+
+// AI の 4 つの機能（新しい形で段階ごとに並べ替える）
+const TOOLS = {
+  themes: {
+    title: 'テーマの候補', step: 'STEP 1', when: '11/10 21:05',
+    desc: '分野・キーワードから、英語の問いと日本語訳を出します。',
+    button: 'テーマの候補を出す', again: 'もう一度出す', sends: '分野・キーワード',
+    pre: '<div class="old-hint">分野・キーワード（任意）例: 部活、スマホ、環境</div>',
+    result: themesResult,
+  },
+  ideas: {
+    title: '理由・例の候補', step: 'STEP 1・2', when: '11/10 21:12',
+    desc: '賛成・反対それぞれの理由と例（日本語）。見るだけ。使えそうなものは自分の言葉でアウトラインに足す。',
+    button: '理由・例の候補を出す', again: 'もう一度出す', sends: 'テーマ・条件',
+    stale: '課題のテーマか条件を変える前に出した候補です。',
+    result: ideasResult, foldResult: '賛成 3・反対 3 の理由と例を見る',
+  },
+  outline: {
+    title: 'アウトラインの指摘', step: 'STEP 2', when: '11/11 16:20',
+    desc: '意見・理由・例・結論のつながりを見て、直すところをヒントで返します（直した項目は出しません）。',
+    button: 'アウトラインを見てもらう', again: 'もう一度見てもらう', sends: 'テーマ・条件・アウトライン',
+    result: outlineResult, qa: true,
+  },
+  score: {
+    title: '採点', step: 'STEP 3', when: '11/11 17:02',
+    desc: '100 点満点と観点ごとの点数、直すところのヒント（直した文は出しません）。',
+    button: '採点する', again: 'もう一度採点する', sends: '下書き・課題',
+    result: scoreResult,
+  },
+}
+const AI_FOR = { 1: ['themes', 'ideas'], 2: ['outline', 'ideas'], 3: ['score'] }
+const ALL_TOOLS = ['themes', 'ideas', 'outline', 'score']
+
+/** 新しい形の AI の欄。`foldResult` の結果は畳んでおく（2 つ目以降の長い結果）。 */
+function toolCard(key, { fold = false } = {}) {
+  const t = TOOLS[key]
+  const result = t.foldResult && fold
+    ? `<details class="fold-result"><summary>${t.foldResult}</summary><div>${t.result()}</div></details>`
+    : t.result()
+  return `<section class="tool">
+    <div class="tool-h"><h4>${t.title}</h4><span class="when">${t.when} に出しました</span></div>
+    <p class="tool-desc">${t.desc}</p>
+    ${t.pre ?? ''}
+    <div class="tool-act"><button class="btn pri">${t.again}</button><span class="sends">送るもの: ${t.sends}</span></div>
+    ${t.stale ? `<p class="stale">${t.stale}</p>` : ''}
+    ${result}
+    ${t.qa ? qaNew() : ''}
+  </section>`
+}
+
+// ---------------------------------------------------------------------------
+// 右ペイン: 新しい形（AI だけ）と、学習ガイドの引き出し
+// ---------------------------------------------------------------------------
+function rightNew() {
+  const step = state.step
+  const mine = AI_FOR[step]
+  const rest = ALL_TOOLS.filter((k) => !mine.includes(k))
+  return `<div class="ai-title"><h2>AI</h2><small>押したときだけ呼びます</small></div>
+    <div class="gbody">
+      <div class="ai-head"><h3>STEP ${step} で使う AI</h3></div>
+      ${mine.map((k, i) => toolCard(k, { fold: i > 0 })).join('')}
+      ${state.others === 'fold' ? `<div class="others"><h3>ほかの段階の AI</h3>${rest.map((k) => `<details class="other"><summary><b>${TOOLS[k].title}</b><span class="st">${TOOLS[k].step}</span><span class="when">${TOOLS[k].when}</span></summary>${toolCard(k, { fold: true })}</details>`).join('')}</div>` : ''}
+      <p class="ai-foot">結果と質問はパラグラフごとに最新の 1 回分を残します。送るのは各欄の「送るもの」だけです（Anthropic の API）。</p>
+    </div>`
+}
+
+function drawer() {
+  const step = state.step
+  const tab = state.guideTab[step]
+  return `<div class="drawer-h"><h2>学習ガイド</h2><a href="#" onclick="return false" title="学習ガイドの画面へ移る">別の画面で開く ↗</a><button class="x" data-act="d:close" title="閉じる">×</button></div>
+    <div class="sub-tabs">${GUIDE.map((g) => `<button class="${g.key === tab ? 'on' : ''}" data-act="g:${g.key}">${g.label}${REC_GUIDE[step] === g.key ? '<span class="rec" title="この段階のおすすめ">●</span>' : ''}</button>`).join('')}</div>
+    <div class="gbody">${guideBody(tab, step)}</div>`
+}
+
+// ---------------------------------------------------------------------------
+// 右ペイン: 今の形
+// ---------------------------------------------------------------------------
+function rightOld() {
+  const tabs = [...GUIDE, { key: 'ideas', label: 'AI案' }, { key: 'score', label: '採点' }]
+  let body = ''
+  if (state.oldTab === 'ideas') {
+    const sec = (k, extra = '') => {
+      const t = TOOLS[k]
+      return `<section class="old-sec"><h4>${t.title}</h4>${extra}${t.pre ?? ''}<button class="btn pri">${t.button}</button><span class="muted" style="font-size:11.5px">${t.when} に出しました</span>${t.stale ? `<p class="stale">${t.stale}</p>` : ''}${t.result()}${k === 'outline' ? qaFull() : `<div class="qa"><div class="qa-form"><span class="fake">この結果について質問する（Ctrl+Enter で送る）</span><button class="btn">質問する</button></div></div>`}</section>`
+    }
+    body = `<p class="old-note">ボタンを押したときだけ、入れた分野・課題のテーマと条件・アウトラインを Anthropic の API に送ります。質問すると、その結果と質問も送ります。下書きは送りません。結果と質問はパラグラフごとに最新の 1 回分を残します。</p>
+      ${sec('themes')}${sec('ideas', '<p class="tool-desc">見るだけ。使えそうなものは自分の言葉でアウトラインに足す。</p><p style="margin:0;font-size:12.5px;font-family:var(--serif)">テーマ: Should students wear school uniforms?</p>')}${sec('outline', `<p class="tool-desc">${TOOLS.outline.desc}</p>`)}`
+  } else if (state.oldTab === 'score') {
+    body = `<button class="btn pri">もう一度採点する</button><p class="tool-desc" style="margin:.4rem 0 .6rem">押すと、下書きと課題の条件を Anthropic の API に送って採点します。直した文は出さず、ヒントだけを出します。</p>${scoreResult()}`
+  } else {
+    // 今は「押すと下書きのカーソルの位置に入ります」を段階に関係なく出す
+    body = state.oldTab === 'phrases'
+      ? phrasesBody(true).replace('<p class="phr-note ok">押すと下書きのカーソルの位置に入ります。</p>', '<p class="muted" style="font-size:12px;margin:0 0 .5rem">押すと下書きのカーソルの位置に入ります。</p>')
+      : guideBody(state.oldTab, state.step)
+  }
+  return `<div class="seg">${tabs.map((t) => `<button class="${t.key === state.oldTab ? 'on' : ''}" data-act="t:${t.key}">${t.label}</button>`).join('')}</div><div class="gbody">${body}</div>`
+}
+
+// ---------------------------------------------------------------------------
+function render() {
+  document.documentElement.style.setProperty('--right', `${state.width}px`)
+  document.getElementById('resizer-tip').textContent = `${state.width}px`
+  ctl()
+  tiles()
+  center()
+  const right = document.getElementById('right')
+  right.innerHTML = state.version === 'old' ? rightOld() : rightNew()
+  // 引き出しは新しい形だけ（今の形のヘッダの「学習ガイド」は学習ガイドの画面へ移る）
+  const open = state.version === 'new' && state.drawer
+  const dr = document.getElementById('drawer')
+  dr.hidden = !open
+  dr.innerHTML = open ? drawer() : ''
+  document.getElementById('guide-btn').classList.toggle('on', open)
+}
+
+document.addEventListener('click', (event) => {
+  const el = event.target.closest('[data-act]')
+  if (!el) return
+  const [kind, value] = el.dataset.act.split(':')
+  if (kind === 'v') state.version = value
+  else if (kind === 's') state.step = Number(value)
+  else if (kind === 'o') state.others = value
+  else if (kind === 'w') state.width = DEFAULT_WIDTH
+  else if (kind === 'd') state.drawer = value === 'toggle' ? !state.drawer : value === 'open'
+  else if (kind === 'g') state.guideTab[state.step] = value
+  else if (kind === 't') state.oldTab = value
+  else return
+  render()
+})
+// 右ペインの幅のドラッグ（300〜560px。中央が 560px より狭くならないよう上限を下げる）
+const DEFAULT_WIDTH = 340
+const MIN_WIDTH = 300
+function maxWidth() {
+  const panes = document.querySelector('.panes').getBoundingClientRect().width
+  return Math.max(MIN_WIDTH, Math.min(560, panes - 200 - 560))
+}
+const clampWidth = (w) => Math.round(Math.min(maxWidth(), Math.max(MIN_WIDTH, w)))
+const resizer = document.getElementById('resizer')
+resizer.addEventListener('mousedown', (event) => {
+  event.preventDefault()
+  const right = document.querySelector('.panes').getBoundingClientRect().right
+  resizer.classList.add('drag')
+  document.body.classList.add('resizing')
+  const move = (e) => {
+    state.width = clampWidth(right - e.clientX)
+    render()
+  }
+  const up = () => {
+    resizer.classList.remove('drag')
+    document.body.classList.remove('resizing')
+    document.removeEventListener('mousemove', move)
+    document.removeEventListener('mouseup', up)
+  }
+  document.addEventListener('mousemove', move)
+  document.addEventListener('mouseup', up)
+})
+resizer.addEventListener('dblclick', () => {
+  state.width = DEFAULT_WIDTH
+  render()
+})
+resizer.addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+  event.preventDefault()
+  state.width = clampWidth(state.width + (event.key === 'ArrowLeft' ? 20 : -20))
+  render()
+})
+render()
+</script>
+</body>
+</html>

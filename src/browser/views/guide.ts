@@ -3,12 +3,12 @@ import { guideTabs } from '../guide-content.js'
 import { header } from '../ui.js'
 import { STATIC_VIEW, type View } from '../view.js'
 
-/** 学習ガイド画面。構成の解説・モデル文・表現集のタブ（中身は `guide-content.ts`。編集画面の右ペインと同じ）。 */
+/** 学習ガイド画面。構成の解説・モデル文・表現集のタブ（中身は `guide-content.ts`。編集画面の学習ガイドの引き出しと同じ）。 */
 export function renderGuide(app: HTMLElement): View {
   const { tabs, body } = guideTabs(false)
   replace(
     app,
-    header([h('span', { class: 'crumb' }, '／ ', h('b', {}, '学習ガイド'))], [], true),
+    header([h('span', { class: 'crumb' }, '／ ', h('b', {}, '学習ガイド'))], [], 'list'),
     h(
       'main',
       { class: 'gpage' },

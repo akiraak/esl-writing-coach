@@ -1,24 +1,27 @@
 import { countSentences, countWords } from '../shared/counting.js'
 import { FLOW, MODEL, PHRASES, STRUCTURE } from '../shared/guide.js'
 import { outlineRoles } from '../shared/outline-roles.js'
+import type { GuideTabKey } from '../shared/side-pane.js'
 import { h, replace } from './dom.js'
 import { insertPhrase } from './phrase-target.js'
 import { ROLE_KEY, roleNodes } from './role-list.js'
 
 /**
- * 学習ガイドの中身の描き方（中身は `src/shared/guide.ts`）。学習ガイド画面と編集画面の右ペインで同じものを出す。
- * 右ペインは幅が狭いので `compact`（1 列の詰めた形）。選んだタブは両方で共有する（このタブを開いている間）。
+ * 学習ガイドの中身の描き方（中身は `src/shared/guide.ts`。パラグラフにも段階にもよらない固定のもの）。
+ * 学習ガイド画面と、編集画面の学習ガイドの引き出し（`guide-pane.ts`）で同じものを出す。
+ * 引き出しは幅が狭いので `compact`（1 列の詰めた形）。引き出しで開くタブは段階ごとに決める（`guide-pane.ts`）。
  */
 
-export const GUIDE_TABS = [
+export type GuideTab = GuideTabKey
+
+export const GUIDE_TABS: readonly { key: GuideTab; label: string; short: string }[] = [
   { key: 'structure', label: '構成の解説', short: '構成' },
   { key: 'model', label: 'モデル文', short: 'モデル文' },
   { key: 'phrases', label: '表現集', short: '表現集' },
-] as const
-export type GuideTab = (typeof GUIDE_TABS)[number]['key']
+]
 
-/** 選んだタブ（学習ガイド画面と右ペインで共有。右ペインだけの「採点」も入る）。 */
-let selected: string = 'structure'
+/** 学習ガイド画面で選んだタブ（このブラウザのタブを開いている間は覚える）。 */
+let pageSelected: GuideTab = 'structure'
 
 const legend = () =>
   h(
@@ -77,10 +80,11 @@ function modelBody(): HTMLElement {
 }
 
 /**
- * 表現集。`insertable`（右ペイン）なら各表現を押せて、下書きを開いていればカーソルの位置に入る（`phrase-target.ts`）。
+ * 表現集。`insertable`（引き出しで下書きを開いているとき）なら各表現を押せて、カーソルの位置に入る（`phrase-target.ts`）。
  * 押しても本文の欄からフォーカスとカーソルの位置を奪わないよう、`mousedown` を止める。
+ * `compact` で押せないとき（引き出しで課題・アウトラインを開いているとき）は見るだけの形にして、STEP 3 で押せると知らせる。
  */
-function phrasesBody(insertable: boolean): HTMLElement {
+function phrasesBody(insertable: boolean, compact: boolean): HTMLElement {
   const notice = h('p', { class: 'phr-notice' })
   let noticeTimer: ReturnType<typeof setTimeout> | undefined
   const chip = (phrase: { en: string; ja: string }) => {
@@ -109,7 +113,13 @@ function phrasesBody(insertable: boolean): HTMLElement {
     {},
     insertable
       ? h('p', { class: 'muted phr-hint' }, '押すと下書きのカーソルの位置に入ります。')
-      : null,
+      : compact
+        ? h(
+            'p',
+            { class: 'muted phr-hint' },
+            'STEP 3（下書き）で押すと本文に入ります。ここでは見るだけ。',
+          )
+        : null,
     insertable ? notice : null,
     h(
       'div',
@@ -126,63 +136,73 @@ function phrasesBody(insertable: boolean): HTMLElement {
   )
 }
 
-function bodyOf(tab: GuideTab, compact: boolean): HTMLElement {
+function bodyOf(tab: GuideTab, compact: boolean, insertable: boolean): HTMLElement {
   switch (tab) {
     case 'structure':
       return structureBody()
     case 'model':
       return modelBody()
     case 'phrases':
-      return phrasesBody(compact)
+      return phrasesBody(insertable, compact)
   }
 }
 
-/** 学習ガイドのほかに足すタブ（編集画面の右ペインの「採点」）。中身の要素は作り置きを使い回す。 */
-export interface ExtraTab {
-  key: string
-  label: string
-  el: HTMLElement
+export interface GuideTabsOptions {
+  /** 表現集を押して本文に入れられるか（引き出しで下書きを開いているときだけ）。 */
+  insertable?(): boolean
+  /** おすすめのタブ（印を付ける。引き出しの段階ごと）。 */
+  recommended?(): GuideTab | null
+  /** タブを自分で選んだとき（引き出しは段階ごとに覚える）。 */
+  onSelect?(tab: GuideTab): void
+}
+
+export interface GuideTabs {
+  tabs: HTMLElement
+  body: HTMLElement
+  /** タブを選んで描き直す（引き出しで段階を移ったとき）。 */
+  select(tab: GuideTab): void
 }
 
 /**
- * タブと中身。`compact` は右ペイン向け（タブの名前を短く、タブの見た目は `seg`。学習ガイド画面は `gtabs`）。
- * `extra` のタブは右ペインだけのもの。選んだタブが無い画面（学習ガイド画面で「採点」を選んでいた）では構成を出す。
+ * タブと中身。`compact` は引き出し向け（タブの名前を短く、タブの見た目は `seg`。学習ガイド画面は `gtabs`）。
+ * `options` を渡さなければ学習ガイド画面の形（選んだタブは `pageSelected` に覚える）。
  */
-export function guideTabs(
-  compact: boolean,
-  extra: readonly ExtraTab[] = [],
-): { tabs: HTMLElement; body: HTMLElement } {
+export function guideTabs(compact: boolean, options: GuideTabsOptions = {}): GuideTabs {
   const body = h('div', { class: `guide-content${compact ? ' compact' : ''}` })
-  const tabs = [
-    ...GUIDE_TABS.map((tab) => ({
-      key: tab.key as string,
-      label: compact ? tab.short : tab.label,
-      render: () => bodyOf(tab.key, compact),
-    })),
-    ...extra.map((tab) => ({ key: tab.key, label: tab.label, render: () => tab.el })),
-  ]
-  const current = () => (tabs.some((t) => t.key === selected) ? selected : GUIDE_TABS[0].key)
-  const buttons = tabs.map((tab) =>
+  const usePage = options.onSelect === undefined
+  let selected: GuideTab = usePage ? pageSelected : 'structure'
+  const marks = GUIDE_TABS.map(() =>
+    h(
+      'span',
+      { class: 'gtab-rec', title: 'この段階のおすすめ', 'aria-label': '（おすすめ）' },
+      '●',
+    ),
+  )
+  const buttons = GUIDE_TABS.map((tab, i) =>
     h(
       'button',
       {
         type: 'button',
         onclick: () => {
-          selected = tab.key
-          show()
+          select(tab.key)
+          if (usePage) pageSelected = tab.key
+          options.onSelect?.(tab.key)
         },
       },
-      tab.label,
+      compact ? tab.short : tab.label,
+      marks[i],
     ),
   )
-  const show = () => {
-    const key = current()
-    tabs.forEach((tab, i) => {
-      buttons[i]?.classList.toggle('on', tab.key === key)
-      buttons[i]?.setAttribute('aria-pressed', String(tab.key === key))
+  function select(tab: GuideTab): void {
+    selected = tab
+    const recommended = options.recommended?.() ?? null
+    GUIDE_TABS.forEach((t, i) => {
+      buttons[i]?.classList.toggle('on', t.key === selected)
+      buttons[i]?.setAttribute('aria-pressed', String(t.key === selected))
+      if (marks[i]) marks[i].hidden = t.key !== recommended
     })
-    replace(body, tabs.find((t) => t.key === key)?.render() ?? null)
+    replace(body, bodyOf(selected, compact, options.insertable?.() ?? false))
   }
-  show()
-  return { tabs: h('div', { class: compact ? 'seg' : 'gtabs' }, ...buttons), body }
+  select(selected)
+  return { tabs: h('div', { class: compact ? 'seg' : 'gtabs' }, ...buttons), body, select }
 }

@@ -9,13 +9,15 @@ import {
   type SavedThemes,
   STANCE_LABEL,
 } from '../shared/ideas.js'
+import { type AiCard, cardFrame, whenLabels } from './ai-pane.js'
 import { createQuestionBox } from './ai-questions.js'
 import { readAiResults, reviewOutline, suggestIdeas, suggestThemes } from './api.js'
 import { h, replace } from './dom.js'
 import { errorText, formatDate, formatTime } from './ui.js'
 
 /**
- * 編集画面の右ペインの「AI 案」タブ（AI のアイデア出し。`docs/plans/archive/ai-ideas.md`）。
+ * 編集画面の右ペインの AI 案の 3 つのカード（AI のアイデア出し。`docs/plans/archive/ai-ideas.md`）。
+ * 並べ方は `ai-pane.ts`（今の段階で使うものを上に、ほかは畳む）。
  *
  * - **テーマの候補**: 分野・キーワード（任意）から、英語の問いと日本語訳。「課題のテーマにする」を押したときだけテーマを書き換える
  * - **理由・例の候補**: 課題のテーマ（手元の最新）から、賛成・反対それぞれの理由と例（日本語）。**見るだけ**
@@ -40,7 +42,7 @@ export interface IdeasPanelOptions {
 }
 
 export interface IdeasPanel {
-  el: HTMLElement
+  cards: { themes: AiCard; ideas: AiCard; outline: AiCard }
   /** 課題・アウトラインが変わったら（テーマの表示・押せるか・古さの知らせを更新する）。 */
   sync(): void
 }
@@ -58,17 +60,17 @@ function track<T>(key: string, run: () => Promise<T>): Promise<T> {
   return promise
 }
 
-const createdLabel = (iso: string) => `${formatDate(iso)} ${formatTime(iso)} に出しました`
+const createdText = (iso: string) => `${formatDate(iso)} ${formatTime(iso)}`
 
 export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
   const { id } = options
   const keyOf = (kind: AiKind) => `${id}/${kind}`
 
-  /** 1 つの種類の欄（ボタン・エラー・出した時刻と古さの知らせ・結果・質問の欄）。 */
+  /** 1 つの種類の状態（ボタン・エラー・出した日時・質問の欄）。カードの外枠は `cardFrame`。 */
   function section<T>(kind: AiKind, label: string, busyLabel: string, render: (saved: T) => void) {
     const button = h('button', { class: 'btn pri', type: 'button' }, label)
     const message = h('p', { class: 'error ai-error' })
-    const meta = h('p', { class: 'muted ai-meta' })
+    const when = whenLabels()
     const qa = createQuestionBox(id, kind)
     let saved: (T & { createdAt: string }) | null = null
     let busy = false
@@ -83,7 +85,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
       // 保存してあるものの読み込みが、押して出した新しい結果より後に届いても上書きしない
       if (saved !== null && value.createdAt < saved.createdAt) return
       saved = value
-      replace(meta, createdLabel(value.createdAt))
+      when.set(createdText(value.createdAt))
       render(value)
       qa.show(questions)
       sync()
@@ -105,7 +107,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     return {
       button,
       message,
-      meta,
+      when,
       qa: qa.el,
       setStale: qa.setStale,
       get saved(): T | null {
@@ -177,15 +179,29 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
   const currentTheme = h('p', { class: 'ai-current' })
   const ideasStale = h('p', { class: 'ai-stale' })
   const ideasList = h('div', { class: 'ai-ideas' })
-  const ideas = section<SavedIdeas>('ideas', '理由・例の候補を出す', '考えています…', (saved) =>
+  /** 結果は長いので、上に出す 2 つ目のときは畳む（`setFolded`）。 */
+  const ideasSummary = h('summary', {}, '理由と例を見る')
+  const ideasFold = h(
+    'details',
+    { class: 'ai-fold', open: true, hidden: true },
+    ideasSummary,
+    ideasList,
+  )
+  const ideas = section<SavedIdeas>('ideas', '理由・例の候補を出す', '考えています…', (saved) => {
+    const sides = saved.ideas.sides
+    replace(
+      ideasSummary,
+      `理由と例を見る（${sides.map((side) => `${STANCE_LABEL[side.stance]} ${side.reasons.length}`).join('・')}）`,
+    )
+    ideasFold.hidden = false
     replace(
       ideasList,
       h('p', { class: 'muted ai-sub-note' }, `テーマ: ${saved.theme}`),
-      ...saved.ideas.sides.map((side) =>
+      ...sides.map((side) =>
         h(
           'div',
           { class: `ai-side ${side.stance}` },
-          h('h4', {}, h('span', { class: 'ai-stance' }, STANCE_LABEL[side.stance]), side.opinion),
+          h('h5', {}, h('span', { class: 'ai-stance' }, STANCE_LABEL[side.stance]), side.opinion),
           ...side.reasons.map((reason) =>
             h(
               'div',
@@ -198,10 +214,12 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
           ),
         ),
       ),
-    ),
-  )
+    )
+  })
   ideas.button.addEventListener('click', () => {
     const { theme, conditions } = options.assignment()
+    // 押して出したものは、畳んでいても開いて見せる
+    ideasFold.open = true
     ideas.start(async () => ({
       theme: theme.trim(),
       conditions,
@@ -211,7 +229,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
   })
 
   // --- アウトラインの指摘 ---
-  const reviewNote = h('p', { class: 'muted ai-sub-note' })
+  const reviewNote = h('p', { class: 'muted ai-card-desc' })
   const reviewStale = h('p', { class: 'ai-stale' })
   const reviewResult = h('div', { class: 'ai-review' })
   const review = section<SavedOutlineReview>(
@@ -283,55 +301,54 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     review.setStale(reviewOld)
   }
 
-  const el = h(
-    'div',
-    { class: 'ideas-panel' },
-    h(
-      'p',
-      { class: 'muted ai-note' },
-      'ボタンを押したときだけ、入れた分野・課題のテーマと条件・アウトラインを Anthropic の API に送ります。質問すると、その結果と質問も送ります。下書きは送りません。結果と質問はパラグラフごとに最新の 1 回分を残します。',
-    ),
-    h(
-      'section',
-      { class: 'ai-section' },
-      h('h3', {}, 'テーマの候補'),
-      hint,
-      themes.button,
-      themes.message,
-      themes.meta,
-      themesList,
-      themes.qa,
-    ),
-    h(
-      'section',
-      { class: 'ai-section' },
-      h('h3', {}, '理由・例の候補'),
-      h(
-        'p',
-        { class: 'muted ai-sub-note' },
-        '見るだけ。使えそうなものは自分の言葉でアウトラインに足す。',
-      ),
-      currentTheme,
-      ideas.button,
-      ideas.message,
-      ideas.meta,
-      ideasStale,
-      ideasList,
-      ideas.qa,
-    ),
-    h(
-      'section',
-      { class: 'ai-section' },
-      h('h3', {}, 'アウトラインの指摘'),
-      reviewNote,
-      review.button,
-      review.message,
-      review.meta,
-      reviewStale,
-      reviewResult,
-      review.qa,
-    ),
-  )
+  const cards = {
+    themes: {
+      el: cardFrame({
+        title: 'テーマの候補',
+        when: themes.when.create('head'),
+        desc: h(
+          'p',
+          { class: 'muted ai-card-desc' },
+          '分野・キーワードから、英語の問いと日本語訳を出します。',
+        ),
+        before: [hint],
+        button: themes.button,
+        sends: '分野・キーワード',
+        after: [themes.message, themesList, themes.qa],
+      }),
+      whenLabel: () => themes.when.create('row'),
+    },
+    ideas: {
+      el: cardFrame({
+        title: '理由・例の候補',
+        when: ideas.when.create('head'),
+        desc: h(
+          'p',
+          { class: 'muted ai-card-desc' },
+          '賛成・反対それぞれの理由と例（日本語）。見るだけ。使えそうなものは自分の言葉でアウトラインに足す。',
+        ),
+        before: [currentTheme],
+        button: ideas.button,
+        sends: '課題のテーマ・条件',
+        after: [ideas.message, ideasStale, ideasFold, ideas.qa],
+      }),
+      whenLabel: () => ideas.when.create('row'),
+      setFolded(folded: boolean) {
+        ideasFold.open = !folded
+      },
+    },
+    outline: {
+      el: cardFrame({
+        title: 'アウトラインの指摘',
+        when: review.when.create('head'),
+        desc: reviewNote,
+        button: review.button,
+        sends: '課題のテーマ・条件・アウトライン',
+        after: [review.message, reviewStale, reviewResult, review.qa],
+      }),
+      whenLabel: () => review.when.create('row'),
+    },
+  }
   sync()
 
   // 保存してある AI案を描く（呼び出し中のものは、その終わりを待つ）
@@ -350,5 +367,5 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     },
   )
 
-  return { el, sync }
+  return { cards, sync }
 }
