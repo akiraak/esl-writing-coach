@@ -14,6 +14,7 @@ import { CONTENT_SECURITY_POLICY } from '../src/server/guard.js'
 import { createAppHandler, listen } from '../src/server/server.js'
 import type { Feedback } from '../src/shared/feedback.js'
 import type { SavedAiResults } from '../src/shared/ideas.js'
+import type { Translation } from '../src/shared/translation.js'
 import type { ParagraphListItem } from '../src/shared/types.js'
 
 /**
@@ -38,6 +39,7 @@ const fakeAi = (methods: Partial<Ai>): Ai => ({
   reviewOutline: () => Promise.reject(new Error('reviewOutline は呼ばれないはず')),
   answerQuestion: () => Promise.reject(new Error('answerQuestion は呼ばれないはず')),
   answerDraftQuestion: () => Promise.reject(new Error('answerDraftQuestion は呼ばれないはず')),
+  translate: () => Promise.reject(new Error('translate は呼ばれないはず')),
   ...methods,
 })
 
@@ -221,6 +223,10 @@ describe('採点の API', () => {
                 fix: 'I agreed.',
               },
             ],
+            spellings: [
+              { wrong: 'agre', right: 'agree' },
+              { wrong: 'AGREE', right: 'agree' },
+            ],
           },
           model: 'claude-opus-5-5',
         }
@@ -242,6 +248,8 @@ describe('採点の API', () => {
       feedback.findings.map((f) => f.fix),
       ['I agree that', 'I agreed.'],
     )
+    // 本文に無い綴りは消える
+    assert.deepEqual(feedback.spellings, [{ wrong: 'AGREE', right: 'agree' }])
     assert.deepEqual((received as { assignment: { words: unknown } }).assignment.words, {
       min: 100,
       max: null,
@@ -308,6 +316,7 @@ describe('振り返りの API', () => {
       scores: SCORES,
       strengths: [],
       findings: [],
+      spellings: [],
     }
     store.saveFeedback(ID, JSON.stringify(feedback))
     const other = store.createParagraph('2026-11-08', 'b', '# B\n')
@@ -622,5 +631,52 @@ describe('画面のファイル', () => {
     assert.equal((await fetch(`${base}/app.js`)).status, 200)
     assert.equal((await fetch(`${base}/../.env`)).status, 404)
     assert.equal((await fetch(`${base}/package.json`)).status, 404)
+  })
+})
+
+describe('下書きの日本語訳', () => {
+  const url = () => `${base}/api/paragraphs/${ID}/translation`
+  const post = () => fetch(url(), { method: 'POST', headers: WRITE, body: '{}' })
+
+  it('GET は無ければ translation: null と、キーがあるか', async () => {
+    assert.deepEqual(await (await fetch(url())).json(), { translation: null, aiConfigured: false })
+  })
+
+  it('POST は保存されている下書きをアプリが文に分けて訳し、保存して返す（最新の 1 回分）', async () => {
+    let received: unknown = null
+    ai = fakeAi({
+      async translate(draft, sentences) {
+        received = { draft, sentences }
+        return sentences.map((_, i) => (i === 1 ? '' : `訳${i + 1}`))
+      },
+    })
+    store.saveStage(ID, 'draft', 'I agree.  First, it is cheap.\nMr. Sato said so', null)
+    const res = await post()
+    assert.equal(res.status, 200)
+    const { translation } = (await res.json()) as { translation: Translation }
+    assert.deepEqual(translation.sentences, [
+      { en: 'I agree.', ja: '訳1' },
+      { en: 'First, it is cheap.', ja: '' },
+      { en: 'Mr. Sato said so', ja: '訳3' },
+    ])
+    assert.equal(translation.draft, 'I agree.  First, it is cheap.\nMr. Sato said so')
+    assert.equal(translation.translatedAt, '2026-11-08T03:00:00.000Z')
+    assert.deepEqual((received as { sentences: string[] }).sentences.length, 3)
+    const got = (await (await fetch(url())).json()) as {
+      translation: Translation
+      aiConfigured: boolean
+    }
+    assert.deepEqual(got.translation, translation)
+    assert.equal(got.aiConfigured, true)
+  })
+
+  it('キーが無ければ 503、下書きが空なら 400（訳さない）、無いパラグラフは 404', async () => {
+    assert.equal((await post()).status, 503)
+    ai = fakeAi({})
+    store.saveStage(ID, 'draft', ' . \n', null)
+    const res = await post()
+    assert.equal(res.status, 400)
+    assert.equal(((await res.json()) as { error: string }).error, 'empty_draft')
+    assert.equal((await fetch(`${base}/api/paragraphs/2026-11-08-none/translation`)).status, 404)
   })
 })

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { countSentences, countWords, hasJapanese } from '../src/shared/counting.js'
+import { countSentences, countWords, hasJapanese, splitSentences } from '../src/shared/counting.js'
 
 describe('countWords', () => {
   it('英単語を数える。短縮形・ハイフン・小数は 1 語', () => {
@@ -48,6 +48,24 @@ describe('countSentences', () => {
 
   it('記号だけの切れ端は数えない', () => {
     assert.equal(countSentences('I agree. . !'), 1)
+  })
+})
+
+describe('splitSentences', () => {
+  it('文数と同じ切り方で分け、前後の空白を落とす', () => {
+    const text = '  I agree.  Mr. Sato said "No!" We need pens, etc. and more.\nlast one'
+    assert.deepEqual(splitSentences(text), [
+      'I agree.',
+      'Mr. Sato said "No!"',
+      'We need pens, etc. and more.',
+      'last one',
+    ])
+    assert.equal(countSentences(text), 4)
+  })
+
+  it('記号だけの切れ端は入れない。空なら空', () => {
+    assert.deepEqual(splitSentences('I agree. . !'), ['I agree.'])
+    assert.deepEqual(splitSentences(' \n'), [])
   })
 })
 

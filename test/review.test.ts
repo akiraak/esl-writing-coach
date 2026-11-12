@@ -25,6 +25,7 @@ function feedback(
     scores,
     strengths: [],
     findings,
+    spellings: [],
   }
 }
 

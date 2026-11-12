@@ -9,7 +9,7 @@ import { errorText, fixLine, formatDate, formatTime } from './ui.js'
  *
  * - 「採点する」を押したときだけ採点する（自動では走らせない）。押したら手元の未保存を保存し終えてから、
  *   サーバが保存された下書きを読んで採点する
- * - 結果は合計・観点ごとの点数と一言・よかった点・指摘（観点・引用・ヒント・修正例の英文）
+ * - 結果は合計・観点ごとの点数と一言・よかった点・綴りの誤りの一覧（正しい綴りつき）・指摘（観点・引用・ヒント・修正例の英文）
  * - 採点した後に本文を直したら知らせる（もう一度採点できる）
  * - 編集画面を開いている間は 1 つを持ち続ける（段階を移っても、採点中の状態と結果を保つ）
  */
@@ -76,7 +76,7 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
             ? '30 秒〜1 分ほどかかります。'
             : empty
               ? '下書きを書くと採点できます。'
-              : '100 点満点と観点ごとの点数、直すところのヒントと修正例の英文。',
+              : '100 点満点と観点ごとの点数、綴りの誤りの一覧、直すところのヒントと修正例の英文。',
     )
     replace(message, error)
     replace(
@@ -132,6 +132,20 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
             { class: 'score-block' },
             h('h4', {}, 'よかった点'),
             h('ul', { class: 'strengths' }, ...fb.strengths.map((s) => h('li', {}, s))),
+          ),
+      fb.spellings.length === 0
+        ? null
+        : h(
+            'div',
+            { class: 'score-block' },
+            h('h4', {}, `綴りの誤り（${fb.spellings.length}）`),
+            h(
+              'ul',
+              { class: 'spellings', lang: 'en' },
+              ...fb.spellings.map((s) =>
+                h('li', {}, h('del', {}, s.wrong), h('span', {}, '→'), h('ins', {}, s.right)),
+              ),
+            ),
           ),
       h(
         'div',

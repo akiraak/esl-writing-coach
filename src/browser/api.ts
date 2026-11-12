@@ -8,6 +8,7 @@ import type {
   ThemeSuggestion,
 } from '../shared/ideas.js'
 import type { ReviewEntry } from '../shared/review.js'
+import type { Translation } from '../shared/translation.js'
 import type {
   ApiErrorBody,
   ParagraphListItem,
@@ -98,6 +99,26 @@ export async function scoreParagraph(id: string): Promise<Feedback> {
       `/api/paragraphs/${encodeURIComponent(id)}/feedback`,
     )
   ).feedback
+}
+
+export interface TranslationState {
+  translation: Translation | null
+  /** サーバに ANTHROPIC_API_KEY があるか。 */
+  aiConfigured: boolean
+}
+
+export async function readTranslation(id: string): Promise<TranslationState> {
+  return request<TranslationState>('GET', `/api/paragraphs/${encodeURIComponent(id)}/translation`)
+}
+
+/** 保存されている下書きを文ごとに日本語に訳す。失敗は `ApiError`。 */
+export async function translateParagraph(id: string): Promise<Translation> {
+  return (
+    await request<{ translation: Translation }>(
+      'POST',
+      `/api/paragraphs/${encodeURIComponent(id)}/translation`,
+    )
+  ).translation
 }
 
 /** パラグラフの AI案（種類ごとの最新の 1 回分と、出したときの入力）。 */

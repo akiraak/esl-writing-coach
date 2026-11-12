@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 import { AiOutputError } from '../src/ai/errors.js'
 import {
   buildUserPrompt,
+  dropUnknownSpellings,
   dropUnquotable,
   OUTPUT_SCHEMA,
   parseScoringOutput,
@@ -29,6 +30,13 @@ const output = (overrides: Record<string, unknown> = {}) =>
         fix: ' he goes ',
       },
     ],
+    spellings: [
+      { wrong: ' begining ', right: 'beginning' },
+      { wrong: 'Begining', right: 'beginning' },
+      { wrong: 'ok', right: 'ok' },
+      { wrong: 'yung', right: '' },
+      { wrong: 'abvantages', right: 'advantages' },
+    ],
     ...overrides,
   })
 
@@ -39,6 +47,8 @@ describe('プロンプト', () => {
     assert.ok(SYSTEM_PROMPT.includes('指摘の fix には、**修正例の英文**を書きます'))
     assert.ok(!SYSTEM_PROMPT.includes('正しい言い方そのものは、どこにも書かないでください'))
     assert.ok(SYSTEM_PROMPT.includes('段落全体を書き直した文は、どこにも書かないでください'))
+    assert.ok(SYSTEM_PROMPT.includes('findings には挙げず、spellings にまとめて全部挙げます'))
+    assert.ok(OUTPUT_SCHEMA.required.includes('spellings'))
     assert.deepEqual(OUTPUT_SCHEMA.properties.findings.items.required, [
       'criterion',
       'quote',
@@ -89,6 +99,12 @@ describe('parseScoringOutput', () => {
     assert.deepEqual(out.strengths, ['意見がはっきりしている'])
     assert.equal(out.findings[0]?.criterion, 'grammar')
     assert.equal(out.findings[0]?.fix, 'he goes')
+    // 綴り: 前後の空白を落とし、重複（大文字・小文字の違い）・直っていない・空は捨てる
+    assert.deepEqual(out.spellings, [
+      { wrong: 'begining', right: 'beginning' },
+      { wrong: 'abvantages', right: 'advantages' },
+    ])
+    assert.deepEqual(parseScoringOutput(output({ spellings: undefined })).spellings, [])
   })
 
   it('点数は 0〜満点の整数に収める', () => {
@@ -151,12 +167,36 @@ describe('parseFeedback（feedback.json）', () => {
     const old = JSON.parse(text)
     old.findings = [{ criterion: 'grammar', quote: 'he go', hint: 'h' }]
     assert.equal(parseFeedback(JSON.stringify(old))?.findings[0]?.fix, '')
+    assert.equal(fb?.spellings.length, 2)
+    // spellings の無い古い結果も空として読む
+    delete old.spellings
+    assert.deepEqual(parseFeedback(JSON.stringify(old))?.spellings, [])
   })
 
   it('壊れていれば null', () => {
     assert.equal(parseFeedback('{'), null)
     assert.equal(parseFeedback('{"version":2}'), null)
     assert.equal(parseFeedback(JSON.stringify({ version: 1, scores: {} })), null)
+  })
+})
+
+describe('dropUnknownSpellings', () => {
+  it('本文に無い綴りは消す（大文字・小文字の違いは許す）', () => {
+    assert.deepEqual(
+      dropUnknownSpellings(
+        [
+          { wrong: 'begining', right: 'beginning' },
+          { wrong: 'yung', right: 'young' },
+          { wrong: 'recieve', right: 'receive' },
+          { wrong: 'invest', right: 'investment' },
+        ],
+        'Begining investment when you are yung.',
+      ),
+      [
+        { wrong: 'begining', right: 'beginning' },
+        { wrong: 'yung', right: 'young' },
+      ],
+    )
   })
 })
 

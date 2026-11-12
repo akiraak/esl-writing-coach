@@ -68,6 +68,9 @@ export interface ParagraphStore {
   saveFeedback(id: string, json: string): void
   /** 採点のある全パラグラフ（振り返り）。 */
   listFeedbacks(): { id: string; theme: string; json: string }[]
+  /** 下書きの日本語訳の最新の結果（JSON）。無ければ null。中身の解釈は呼び出し側（`parseTranslation`）。 */
+  readTranslation(id: string): string | null
+  saveTranslation(id: string, json: string): void
   /** AI案（種類ごとの最新の 1 回分の JSON）。 */
   readAiResults(id: string): Partial<Record<AiKind, string>>
   /** AI案を書く（その種類の質問と答えは消す）。パラグラフが無ければ（呼び出し中に消した）何もしない。 */
@@ -241,6 +244,23 @@ export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {
     }))
   }
 
+  const selectTranslation = db.prepare('SELECT json FROM translations WHERE paragraph_id = ?')
+  const upsertTranslation = db.prepare(`
+    INSERT INTO translations (paragraph_id, json, updated_at) VALUES (?, ?, ?)
+    ON CONFLICT (paragraph_id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at
+  `)
+
+  function readTranslation(id: string): string | null {
+    assertExists(id)
+    const row = selectTranslation.get(id)
+    return row === undefined ? null : str(row['json'])
+  }
+
+  function saveTranslation(id: string, json: string): void {
+    assertExists(id)
+    upsertTranslation.run(id, json, now())
+  }
+
   const selectAi = db.prepare('SELECT kind, json FROM ai_results WHERE paragraph_id = ?')
   const upsertAi = db.prepare(`
     INSERT INTO ai_results (paragraph_id, kind, json, created_at) VALUES (?, ?, ?, ?)
@@ -343,6 +363,8 @@ export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {
     readFeedback,
     saveFeedback,
     listFeedbacks,
+    readTranslation,
+    saveTranslation,
     readAiResults,
     saveAiResult,
     readAiQuestions,

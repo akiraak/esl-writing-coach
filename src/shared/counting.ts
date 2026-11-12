@@ -23,7 +23,15 @@ const TERMINATOR = /[.!?]+["'”’)\]]*(?=\s|$)/gu
 const HAS_WORD = /[\p{L}\p{N}]/u
 
 export function countSentences(text: string): number {
-  let count = 0
+  return splitSentences(text).length
+}
+
+/** 文に分ける（切り方は上の文数の数え方と同じ。前後の空白は落とす）。日本語訳で文ごとに並べるのにも使う。 */
+export function splitSentences(text: string): string[] {
+  const sentences: string[] = []
+  const push = (piece: string) => {
+    if (HAS_WORD.test(piece)) sentences.push(piece.trim())
+  }
   let start = 0
   for (const match of text.matchAll(TERMINATOR)) {
     const at = match.index ?? 0
@@ -37,11 +45,11 @@ export function countSentences(text: string): number {
         if (next !== undefined && next === next.toLowerCase()) continue
       }
     }
-    if (HAS_WORD.test(text.slice(start, end))) count += 1
+    push(text.slice(start, end))
     start = end
   }
-  if (HAS_WORD.test(text.slice(start))) count += 1
-  return count
+  push(text.slice(start))
+  return sentences
 }
 
 const JAPANESE = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u

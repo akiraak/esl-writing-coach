@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Ai } from '../ai/client.js'
 import { AiApiError, AiOutputError, AiRefusedError } from '../ai/errors.js'
 import type { QuestionContext } from '../ai/questions.js'
-import { dropUnquotable } from '../ai/scoring.js'
+import { dropUnknownSpellings, dropUnquotable } from '../ai/scoring.js'
 import { describeError, log } from '../log.js'
 import { isParagraphId } from '../paragraphs/naming.js'
 import {
@@ -14,6 +14,7 @@ import {
   StageConflictError,
 } from '../paragraphs/store.js'
 import { emptyAssignment, parseAssignment, serializeAssignment } from '../shared/assignment.js'
+import { splitSentences } from '../shared/counting.js'
 import { type Feedback, parseFeedback, totalOf } from '../shared/feedback.js'
 import {
   AI_KINDS,
@@ -26,6 +27,7 @@ import {
   type SavedAiResults,
 } from '../shared/ideas.js'
 import type { ReviewEntry } from '../shared/review.js'
+import { parseTranslation, type Translation } from '../shared/translation.js'
 
 /**
  * JSON の API（`/api/...`）。保存層（`src/paragraphs/store.ts`。SQLite）をそのまま呼ぶ。
@@ -39,6 +41,8 @@ import type { ReviewEntry } from '../shared/review.js'
  * | `PUT /api/paragraphs/:id/stages/:stage` `{ text, rev }` | 保存 → `{ rev, updatedAt }`。競合は 409 |
  * | `GET /api/paragraphs/:id/feedback` | AI の採点の結果 → `{ feedback, aiConfigured }`（無ければ `feedback: null`） |
  * | `POST /api/paragraphs/:id/feedback` | 保存されている下書きを AI で採点し、保存して返す → `{ feedback }` |
+ * | `GET /api/paragraphs/:id/translation` | 下書きの日本語訳 → `{ translation, aiConfigured }`（無ければ `translation: null`） |
+ * | `POST /api/paragraphs/:id/translation` | 保存されている下書きを文ごとに日本語に訳し（直訳に近く）、保存して返す → `{ translation }` |
  * | `GET /api/paragraphs/:id/ai` | AI案（種類ごとの最新の 1 回分と、出したときの入力・質問と答え）と「AI に質問」のやりとり → `SavedAiResults` |
  * | `POST /api/paragraphs/:id/ai/:kind/questions` `{ question }` | AI案への質問に答えて保存 → `{ question, answer, createdAt }` |
  * | `POST /api/paragraphs/:id/draft/questions` `{ question }` | STEP 3 の「AI に質問」: 保存されている下書きと課題を見て答え、保存 → `{ question, answer, createdAt }` |
@@ -58,7 +62,7 @@ import type { ReviewEntry } from '../shared/review.js'
  * 答えを待つ間にやりとりが変わった（はじめからにした・別のタブで聞いた）409 `chat_changed`（質問は残さない）。下書きが空でも聞ける。
  *
  * 無いパラグラフは 404 `not_found`。
- * AI のエラー: キーが無い 503 `ai_not_configured` / 拒否 422 `ai_refusal` / API の失敗 502 `ai_error`。採点で下書きが空なら 400 `empty_draft`
+ * AI のエラー: キーが無い 503 `ai_not_configured` / 拒否 422 `ai_refusal` / API の失敗 502 `ai_error`。採点・日本語訳で下書きが空なら 400 `empty_draft`
  *
  * **本文はログに出さない**（パス・ステータスまで）。
  */
@@ -138,6 +142,7 @@ const PARAGRAPHS = /^\/api\/paragraphs$/
 const PARAGRAPH = /^\/api\/paragraphs\/([^/]+)$/
 const STAGE = /^\/api\/paragraphs\/([^/]+)\/stages\/([^/]+)$/
 const FEEDBACK = /^\/api\/paragraphs\/([^/]+)\/feedback$/
+const TRANSLATION = /^\/api\/paragraphs\/([^/]+)\/translation$/
 const AI_RESULTS = /^\/api\/paragraphs\/([^/]+)\/ai$/
 const AI_QUESTIONS = /^\/api\/paragraphs\/([^/]+)\/ai\/([^/]+)\/questions$/
 const DRAFT_QUESTIONS = /^\/api\/paragraphs\/([^/]+)\/draft\/questions$/
@@ -311,11 +316,32 @@ async function scoreParagraph(id: string, options: ApiOptions): Promise<Feedback
     ...output,
     // 本文に無い引用（直した形で引用されたもの）は消す
     findings: dropUnquotable(output.findings, draft.text),
+    spellings: dropUnknownSpellings(output.spellings, draft.text),
   }
   // 最新の 1 回分だけを持つ
   store.saveFeedback(id, JSON.stringify(feedback))
   log.info(`採点: ${id}（${feedback.total} 点・${model}）`)
   return feedback
+}
+
+/** 保存されている下書きを文ごとに日本語に訳して保存する（`docs/plans/archive/draft-translation.md`）。 */
+async function translateParagraph(id: string, options: ApiOptions): Promise<Translation> {
+  const { store } = options
+  const ai = requireAi(options)
+  const draft = store.readStage(id, 'draft').text
+  const sentences = splitSentences(draft)
+  if (sentences.length === 0) throw new HttpError(400, 'empty_draft', '下書きが空です')
+  const ja = await ai.translate(draft, sentences)
+  const translation: Translation = {
+    version: 1,
+    translatedAt: nowOf(options),
+    draft,
+    sentences: sentences.map((en, i) => ({ en, ja: ja[i] ?? '' })),
+  }
+  // 最新の 1 回分だけを持つ
+  store.saveTranslation(id, JSON.stringify(translation))
+  log.info(`日本語訳: ${id}（${sentences.length} 文）`)
+  return translation
 }
 
 /** `/api/` のリクエストを処理する。 */
@@ -405,6 +431,25 @@ export async function handleApi(
       if (method === 'POST') {
         await readJson(req)
         sendJson(res, 200, { feedback: await scoreParagraph(id, options) })
+        return
+      }
+      throw new HttpError(405, 'method_not_allowed', '使えないメソッドです')
+    }
+
+    m = TRANSLATION.exec(pathname)
+    if (m !== null) {
+      const id = decodeURIComponent(m[1] ?? '')
+      if (method === 'GET') {
+        const json = store.readTranslation(id)
+        sendJson(res, 200, {
+          translation: json === null ? null : parseTranslation(json),
+          aiConfigured: (options.ai ?? null) !== null,
+        })
+        return
+      }
+      if (method === 'POST') {
+        await readJson(req)
+        sendJson(res, 200, { translation: await translateParagraph(id, options) })
         return
       }
       throw new HttpError(405, 'method_not_allowed', '使えないメソッドです')

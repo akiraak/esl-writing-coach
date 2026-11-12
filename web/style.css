@@ -341,6 +341,14 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .ai-pane-head h2 { margin: 0; font-size: 14.5px; }
 .ai-pane-head small { font-size: 11px; color: var(--faint); }
 .ai-pane .gbody { display: flex; flex-direction: column; gap: .7rem; padding-top: .8rem; }
+.seg.ai-tabs { margin: .6rem 1rem 0; }
+.ai-tabs[hidden], .ai-step[hidden] { display: none; }
+/* 日本語訳（translation-pane.ts）。文ごとに英文 → 訳 */
+.tr-list { margin: .1rem 0 0; padding-left: 1.4rem; display: flex; flex-direction: column; gap: .65rem; font-size: 12px; color: var(--faint); }
+.tr-list[hidden] { display: none; }
+.tr-en { margin: 0; font-family: var(--serif); font-size: 14px; line-height: 1.5; color: var(--soft); }
+.tr-ja { margin: .15rem 0 0; font-size: 13.5px; line-height: 1.7; color: var(--ink); }
+.tr-ja.muted { color: var(--faint); font-size: 12px; }
 .ai-step { margin: 0; font-size: 12px; color: var(--brand); letter-spacing: .04em; }
 .ai-now { display: flex; flex-direction: column; gap: .7rem; }
 /* AI の 1 つの機能のカード（ai-pane.ts の cardFrame） */
@@ -422,6 +430,11 @@ body.resizing { cursor: col-resize; user-select: none; }
 .findings { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .6rem; font-size: 12.5px; }
 .findings li p { margin: .2rem 0 0; line-height: 1.6; }
 .findings q { display: block; margin-top: .2rem; font-family: var(--serif); font-size: 14px; color: var(--ink); background: var(--bg); border-radius: 6px; padding: .15rem .45rem; }
+.spellings { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: .35rem .5rem; font-family: var(--serif); font-size: 14px; }
+.spellings li { display: inline-flex; align-items: baseline; gap: .35rem; background: var(--bg); border-radius: 6px; padding: .1rem .5rem; }
+.spellings del { color: var(--danger); text-decoration: line-through; }
+.spellings span { font-family: var(--sans); font-size: 11px; color: var(--faint); }
+.spellings ins { text-decoration: none; font-weight: 700; color: var(--brand); }
 .crit-tag { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 0 .4rem; border-radius: 4px; background: var(--brand-soft); color: var(--brand); }
 
 /* --- 右ペインの AI 案（AI のアイデア出し） ------------------------------- */

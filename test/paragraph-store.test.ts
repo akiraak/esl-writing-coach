@@ -49,6 +49,7 @@ describe('DB の版', () => {
       v1.exec(`
         DROP TABLE ai_questions;
         DROP TABLE draft_questions;
+        DROP TABLE translations;
         UPDATE meta SET value = '1' WHERE key = 'schema_version';
         INSERT INTO paragraphs (id, created_on, created_at) VALUES ('2026-11-11-old', '2026-11-11', '2026-11-11T00:00:00.000Z');
       `)
@@ -69,7 +70,7 @@ describe('DB の版', () => {
     }
   })
 
-  it('版 2 の DB を開くと、AI案への質問を残したまま版 3（AI に質問の表）に上がる', async () => {
+  it('版 2 の DB を開くと、AI案への質問を残したまま今の版（AI に質問・日本語訳の表）に上がる', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'esl-db-'))
     try {
       const file = path.join(dir, 'v2.db')
@@ -79,15 +80,41 @@ describe('DB の版', () => {
       createParagraphStore(v2).addAiQuestion(id, 'ideas', 'q', 'a')
       v2.exec(`
         DROP TABLE draft_questions;
+        DROP TABLE translations;
         UPDATE meta SET value = '2' WHERE key = 'schema_version';
       `)
       v2.close()
       const db = openDatabase(file)
-      assert.equal(readMeta(db, 'schema_version'), '3')
+      assert.equal(readMeta(db, 'schema_version'), String(SCHEMA_VERSION))
       const store = createParagraphStore(db)
       assert.equal(store.readStage(id, 'assignment').text, assignment('Old'))
       assert.equal(store.readAiQuestions(id).ideas.length, 1)
       assert.deepEqual(store.readDraftQuestions(id), [])
+      db.close()
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('版 3 の DB を開くと、データを残したまま版 4（日本語訳の表）に上がる', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'esl-db-'))
+    try {
+      const file = path.join(dir, 'v3.db')
+      const v3 = openDatabase(file)
+      const id = createParagraphStore(v3).createParagraph('2026-11-11', 'Old', assignment('Old'))
+      createParagraphStore(v3).addDraftQuestion(id, 'q', 'a')
+      v3.exec(`
+        DROP TABLE translations;
+        UPDATE meta SET value = '3' WHERE key = 'schema_version';
+      `)
+      v3.close()
+      const db = openDatabase(file)
+      assert.equal(readMeta(db, 'schema_version'), '4')
+      const store = createParagraphStore(db)
+      assert.equal(store.readDraftQuestions(id).length, 1)
+      assert.equal(store.readTranslation(id), null)
+      store.saveTranslation(id, '{}')
+      assert.equal(store.readTranslation(id), '{}')
       db.close()
     } finally {
       await rm(dir, { recursive: true, force: true })
@@ -184,6 +211,12 @@ describe('採点と AI案', () => {
     store.saveFeedback(a, '{"n":2}')
     store.saveFeedback(b, '{"n":3}')
     assert.equal(store.readFeedback(a), '{"n":2}')
+    // 日本語訳も最新の 1 回分だけ
+    assert.equal(store.readTranslation(a), null)
+    store.saveTranslation(a, '{"t":1}')
+    store.saveTranslation(a, '{"t":2}')
+    assert.equal(store.readTranslation(a), '{"t":2}')
+    assert.equal(store.readTranslation(b), null)
     store.deleteParagraph(b)
     assert.deepEqual(store.listFeedbacks(), [{ id: a, theme: 'Theme A', json: '{"n":2}' }])
   })

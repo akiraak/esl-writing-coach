@@ -8,6 +8,7 @@ import {
   clampScore,
   type Finding,
   isCriterionKey,
+  type Spelling,
 } from '../shared/feedback.js'
 import { describeRange } from '../shared/stage-summary.js'
 import { AiOutputError } from './errors.js'
@@ -18,6 +19,8 @@ import { AiOutputError } from './errors.js'
  * - 基準は固定（配点は `src/shared/feedback.ts` の `CRITERIA`）。観点ごとに見ることはシステムプロンプトに書く
  * - 指摘にはヒント（どこを・何を確かめるか）と、**修正例の英文**（`fix`）を付ける（2026-11-11 から。
  *   それまでは直した文を出させなかった。`docs/plans/archive/scoring-fix-sentences.md`）。下書き全体の書き直しは出させない
+ * - 綴りの誤り（誤字）は指摘に 1 つずつ挙げさせず、`spellings` に全部まとめさせる（正しい綴りつき。
+ *   `docs/plans/archive/scoring-spellings.md`）
  * - 語数・文数はアプリが数えた値を渡す（AI に数えさせない）
  * - 出力は構造化出力（JSON スキーマ）で受け、ここで検証して点数を 0〜満点に収める
  */
@@ -29,7 +32,7 @@ const RUBRIC: Readonly<Record<CriterionKey, string>> = {
   content:
     '理由に説得力があるか／例が具体的で理由を支えているか／テーマからそれていないか／論理の飛躍が無いか',
   grammar:
-    '時制・主語と動詞の一致・冠詞・単数と複数・文の組み立て（run-on sentence や fragment）・句読点',
+    '時制・主語と動詞の一致・冠詞・単数と複数・文の組み立て（run-on sentence や fragment）・句読点・綴り',
   vocabulary:
     '語の選び方が適切か／同じ語の繰り返しが多すぎないか／transition words の使い方／自然な語の組み合わせ（collocation）',
   requirements:
@@ -48,6 +51,7 @@ export const SYSTEM_PROMPT = [
   '- 指摘の fix には、**修正例の英文**を書きます。quote があるときは、引用した箇所を正しく直した英文です（指摘した誤りのほかに綴りなどの誤りがあれば、それも直します）。生徒の言いたいことと語はできるだけ残し、必要なところだけを直します。quote が空のときは、足す文・直す文の例を 1 文で示せるなら英文を書き、示せないなら空文字にします。fix は英文だけにし、説明は hint に書きます。',
   '- 段落全体を書き直した文は、どこにも書かないでください。',
   '- 指摘の quote には、問題のある箇所を生徒の本文から**1 文字も変えずに**（誤りもそのまま）短く（15 語まで）抜き出します。誤りを直した形で引用してはいけません（直した形は fix に書きます）。本文全体や構成についての指摘で特定の箇所が無いときは空文字にします。',
+  '- **綴りの誤り（誤字）は、findings には挙げず、spellings にまとめて全部挙げます**。wrong は本文の綴りを 1 文字も変えずに（1 語ずつ）、right はその正しい綴りです。同じ誤りは 1 回だけ、本文に出てくる順に挙げます。綴りの誤りが無ければ空の配列にします。文法の誤り（動詞の形・単数と複数など）や語の選び方は綴りの誤りではないので、findings に挙げます。綴りの誤りの多さは文法（grammar）の点数に反映します。',
   '- 指摘は大事なものから、多くても 10 個まで。同じ種類の誤りが何度もあるときは 1 つにまとめ、ヒントで「ほかにもある」と伝えます。',
   '- 本文に日本語が混じっていれば、課題の条件（requirements）の指摘として必ず挙げます。',
   '- 観点ごとの comment は日本語 1〜2 文。よかった点（strengths）は具体的に 1〜3 個、日本語で。',
@@ -114,8 +118,17 @@ export const OUTPUT_SCHEMA = {
         additionalProperties: false,
       },
     },
+    spellings: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { wrong: { type: 'string' }, right: { type: 'string' } },
+        required: ['wrong', 'right'],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ['scores', 'strengths', 'findings'],
+  required: ['scores', 'strengths', 'findings', 'spellings'],
   additionalProperties: false,
 } as const
 
@@ -123,6 +136,7 @@ export interface ScoringOutput {
   scores: Record<CriterionKey, CriterionScore>
   strengths: string[]
   findings: Finding[]
+  spellings: Spelling[]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -143,6 +157,20 @@ export function dropUnquotable(findings: readonly Finding[], draft: string): Fin
     f.quote === '' || text.includes(squash(f.quote)) ? f : { ...f, quote: '' },
   )
 }
+
+/**
+ * 本文に無い綴り（AI が直した形や、違う語を挙げたもの）は消す。語として出てくるかを見る
+ * （ほかの語の一部は数えない）。大文字・小文字の違いは許す。
+ */
+export function dropUnknownSpellings(spellings: readonly Spelling[], draft: string): Spelling[] {
+  return spellings.filter((s) => {
+    const escaped = s.wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'iu').test(draft)
+  })
+}
+
+/** 綴りの誤りの上限。 */
+const MAX_SPELLINGS = 30
 
 /** 指摘の上限（プロンプトでも 10 個までと頼んでいる）。 */
 const MAX_FINDINGS = 10
@@ -195,5 +223,22 @@ export function parseScoringOutput(text: string): ScoringOutput {
         )
         .slice(0, MAX_FINDINGS)
     : []
-  return { scores, strengths, findings }
+  const seen = new Set<string>()
+  const spellings = Array.isArray(value['spellings'])
+    ? value['spellings']
+        .flatMap((s): Spelling[] => {
+          if (!isRecord(s) || typeof s['wrong'] !== 'string' || typeof s['right'] !== 'string') {
+            return []
+          }
+          const wrong = s['wrong'].trim()
+          const right = s['right'].trim()
+          const key = wrong.toLowerCase()
+          // 空・直っていない・重複は捨てる
+          if (wrong === '' || right === '' || wrong === right || seen.has(key)) return []
+          seen.add(key)
+          return [{ wrong, right }]
+        })
+        .slice(0, MAX_SPELLINGS)
+    : []
+  return { scores, strengths, findings, spellings }
 }

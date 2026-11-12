@@ -18,6 +18,7 @@ import {
   renderSaveStatus,
   type StageEditor,
 } from '../stage-editor.js'
+import { createTranslationPanel } from '../translation-pane.js'
 import { errorBox, header, STAGE_LABELS, STAGE_LANG } from '../ui.js'
 import type { View } from '../view.js'
 import { renderAssignmentView } from './assignment.js'
@@ -25,7 +26,7 @@ import { renderDraftView } from './draft.js'
 import { renderOutlineView } from './outline.js'
 
 /**
- * 編集画面（3 ペイン）。左 = 段階のタイル、中央 = 選んだ段階の編集欄、右 = AI（今の段階で使うものを上に。`ai-pane.ts`）。
+ * 編集画面（3 ペイン）。左 = 段階のタイル、中央 = 選んだ段階の編集欄、右 = AI（今の段階で使うものを上に。STEP 3 は「AI / 翻訳 / 採点」のタブ。`ai-pane.ts`）。
  * 学習ガイドはヘッダの「学習ガイド」で、右ペインの上に引き出しで重ねて開く（`guide-pane.ts`。`docs/plans/archive/right-pane-layout.md`）。
  *
  * - 開いたら 3 つの段階を並べて読み、段階ごとに自動保存（`StageEditor`）を作って、
@@ -87,8 +88,8 @@ export function renderEdit(
   const center = h('main', { class: 'center' }, title, banner, body, footer)
 
   /**
-   * サーバが保存されている下書きを読む AI（採点・AI に質問）の前に、全部の段階を保存し終える。
-   * 下書きが保存できていなければ理由の文を返す（呼ばない）。`what` は「採点」「質問」。
+   * サーバが保存されている下書きを読む AI（採点・AI に質問・日本語訳）の前に、全部の段階を保存し終える。
+   * 下書きが保存できていなければ理由の文を返す（呼ばない）。`what` は「採点」「質問」「翻訳」。
    */
   async function prepareDraft(what: string): Promise<string | null> {
     if (editors === null) return '読み込み中です'
@@ -107,6 +108,13 @@ export function renderEdit(
     id,
     draftText: () => editors?.draft.text ?? '',
     prepare: () => prepareDraft('採点'),
+  })
+
+  /** 右ペインの日本語訳（STEP 3 の「翻訳」のタブ）。訳す前に保存し終えるのは採点と同じ。 */
+  const translation = createTranslationPanel({
+    id,
+    draftText: () => editors?.draft.text ?? '',
+    prepare: () => prepareDraft('翻訳'),
   })
 
   /** 右ペインの「AI に質問」（STEP 3 で上に出る）。送る前に保存し終えるのは採点と同じ。 */
@@ -148,7 +156,12 @@ export function renderEdit(
     tiles[s] = { el, summary, mark }
   })
 
-  const aiPane = createAiPane({ ...ideasPanel.cards, chat: draftChat.card, score: feedback.card })
+  const aiPane = createAiPane({
+    ...ideasPanel.cards,
+    chat: draftChat.card,
+    translate: translation.card,
+    score: feedback.card,
+  })
   const guide = createGuideDrawer()
   const panes = h(
     'div',
@@ -204,7 +217,10 @@ export function renderEdit(
     renderSaveStatus(status, combineSaveStates(STAGES.map((x) => all[x].state)), retryAll)
     // 競合の知らせは、その段階を開いているときだけ出す
     if (s === stage) renderBanner()
-    if (s === 'draft') feedback.sync()
+    if (s === 'draft') {
+      feedback.sync()
+      translation.sync()
+    }
     if (s === 'assignment' || s === 'outline') ideasPanel.sync()
   }
 

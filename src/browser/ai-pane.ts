@@ -1,4 +1,11 @@
-import { AI_TOOL_INFO, AI_TOOLS, type AiTool, aiToolsFor, stepNumber } from '../shared/ai-tools.js'
+import {
+  AI_TOOL_INFO,
+  AI_TOOLS,
+  type AiTool,
+  aiTabsFor,
+  aiToolsFor,
+  stepNumber,
+} from '../shared/ai-tools.js'
 import type { Stage } from '../shared/types.js'
 import { h, replace } from './dom.js'
 import { STAGE_LABELS } from './ui.js'
@@ -8,9 +15,11 @@ import { STAGE_LABELS } from './ui.js'
  *
  * - 今の段階で使う機能（`aiToolsFor`）を上に、ほかの段階の機能は下の「ほかの段階の AI」に畳んで残す
  *   （行に名前・使う段階・出した日時。開けば前の結果を見返せて、押して出し直すこともできる）
+ * - **STEP 3 だけはタブ**（「AI / 翻訳 / 採点」。`aiTabsFor`。`docs/plans/archive/draft-translation.md`）: 選んだタブの機能だけを出し、
+ *   ほかの段階の機能は最初のタブ（AI）の下に畳む。選んだタブは編集画面を開いている間は覚える
  * - 段階を移るときは**カードを作り直さずに並べ替えるだけ**（呼び出し中の状態・入れかけの質問・畳んだ行の開閉を保つ）
  * - カードは `ideas-pane.ts`（テーマの候補・理由と例の候補・アウトラインの指摘）・`draft-chat-pane.ts`（AI に質問）・
- *   `feedback-pane.ts`（採点）が作る
+ *   `translation-pane.ts`（日本語訳）・`feedback-pane.ts`（採点）が作る
  */
 
 /** 右ペインに並べる 1 つの機能のカード。 */
@@ -30,6 +39,11 @@ export interface AiPane {
 
 export function createAiPane(cards: Readonly<Record<AiTool, AiCard>>): AiPane {
   const stepTitle = h('h3', { class: 'ai-step' })
+  /** STEP 3 のタブ（ほかの段階では隠す）。 */
+  const tabBar = h('div', { class: 'seg ai-tabs', role: 'tablist', hidden: true })
+  let stage: Stage = 'assignment'
+  /** 選んでいるタブ（`AiTab.key`）。その段階に無ければ最初のタブ。 */
+  let tabKey = ''
   const current = h('div', { class: 'ai-now' })
   const othersList = h('div', {})
   const others = h('div', { class: 'ai-others' }, h('h3', {}, 'ほかの段階の AI'), othersList)
@@ -50,6 +64,18 @@ export function createAiPane(cards: Readonly<Record<AiTool, AiCard>>): AiPane {
     )
   }
 
+  const body = h(
+    'div',
+    { class: 'gbody' },
+    stepTitle,
+    current,
+    others,
+    h(
+      'p',
+      { class: 'muted ai-foot' },
+      '押したときだけ、各欄の「送るもの」を Anthropic の API に送ります。AI案に質問すると、その結果とそれまでの質問も送ります。結果と質問はパラグラフごとに最新の 1 回分を残します（「AI に質問」のやりとりは「はじめから」で消すまで）。',
+    ),
+  )
   const el = h(
     'aside',
     { class: 'side ai-pane', 'aria-label': 'AI' },
@@ -59,33 +85,56 @@ export function createAiPane(cards: Readonly<Record<AiTool, AiCard>>): AiPane {
       h('h2', {}, 'AI'),
       h('small', {}, '押したときだけ呼びます'),
     ),
-    h(
-      'div',
-      { class: 'gbody' },
-      stepTitle,
-      current,
-      others,
-      h(
-        'p',
-        { class: 'muted ai-foot' },
-        '押したときだけ、各欄の「送るもの」を Anthropic の API に送ります。AI案に質問すると、その結果とそれまでの質問も送ります。結果と質問はパラグラフごとに最新の 1 回分を残します（「AI に質問」のやりとりは「はじめから」で消すまで）。',
-      ),
-    ),
+    tabBar,
+    body,
   )
 
-  function setStage(stage: Stage): void {
+  function render(): void {
     const tools = aiToolsFor(stage)
+    const tabs = aiTabsFor(stage)
+    const tab = tabs === null ? null : (tabs.find((t) => t.key === tabKey) ?? tabs[0] ?? null)
+    tabBar.hidden = tabs === null
+    replace(
+      tabBar,
+      ...(tabs ?? []).map((t) =>
+        h(
+          'button',
+          {
+            type: 'button',
+            role: 'tab',
+            class: t === tab ? 'on' : '',
+            'aria-selected': t === tab ? 'true' : 'false',
+            onclick: () => {
+              tabKey = t.key
+              render()
+              body.scrollTop = 0
+            },
+          },
+          t.label,
+        ),
+      ),
+    )
+    // タブがあれば見出しの代わりになる
+    stepTitle.hidden = tab !== null
     replace(stepTitle, `STEP ${stepNumber(stage)} ${STAGE_LABELS[stage]}で使う AI`)
+    const shown = tab === null ? tools.current : tab.tools
     tools.current.forEach((tool, i) => {
-      cards[tool].setFolded?.(i > 0)
+      // タブに分けたときは 1 つずつなので畳まない
+      cards[tool].setFolded?.(tab === null && i > 0)
     })
-    replace(current, ...tools.current.map((tool) => cards[tool].el))
+    replace(current, ...shown.map((tool) => cards[tool].el))
     for (const tool of tools.others) {
       cards[tool].setFolded?.(false)
       folds[tool].append(cards[tool].el)
     }
     replace(othersList, ...tools.others.map((tool) => folds[tool]))
-    others.hidden = tools.others.length === 0
+    // ほかの段階の機能は、タブがあれば最初のタブにだけ出す
+    others.hidden = tools.others.length === 0 || (tabs !== null && tab !== tabs[0])
+  }
+
+  function setStage(next: Stage): void {
+    stage = next
+    render()
   }
 
   return { el, setStage }

@@ -10,7 +10,7 @@ import { DatabaseSync } from 'node:sqlite'
  * - 表の形は `SCHEMA_VERSION` で持ち、上げるときは `migrate()` に足す
  */
 
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 
 const SCHEMA_V1 = `
 CREATE TABLE paragraphs (
@@ -70,6 +70,15 @@ CREATE TABLE draft_questions (
 );
 `
 
+/** 版 4（2026-11-11）: 下書きの日本語訳の最新の 1 回分（`docs/plans/archive/draft-translation.md`）。 */
+const SCHEMA_V4 = `
+CREATE TABLE translations (
+  paragraph_id TEXT PRIMARY KEY REFERENCES paragraphs(id),
+  json TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+`
+
 /** `BEGIN IMMEDIATE` 〜 `COMMIT`。投げたら `ROLLBACK`。 */
 export function transaction<T>(db: DatabaseSync, run: () => T): T {
   db.exec('BEGIN IMMEDIATE')
@@ -109,6 +118,7 @@ function migrate(db: DatabaseSync): void {
     if (version < 1) db.exec(SCHEMA_V1)
     if (version < 2) db.exec(SCHEMA_V2)
     if (version < 3) db.exec(SCHEMA_V3)
+    if (version < 4) db.exec(SCHEMA_V4)
     writeMeta(db, 'schema_version', String(SCHEMA_VERSION))
   })
 }

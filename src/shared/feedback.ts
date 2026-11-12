@@ -4,6 +4,7 @@
  * - 固定基準で 100 点満点: 構成 30 / 内容 25 / 文法 20 / 語彙・表現 15 / 課題の条件 10
  * - 合計はアプリが観点の点数を足して出す（AI の合計は使わない）
  * - 指摘は観点・本文からの短い引用・ヒント・修正例の英文（2026-11-11 から。`docs/plans/archive/scoring-fix-sentences.md`）
+ * - 綴りの誤り（誤字）は指摘とは別に、まとめて「本文の綴り → 正しい綴り」で持つ（2026-11-11 から。`docs/plans/archive/scoring-spellings.md`）
  * - 最新の 1 回分だけを持つ。採点した下書きの本文も入れ、後で本文が変わったか比べる
  */
 
@@ -43,6 +44,14 @@ export interface Finding {
   fix: string
 }
 
+/** 綴りの誤り（誤字）。 */
+export interface Spelling {
+  /** 本文の綴り（そのまま）。 */
+  wrong: string
+  /** 正しい綴り。 */
+  right: string
+}
+
 export interface Feedback {
   version: 1
   /** 採点した時刻（ISO8601）。 */
@@ -56,6 +65,8 @@ export interface Feedback {
   /** よかった点（日本語）。 */
   strengths: string[]
   findings: Finding[]
+  /** 綴りの誤りの一覧。古い結果には無い（空として読む）。 */
+  spellings: Spelling[]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -116,5 +127,12 @@ export function parseFeedback(text: string): Feedback | null {
     scores,
     strengths: strings(value['strengths']),
     findings,
+    spellings: Array.isArray(value['spellings'])
+      ? value['spellings'].flatMap((s): Spelling[] =>
+          isRecord(s) && typeof s['wrong'] === 'string' && typeof s['right'] === 'string'
+            ? [{ wrong: s['wrong'], right: s['right'] }]
+            : [],
+        )
+      : [],
   }
 }

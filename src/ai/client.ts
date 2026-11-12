@@ -42,9 +42,15 @@ import {
   type ScoringOutput,
   SYSTEM_PROMPT,
 } from './scoring.js'
+import {
+  buildTranslationPrompt,
+  parseTranslations,
+  TRANSLATION_SCHEMA,
+  TRANSLATION_SYSTEM,
+} from './translation.js'
 
 /**
- * Anthropic API の呼び出し（採点・アイデア出し・AI案への質問・STEP 3 の「AI に質問」。
+ * Anthropic API の呼び出し（採点・アイデア出し・AI案への質問・STEP 3 の「AI に質問」・下書きの日本語訳。
  * `docs/plans/archive/ai-scoring.md`・`ai-ideas.md`・`ai-followup-questions.md`・`draft-chat.md`）。
  *
  * - モデルは Claude Opus 5.5。採点は effort `high`（ぶれを抑える）、アイデア出しは `medium`（速さを取る）
@@ -73,6 +79,8 @@ export interface Ai {
   answerQuestion(input: QuestionInput): Promise<string>
   /** STEP 3 の「AI に質問」: 下書きと課題を見て、自由な質問に答える（英語は制限しない）。 */
   answerDraftQuestion(input: DraftChatInput): Promise<string>
+  /** 下書きの日本語訳（直訳に近く）。`sentences` の並びのとおりの訳を返す（返ってこなかった文は空）。 */
+  translate(draft: string, sentences: readonly string[]): Promise<string[]>
 }
 
 function describeApiError(error: unknown): string {
@@ -185,6 +193,15 @@ export function createAi(apiKey: string): Ai {
         effort: 'medium',
       })
       return parseDraftAnswer(text)
+    },
+    async translate(draft, sentences) {
+      const { text } = await callJson({
+        system: TRANSLATION_SYSTEM,
+        user: buildTranslationPrompt(draft, sentences),
+        schema: TRANSLATION_SCHEMA,
+        effort: 'medium',
+      })
+      return parseTranslations(text, sentences.length)
     },
   }
 }
