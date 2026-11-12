@@ -33,8 +33,29 @@ import { renderOutlineView } from './outline.js'
  *   **パラグラフを開いている間は持ち続ける**。同じパラグラフの中で段階を移るときは中央だけを描き直す（読み直さない）
  * - 段階を離れるときはその段階を待たずに保存する。rev は保存が終わったときに手元で新しくなるので、戻っても古い rev にはならない
  * - ヘッダの保存の状態は 3 つをまとめて出し、タイルには段階ごとの状態の行と保存の印を出す
+ * - 左ペインは中央との境のつまみで閉じられる（中央が広がる。開閉はブラウザに覚える。`docs/plans/archive/left-pane-toggle.md`）
  * - 中央の中身は段階ごとに `views/` の各ファイル（課題・アウトライン・下書き）。一番下に次のステップへのボタン
  */
+
+const LEFT_PANE_KEY = 'esl-writing.left-pane'
+
+/** 左ペインを閉じているか（覚えていなければ開いている）。 */
+function loadLeftClosed(): boolean {
+  try {
+    return localStorage.getItem(LEFT_PANE_KEY) === 'closed'
+  } catch {
+    return false
+  }
+}
+
+function saveLeftClosed(closed: boolean): void {
+  try {
+    if (closed) localStorage.setItem(LEFT_PANE_KEY, 'closed')
+    else localStorage.removeItem(LEFT_PANE_KEY)
+  } catch {
+    // 覚えられなくても開閉はできる
+  }
+}
 
 interface Tile {
   el: HTMLAnchorElement
@@ -171,6 +192,25 @@ export function renderEdit(
     aiPane.el,
     guide.el,
   )
+  /** 左ペインと中央の境のつまみ（押すと左ペインを閉じる・開く。形は STEP 3 のアウトラインのつまみと同じ）。 */
+  const leftHandle = h('button', {
+    class: 'side-handle left-handle',
+    type: 'button',
+    onclick: () => setLeftClosed(!panes.classList.contains('left-closed')),
+  })
+  function setLeftClosed(leftClosed: boolean): void {
+    panes.classList.toggle('left-closed', leftClosed)
+    saveLeftClosed(leftClosed)
+    const label = leftClosed
+      ? '段階の一覧（左ペイン）を開く'
+      : '段階の一覧（左ペイン）を閉じて、中央を広げる'
+    leftHandle.title = label
+    leftHandle.setAttribute('aria-label', label)
+    leftHandle.setAttribute('aria-expanded', leftClosed ? 'false' : 'true')
+    replace(leftHandle, leftClosed ? '›' : '‹')
+  }
+  panes.append(leftHandle)
+  setLeftClosed(loadLeftClosed())
   /** 右ペインの幅を変える境（引き出しも同じ幅）。 */
   const resizer = mountPaneResizer(panes)
   panes.append(resizer.el)

@@ -131,6 +131,11 @@ a { color: var(--brand); }
   --right: 340px;
   position: relative; flex: 1; display: grid; grid-template-columns: 200px 1fr var(--right); min-height: 0; overflow: hidden;
 }
+.panes.left-closed { grid-template-columns: 1fr var(--right); }
+.panes.left-closed .stages { display: none; }
+/* 左ペインと中央の境のつまみ（edit.ts。形は下書きの .side-handle と同じ。境をまたいで置く） */
+.side-handle.left-handle { right: auto; left: calc(200px - .4rem); z-index: 5; }
+.panes.left-closed .side-handle.left-handle { left: 2px; }
 .stages { padding: 1rem .8rem; display: flex; flex-direction: column; gap: .55rem; border-right: 1px solid var(--line); overflow: auto; }
 .tile {
   position: relative; background: var(--card); border-radius: 12px; padding: .7rem .85rem;
