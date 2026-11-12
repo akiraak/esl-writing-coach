@@ -75,6 +75,7 @@ function card(p: ParagraphListItem, onRemoved: () => void): HTMLElement {
       ...STAGES.map((s) => h('span', { class: p.started[s] ? 'f' : '' })),
     ),
     h('div', { class: 'plabels' }, ...STAGES.map((s) => h('span', {}, STAGE_SHORT_LABELS[s]))),
+    scoreLine(p),
     h('div', { class: 'meta' }, h('span', {}, `更新 ${formatDate(p.updatedAt)}`), remove),
   )
   remove.addEventListener('click', () => {
@@ -97,6 +98,19 @@ function card(p: ParagraphListItem, onRemoved: () => void): HTMLElement {
     )
   })
   return el
+}
+
+/** 最新の採点（合計・採点した日・採点の後に変わった印）。採点していなければ空の行で高さだけそろえる。 */
+function scoreLine(p: ParagraphListItem): HTMLElement {
+  const score = p.score
+  if (score === null) return h('div', { class: 'pscore' })
+  return h(
+    'div',
+    { class: 'pscore' },
+    h('span', { class: 'pscore-total' }, h('b', {}, String(score.total)), ' / 100'),
+    score.scoredAt === '' ? '' : h('span', {}, `採点 ${formatDate(score.scoredAt)}`),
+    score.stale ? h('span', { class: 'pscore-stale' }, '採点後に変更あり') : '',
+  )
 }
 
 /** テーマを聞いて新規作成し、課題の画面を開く。 */

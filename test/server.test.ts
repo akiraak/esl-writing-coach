@@ -89,6 +89,7 @@ describe('API', () => {
         updatedAt: '2026-11-08T01:00:00.000Z',
         started: { assignment: true, outline: false, draft: false },
         theme: 'Uniforms',
+        score: null,
       },
     ])
   })

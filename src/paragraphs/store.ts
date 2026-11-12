@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { parseAssignment } from '../shared/assignment.js'
+import { listScoreOf } from '../shared/feedback.js'
 import { AI_KINDS, type AiKind, type AiQuestion } from '../shared/ideas.js'
 import {
   DOCS,
@@ -123,8 +124,12 @@ export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {
     WHERE p.deleted_at IS NULL
   `)
 
+  const listFeedbackRows = db.prepare('SELECT paragraph_id, json FROM feedbacks')
+
   function listParagraphs(): ParagraphListItem[] {
     const byId = new Map<string, ParagraphListItem>()
+    // 採点の後に変わったかを比べるための、今の下書きとタイトル
+    const texts = new Map<string, { draft: string; title: string }>()
     for (const row of listRows.all()) {
       const id = str(row['id'])
       let item = byId.get(id)
@@ -135,8 +140,10 @@ export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {
           updatedAt: str(row['created_at']),
           started: { assignment: false, outline: false, draft: false },
           theme: '',
+          score: null,
         }
         byId.set(id, item)
+        texts.set(id, { draft: '', title: '' })
       }
       const doc = DOCS.find((d) => d === row['stage'])
       if (doc === undefined) continue
@@ -145,9 +152,18 @@ export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {
       const stage = STAGES.find((s) => s === doc)
       if (stage !== undefined) item.started[stage] = text !== ''
       if (doc === 'assignment') item.theme = parseAssignment(text).theme
+      const current = texts.get(id)
+      if (current !== undefined && (doc === 'draft' || doc === 'title')) current[doc] = text
       const updatedAt = str(row['updated_at'])
       // ISO8601（UTC）なので文字列の大小で比べられる
       if (updatedAt > item.updatedAt) item.updatedAt = updatedAt
+    }
+    for (const row of listFeedbackRows.all()) {
+      const id = str(row['paragraph_id'])
+      const item = byId.get(id)
+      const current = texts.get(id)
+      if (item === undefined || current === undefined) continue
+      item.score = listScoreOf(str(row['json']), current.draft, current.title)
     }
     return [...byId.values()].sort((a, b) =>
       a.updatedAt === b.updatedAt ? (a.id < b.id ? 1 : -1) : a.updatedAt < b.updatedAt ? 1 : -1,

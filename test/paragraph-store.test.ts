@@ -138,6 +138,7 @@ describe('作成と一覧', () => {
         updatedAt: '2026-11-11T00:00:00.000Z',
         started: { assignment: true, outline: false, draft: false },
         theme: 'School uniforms',
+        score: null,
       },
     ])
   })
@@ -163,6 +164,71 @@ describe('作成と一覧', () => {
       [older, newer],
     )
     assert.deepEqual(list[0]?.started, { assignment: true, outline: false, draft: true })
+  })
+})
+
+describe('一覧の採点の要約', () => {
+  const feedbackJson = (draft: string, title: string) =>
+    JSON.stringify({
+      version: 1,
+      scoredAt: '2026-11-11T03:00:00.000Z',
+      model: 'm',
+      draft,
+      title,
+      scores: {
+        structure: { score: 25, comment: '' },
+        content: { score: 20, comment: '' },
+        grammar: { score: 15, comment: '' },
+        vocabulary: { score: 12, comment: '' },
+        requirements: { score: 10, comment: '' },
+      },
+      strengths: [],
+      findings: [],
+    })
+
+  it('採点していなければ null。採点があれば合計と採点した時刻が出る', () => {
+    const { store } = setup()
+    const scored = store.createParagraph('2026-11-10', 'Scored', assignment('Scored'))
+    const plain = store.createParagraph('2026-11-11', 'Plain', assignment('Plain'))
+    store.saveStage(scored, 'draft', 'I like dogs.\n', null)
+    store.saveStage(scored, 'title', 'Dogs', null)
+    store.saveFeedback(scored, feedbackJson('I like dogs.', 'Dogs'))
+    const byId = new Map(store.listParagraphs().map((p) => [p.id, p.score]))
+    assert.equal(byId.get(plain), null)
+    assert.deepEqual(byId.get(scored), {
+      total: 82,
+      scoredAt: '2026-11-11T03:00:00.000Z',
+      stale: false,
+    })
+  })
+
+  it('採点の後に下書きかタイトルが変わっていれば stale', () => {
+    const { store } = setup()
+    const id = store.createParagraph('2026-11-11', 'Pets', assignment('Pets'))
+    const draft = store.saveStage(id, 'draft', 'I like dogs.', null)
+    const title = store.saveStage(id, 'title', 'Dogs', null)
+    store.saveFeedback(id, feedbackJson('I like dogs.', 'Dogs'))
+    assert.equal(store.listParagraphs()[0]?.score?.stale, false)
+    const title2 = store.saveStage(id, 'title', 'Cats', title.rev)
+    assert.equal(store.listParagraphs()[0]?.score?.stale, true)
+    store.saveStage(id, 'title', 'Dogs', title2.rev)
+    assert.equal(store.listParagraphs()[0]?.score?.stale, false)
+    store.saveStage(id, 'draft', 'I like cats.', draft.rev)
+    assert.equal(store.listParagraphs()[0]?.score?.stale, true)
+  })
+
+  it('読めない採点の JSON は null（一覧は落ちない）。消したパラグラフは出ない', () => {
+    const { store } = setup()
+    const broken = store.createParagraph('2026-11-10', 'Broken', assignment('Broken'))
+    const gone = store.createParagraph('2026-11-11', 'Gone', assignment('Gone'))
+    store.saveFeedback(broken, '{"n":1}')
+    store.saveFeedback(gone, feedbackJson('', ''))
+    store.deleteParagraph(gone)
+    const list = store.listParagraphs()
+    assert.deepEqual(
+      list.map((p) => [p.id, p.score]),
+      [[broken, null]],
+    )
   })
 })
 

@@ -36,7 +36,7 @@ import { MAX_TITLE_LENGTH } from '../shared/types.js'
  *
  * | メソッド・パス | 内容 |
  * |---|---|
- * | `GET /api/paragraphs` | 一覧（各項目に課題のテーマ `theme` を足す） |
+ * | `GET /api/paragraphs` | 一覧（各項目に課題のテーマ `theme` と、最新の採点の要約 `score`（合計・採点した時刻・採点後に変わったか。無ければ null）を足す） |
  * | `POST /api/paragraphs` `{ theme }` | 新規作成（テーマだけを入れた課題も書く）→ `{ id }` |
  * | `DELETE /api/paragraphs/:id` | 削除（印を付けるだけ） |
  * | `GET /api/paragraphs/:id/stages/:stage` | 段階 → `{ text, rev }`（`:stage` は 3 つの段階と、STEP 3 のタイトル `title`） |

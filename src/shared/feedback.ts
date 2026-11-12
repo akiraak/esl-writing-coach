@@ -7,6 +7,7 @@
  * - 綴りの誤り（誤字）は指摘とは別に、まとめて「本文の綴り → 正しい綴り」で持つ（2026-11-11 から。`docs/plans/archive/scoring-spellings.md`）
  * - 最新の 1 回分だけを持つ。採点した下書きの本文も入れ、後で本文が変わったか比べる
  */
+import { titleLine } from './export.js'
 
 export const CRITERIA = [
   { key: 'structure', label: '構成', max: 30 },
@@ -137,5 +138,30 @@ export function parseFeedback(text: string): Feedback | null {
             : [],
         )
       : [],
+  }
+}
+
+/** 採点した後に本文かタイトルが変わっているか（本文は前後の空白を除いて、タイトルは 1 行にして比べる）。 */
+export function isFeedbackStale(feedback: Feedback, draft: string, title: string): boolean {
+  return feedback.draft.trim() !== draft.trim() || feedback.title !== titleLine(title)
+}
+
+/** 一覧のカードに出す採点の要約（合計だけ。`docs/plans/archive/list-scores.md`）。 */
+export interface ListScore {
+  total: number
+  /** 採点した時刻（ISO8601）。 */
+  scoredAt: string
+  /** 採点した後に本文かタイトルが変わっている。 */
+  stale: boolean
+}
+
+/** 保存した採点の JSON と今の下書き・タイトルから、一覧の要約を作る。読めなければ null。 */
+export function listScoreOf(json: string, draft: string, title: string): ListScore | null {
+  const feedback = parseFeedback(json)
+  if (feedback === null) return null
+  return {
+    total: feedback.total,
+    scoredAt: feedback.scoredAt,
+    stale: isFeedbackStale(feedback, draft, title),
   }
 }

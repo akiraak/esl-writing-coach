@@ -1,3 +1,4 @@
+import type { ListScore } from './feedback.js'
 /**
  * サーバとブラウザで共有する型と定数（Node にも DOM にも依存しない）。
  *
@@ -41,6 +42,8 @@ export interface ParagraphSummary {
 export interface ParagraphListItem extends ParagraphSummary {
   /** 課題のテーマ（課題の書式の `# ` 行）。無ければ空文字。 */
   theme: string
+  /** 最新の採点の要約。採点していない（読めない）なら null。 */
+  score: ListScore | null
 }
 
 export interface StageContent {

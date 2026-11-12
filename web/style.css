@@ -62,6 +62,9 @@ a { color: var(--brand); }
 .prog span.f { background: var(--brand); }
 .plabels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; font-size: 11px; color: var(--faint); margin-top: -.45rem; }
 .pc .meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--soft); }
+.pscore { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; min-height: 26px; font-size: 12px; color: var(--soft); }
+.pscore-total b { font-size: 20px; line-height: 1.3; color: var(--brand); }
+.pscore-stale { color: var(--warn); font-weight: 600; }
 /* カード全体をリンクに（タイトルの <a> を広げる）。削除ボタンはその上に出す */
 .pc { position: relative; }
 .pc:focus-within { border-color: var(--brand); }

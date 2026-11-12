@@ -1,5 +1,4 @@
-import { titleLine } from '../shared/export.js'
-import { CRITERIA, criterionOf, type Feedback } from '../shared/feedback.js'
+import { CRITERIA, criterionOf, type Feedback, isFeedbackStale } from '../shared/feedback.js'
 import { type AiCard, cardFrame, whenLabels } from './ai-pane.js'
 import { readFeedback, scoreParagraph } from './api.js'
 import { h, replace } from './dom.js'
@@ -84,9 +83,7 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
     replace(message, error)
     replace(
       stale,
-      feedback !== null &&
-        (feedback.draft.trim() !== options.draftText().trim() ||
-          feedback.title !== titleLine(options.titleText()))
+      feedback !== null && isFeedbackStale(feedback, options.draftText(), options.titleText())
         ? '採点した後に本文かタイトルが変わっています。直したらもう一度採点できます。'
         : '',
     )
