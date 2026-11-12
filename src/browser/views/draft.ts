@@ -15,6 +15,8 @@ import { assignmentBrief } from './brief.js'
  *
  * - 上: 語数・文数のメーター（課題の指定の幅を帯で示す）と課題の帯。日本語が混じっていれば注意
  * - 下: 本文の欄と、右にアウトラインを構成の役割の色で並べたリスト（見るだけ。役割は `outline-roles.ts`）と「書き出し →」
+ * - アウトラインのリストは「閉じる ›」で右に閉じて細い帯にでき、本文の欄がその分広がる（開閉はブラウザに覚える。
+ *   `docs/plans/archive/draft-outline-toggle.md`）。閉じている間、右の列の「書き出し →」は出さない（ヘッダの「書き出し」がある）
  * - 本文の欄は画面の下いっぱいまで使い、紙のノートのような横罫を背景に敷く（`docs/plans/archive/draft-paper.md`）
  */
 
@@ -70,7 +72,27 @@ function meterBox(unit: string, range: CountRange) {
   }
 }
 
-function outlineList(id: string, outline: string): HTMLElement {
+const OUTLINE_KEY = 'esl-writing.draft-outline'
+
+/** アウトラインのリストを閉じているか（覚えていなければ開いている）。 */
+function loadOutlineClosed(): boolean {
+  try {
+    return localStorage.getItem(OUTLINE_KEY) === 'closed'
+  } catch {
+    return false
+  }
+}
+
+function saveOutlineClosed(closed: boolean): void {
+  try {
+    if (closed) localStorage.setItem(OUTLINE_KEY, 'closed')
+    else localStorage.removeItem(OUTLINE_KEY)
+  } catch {
+    // 覚えられなくても開閉はできる
+  }
+}
+
+function outlineList(id: string, outline: string, close: HTMLElement): HTMLElement {
   const items = outlineRoles(outline)
   const body =
     items.length === 0
@@ -82,7 +104,7 @@ function outlineList(id: string, outline: string): HTMLElement {
   return h(
     'aside',
     { class: 'struct', 'aria-label': 'アウトライン（見るだけ）' },
-    h('h4', {}, 'アウトライン', h('span', {}, '見るだけ')),
+    h('h4', {}, 'アウトライン', h('span', {}, '見るだけ'), close),
     ...body,
   )
 }
@@ -153,6 +175,46 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
   // 右ペインの表現集から、カーソルの位置に入れられるようにする
   const unregister = setPhraseTarget((phrase) => insertAtCursor(paper, phrase))
 
+  /** アウトラインのリストを右に閉じる・開く（閉じると本文の欄が広がる）。 */
+  const setClosed = (closed: boolean, focus: boolean) => {
+    work.classList.toggle('side-closed', closed)
+    saveOutlineClosed(closed)
+    if (focus) (closed ? openButton : closeButton).focus()
+  }
+  const closeButton = h(
+    'button',
+    {
+      class: 'struct-toggle',
+      type: 'button',
+      title: 'アウトラインを右に閉じて、本文の欄を広げる',
+      onclick: () => setClosed(true, true),
+    },
+    '閉じる ›',
+  )
+  const openButton = h(
+    'button',
+    {
+      class: 'struct-open',
+      type: 'button',
+      title: 'アウトラインを開く',
+      onclick: () => setClosed(false, true),
+    },
+    '‹ アウトライン',
+  )
+  const work = h(
+    'div',
+    { class: 'work' },
+    paper,
+    h(
+      'div',
+      { class: 'work-side' },
+      openButton,
+      outlineList(options.id, options.outline, closeButton),
+      options.exportButton(),
+    ),
+  )
+  setClosed(loadOutlineClosed(), false)
+
   replace(
     container,
     h(
@@ -161,17 +223,7 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
       h('div', { class: 'meters' }, words.box, sentences.box),
       warn,
       assignmentBrief(options.id, assignment),
-      h(
-        'div',
-        { class: 'work' },
-        paper,
-        h(
-          'div',
-          { class: 'work-side' },
-          outlineList(options.id, options.outline),
-          options.exportButton(),
-        ),
-      ),
+      work,
     ),
   )
   const stopRules = followRules(paper)

@@ -292,6 +292,20 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .work-side { display: flex; flex-direction: column; gap: .8rem; min-height: 0; }
 .work-side .struct { flex: 1; }
 .work-side .next-step { align-self: flex-end; }
+/* アウトラインのリストを右に閉じる（draft.ts。閉じると細い帯になり、本文の欄が広がる） */
+.struct h4 { align-items: baseline; gap: .5rem; }
+.struct h4 span { margin-right: auto; }
+.struct-toggle { font: inherit; font-size: 11px; letter-spacing: 0; font-weight: 600; color: var(--brand); background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap; }
+.struct-toggle:hover { text-decoration: underline; }
+.struct-open { display: none; }
+.work.side-closed { grid-template-columns: 1fr 34px; }
+.work.side-closed .struct, .work.side-closed .work-side .next-step { display: none; }
+.work.side-closed .struct-open {
+  display: block; flex: 1; writing-mode: vertical-rl; font: inherit; font-size: 12px; font-weight: 600; letter-spacing: .08em;
+  color: var(--brand); background: var(--card); border: 0; border-radius: 12px; box-shadow: var(--shadow);
+  padding: .8rem 0; cursor: pointer; text-align: start;
+}
+.work.side-closed .struct-open:hover { background: var(--brand-soft); }
 /* 本文の欄。紙のノートのような横罫を背景に敷く（daily-note と同じ作り。要素を重ねないので本文・選択・IME・挿入に触らない）
    - 罫線の間隔は 1 行の高さそのもの（--paper-row）。端数があると行ごとにずれるので整数 px（17px × 1.95 ≒ 33px）
    - local: 本文と一緒にスクロールさせる（Firefox は効かないので下の @supports と draft.ts の followRules）
