@@ -31,3 +31,4 @@
 - 2026-11-11 採点の指摘に修正の英文を出す（指摘に修正例 `fix` を足し、採点のカードと振り返りに「修正例」を出す。「直した文は出さない」は採点では外した。古い結果は採点し直すと出る。本物の API で 1 回確かめた。[plan](docs/plans/archive/scoring-fix-sentences.md)）
 - 2026-11-11 STEP 3 の下書きの日本語訳を出す（右ペインを STEP 3 だけ「AI / 翻訳 / 採点」のタブに分け、「翻訳」に文ごとの英文 → 訳。訳は直訳に近く、誤りを直さない。文に分けるのはアプリ。最新の 1 回分を `translations`（版 4）に残す。本物の API と画面で確かめた。[plan](docs/plans/archive/draft-translation.md)）
 - 2026-11-11 採点で綴りの誤りをまとめて出す（採点の結果に `spellings`（本文の綴り → 正しい綴り）を足し、採点のカードの「直すところ」の上に並べる。指摘には 1 つずつ挙げない。本文に無い綴りは消す。本物の API で 1 回確かめた。[plan](docs/plans/archive/scoring-spellings.md)）
+- 2026-11-11 Ctrl+S でブラウザの「ページを保存」を出さない（どの画面でも止め、未保存の分はその場で保存する。[plan](docs/plans/archive/disable-ctrl-s.md)）

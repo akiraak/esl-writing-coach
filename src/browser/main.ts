@@ -64,6 +64,13 @@ function render(): void {
 }
 
 window.addEventListener('hashchange', render)
+// Ctrl+S（Mac は Cmd+S）でブラウザの「ページを保存」を出さない。自動保存なので要らないが、つい押すので、
+// 未保存の分があればその場で保存する（`docs/plans/archive/disable-ctrl-s.md`）
+window.addEventListener('keydown', (event) => {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 's') return
+  event.preventDefault()
+  void current.flush()
+})
 window.addEventListener('beforeunload', (event) => {
   if (!current.hasUnsavedChanges()) return
   void current.flush()
