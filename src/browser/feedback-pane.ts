@@ -2,14 +2,14 @@ import { CRITERIA, criterionOf, type Feedback } from '../shared/feedback.js'
 import { type AiCard, cardFrame, whenLabels } from './ai-pane.js'
 import { readFeedback, scoreParagraph } from './api.js'
 import { h, replace } from './dom.js'
-import { errorText, formatDate, formatTime } from './ui.js'
+import { errorText, fixLine, formatDate, formatTime } from './ui.js'
 
 /**
  * 編集画面の右ペインの採点のカード（AI の採点と指摘。`docs/plans/archive/ai-scoring.md`）。並べ方は `ai-pane.ts`。
  *
  * - 「採点する」を押したときだけ採点する（自動では走らせない）。押したら手元の未保存を保存し終えてから、
  *   サーバが保存された下書きを読んで採点する
- * - 結果は合計・観点ごとの点数と一言・よかった点・指摘（観点・引用・ヒント）。直した文は出ない
+ * - 結果は合計・観点ごとの点数と一言・よかった点・指摘（観点・引用・ヒント・修正例の英文）
  * - 採点した後に本文を直したら知らせる（もう一度採点できる）
  * - 編集画面を開いている間は 1 つを持ち続ける（段階を移っても、採点中の状態と結果を保つ）
  */
@@ -76,7 +76,7 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
             ? '30 秒〜1 分ほどかかります。'
             : empty
               ? '下書きを書くと採点できます。'
-              : '100 点満点と観点ごとの点数、直すところのヒント（直した文は出しません）。',
+              : '100 点満点と観点ごとの点数、直すところのヒントと修正例の英文。',
     )
     replace(message, error)
     replace(
@@ -149,6 +149,7 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
                   h('span', { class: `crit-tag t-${f.criterion}` }, criterionOf(f.criterion).label),
                   f.quote === '' ? null : h('q', { lang: 'en' }, f.quote),
                   h('p', {}, f.hint),
+                  fixLine(f.fix),
                 ),
               ),
             ),

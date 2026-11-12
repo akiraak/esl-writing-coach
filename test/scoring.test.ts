@@ -21,19 +21,30 @@ const output = (overrides: Record<string, unknown> = {}) =>
       requirements: { score: 8, comment: '' },
     },
     strengths: ['意見がはっきりしている'],
-    findings: [{ criterion: 'grammar', quote: 'he go', hint: '三人称単数の動詞の形を確かめよう' }],
+    findings: [
+      {
+        criterion: 'grammar',
+        quote: 'he go',
+        hint: '三人称単数の動詞の形を確かめよう',
+        fix: ' he goes ',
+      },
+    ],
     ...overrides,
   })
 
 describe('プロンプト', () => {
-  it('システムプロンプトに 5 つの観点と満点、直した文を出さない指示、日本語の指摘', () => {
+  it('システムプロンプトに 5 つの観点と満点、修正例の英文の指示、日本語の指摘', () => {
     for (const c of CRITERIA)
       assert.ok(SYSTEM_PROMPT.includes(`${c.label}（${c.key}）${c.max} 点`), c.key)
-    assert.ok(
-      SYSTEM_PROMPT.includes(
-        '直した文・書き直した文・正しい言い方そのものは、どこにも書かないでください',
-      ),
-    )
+    assert.ok(SYSTEM_PROMPT.includes('指摘の fix には、**修正例の英文**を書きます'))
+    assert.ok(!SYSTEM_PROMPT.includes('正しい言い方そのものは、どこにも書かないでください'))
+    assert.ok(SYSTEM_PROMPT.includes('段落全体を書き直した文は、どこにも書かないでください'))
+    assert.deepEqual(OUTPUT_SCHEMA.properties.findings.items.required, [
+      'criterion',
+      'quote',
+      'hint',
+      'fix',
+    ])
     assert.ok(SYSTEM_PROMPT.includes('日本語が混じっていれば'))
     assert.equal(
       CRITERIA.reduce((sum, c) => sum + c.max, 0),
@@ -77,6 +88,7 @@ describe('parseScoringOutput', () => {
     assert.equal(totalOf(out.scores), 78)
     assert.deepEqual(out.strengths, ['意見がはっきりしている'])
     assert.equal(out.findings[0]?.criterion, 'grammar')
+    assert.equal(out.findings[0]?.fix, 'he goes')
   })
 
   it('点数は 0〜満点の整数に収める', () => {
@@ -114,6 +126,7 @@ describe('parseScoringOutput', () => {
     const out = parseScoringOutput(output({ findings, strengths: ['a', 'b', 'c', 'd', ''] }))
     assert.equal(out.findings.length, 10)
     assert.equal(out.findings[0]?.hint, 'h0')
+    assert.equal(out.findings[0]?.fix, '')
     assert.deepEqual(out.strengths, ['a', 'b', 'c'])
   })
 })
@@ -133,6 +146,11 @@ describe('parseFeedback（feedback.json）', () => {
     assert.equal(fb?.total, 78)
     assert.equal(fb?.draft, 'I agree.')
     assert.equal(fb?.findings.length, 1)
+    assert.equal(fb?.findings[0]?.fix, 'he goes')
+    // fix の無い古い結果は空として読む
+    const old = JSON.parse(text)
+    old.findings = [{ criterion: 'grammar', quote: 'he go', hint: 'h' }]
+    assert.equal(parseFeedback(JSON.stringify(old))?.findings[0]?.fix, '')
   })
 
   it('壊れていれば null', () => {
@@ -143,14 +161,24 @@ describe('parseFeedback（feedback.json）', () => {
 })
 
 describe('dropUnquotable', () => {
-  it('本文に無い引用（直した形）は消してヒントは残す。空白の違いと空の引用はそのまま', () => {
+  it('本文に無い引用（直した形）は消してヒントと修正例は残す。空白の違いと空の引用はそのまま', () => {
     const draft = 'First, uniforms takes away a chance.\nFinally, uniform are not comfortable.'
     const out = dropUnquotable(
       [
-        { criterion: 'grammar', quote: 'uniforms takes away', hint: 'a' },
-        { criterion: 'grammar', quote: 'Finally, uniforms are not comfortable.', hint: 'b' },
-        { criterion: 'grammar', quote: 'a chance. Finally,  uniform', hint: 'c' },
-        { criterion: 'content', quote: '', hint: 'd' },
+        {
+          criterion: 'grammar',
+          quote: 'uniforms takes away',
+          hint: 'a',
+          fix: 'uniforms take away',
+        },
+        {
+          criterion: 'grammar',
+          quote: 'Finally, uniforms are not comfortable.',
+          hint: 'b',
+          fix: 'B',
+        },
+        { criterion: 'grammar', quote: 'a chance. Finally,  uniform', hint: 'c', fix: '' },
+        { criterion: 'content', quote: '', hint: 'd', fix: '' },
       ],
       draft,
     )
@@ -161,6 +189,10 @@ describe('dropUnquotable', () => {
     assert.deepEqual(
       out.map((f) => f.hint),
       ['a', 'b', 'c', 'd'],
+    )
+    assert.deepEqual(
+      out.map((f) => f.fix),
+      ['uniforms take away', 'B', '', ''],
     )
   })
 })

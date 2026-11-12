@@ -3,7 +3,7 @@
  *
  * - 固定基準で 100 点満点: 構成 30 / 内容 25 / 文法 20 / 語彙・表現 15 / 課題の条件 10
  * - 合計はアプリが観点の点数を足して出す（AI の合計は使わない）
- * - 指摘は観点・本文からの短い引用・ヒント。**直した文そのものは入れない**
+ * - 指摘は観点・本文からの短い引用・ヒント・修正例の英文（2026-11-11 から。`docs/plans/archive/scoring-fix-sentences.md`）
  * - 最新の 1 回分だけを持つ。採点した下書きの本文も入れ、後で本文が変わったか比べる
  */
 
@@ -35,10 +35,12 @@ export interface CriterionScore {
 
 export interface Finding {
   criterion: CriterionKey
-  /** 本文からの短い引用（問題の場所を示すだけ。直した文ではない）。空なら全体についての指摘。 */
+  /** 本文からの短い引用（問題の場所を示す。直す前のまま）。空なら全体についての指摘。 */
   quote: string
   /** 直すためのヒント（日本語）。 */
   hint: string
+  /** 修正例の英文（引用を直した文。引用が無ければ足す文などの例）。無ければ空（古い結果にも無い）。 */
+  fix: string
 }
 
 export interface Feedback {
@@ -99,6 +101,7 @@ export function parseFeedback(text: string): Feedback | null {
                 criterion: f['criterion'],
                 quote: typeof f['quote'] === 'string' ? f['quote'] : '',
                 hint: f['hint'],
+                fix: typeof f['fix'] === 'string' ? f['fix'] : '',
               },
             ]
           : [],

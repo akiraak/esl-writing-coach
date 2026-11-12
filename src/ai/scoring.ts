@@ -16,7 +16,8 @@ import { AiOutputError } from './errors.js'
  * 採点のプロンプトと、AI の出力の検証（`docs/plans/archive/ai-scoring.md`）。純関数なので node でテストする。
  *
  * - 基準は固定（配点は `src/shared/feedback.ts` の `CRITERIA`）。観点ごとに見ることはシステムプロンプトに書く
- * - **直した文・書き直した文は出させない**（課題として自分で書くため）。ヒントは「どこを・何を確かめるか」まで
+ * - 指摘にはヒント（どこを・何を確かめるか）と、**修正例の英文**（`fix`）を付ける（2026-11-11 から。
+ *   それまでは直した文を出させなかった。`docs/plans/archive/scoring-fix-sentences.md`）。下書き全体の書き直しは出させない
  * - 語数・文数はアプリが数えた値を渡す（AI に数えさせない）
  * - 出力は構造化出力（JSON スキーマ）で受け、ここで検証して点数を 0〜満点に収める
  */
@@ -43,9 +44,10 @@ export const SYSTEM_PROMPT = [
   ...CRITERIA.map((c) => `- ${c.label}（${c.key}）${c.max} 点: ${RUBRIC[c.key]}`),
   '',
   '## 守ること',
-  '- 生徒は課題として自分で書き直します。**直した文・書き直した文・正しい言い方そのものは、どこにも書かないでください**（ヒント・一言・よかった点のどれにも）。',
-  '- 指摘のヒントは、何が問題か・何を確かめればよいかを日本語で短く伝えます（例: 「主語が三人称単数のときの動詞の形を確かめよう」「この理由を支える具体的な例を 1 文足そう」）。正解の語や文は示しません。',
-  '- 指摘の quote には、問題のある箇所を生徒の本文から**1 文字も変えずに**（誤りもそのまま）短く（15 語まで）抜き出します。誤りを直した形で引用してはいけません。本文全体や構成についての指摘で特定の箇所が無いときは空文字にします。',
+  '- 指摘のヒント（hint）は、何が問題か・何を確かめればよいかを日本語で短く伝えます（例: 「主語が三人称単数のときの動詞の形を確かめよう」「この理由を支える具体的な例を 1 文足そう」）。',
+  '- 指摘の fix には、**修正例の英文**を書きます。quote があるときは、引用した箇所を正しく直した英文です（指摘した誤りのほかに綴りなどの誤りがあれば、それも直します）。生徒の言いたいことと語はできるだけ残し、必要なところだけを直します。quote が空のときは、足す文・直す文の例を 1 文で示せるなら英文を書き、示せないなら空文字にします。fix は英文だけにし、説明は hint に書きます。',
+  '- 段落全体を書き直した文は、どこにも書かないでください。',
+  '- 指摘の quote には、問題のある箇所を生徒の本文から**1 文字も変えずに**（誤りもそのまま）短く（15 語まで）抜き出します。誤りを直した形で引用してはいけません（直した形は fix に書きます）。本文全体や構成についての指摘で特定の箇所が無いときは空文字にします。',
   '- 指摘は大事なものから、多くても 10 個まで。同じ種類の誤りが何度もあるときは 1 つにまとめ、ヒントで「ほかにもある」と伝えます。',
   '- 本文に日本語が混じっていれば、課題の条件（requirements）の指摘として必ず挙げます。',
   '- 観点ごとの comment は日本語 1〜2 文。よかった点（strengths）は具体的に 1〜3 個、日本語で。',
@@ -106,8 +108,9 @@ export const OUTPUT_SCHEMA = {
           criterion: { type: 'string', enum: [...CRITERION_KEYS] },
           quote: { type: 'string' },
           hint: { type: 'string' },
+          fix: { type: 'string' },
         },
-        required: ['criterion', 'quote', 'hint'],
+        required: ['criterion', 'quote', 'hint', 'fix'],
         additionalProperties: false,
       },
     },
@@ -130,7 +133,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const squash = (text: string) => text.replace(/\s+/g, ' ').trim()
 
 /**
- * 本文に無い引用は消す（ヒントは残す）。AI が誤りを直した形で引用すると、直した文が画面に出てしまうため。
+ * 本文に無い引用は消す（ヒントと修正例は残す）。引用は直す前の文として修正例と並べて見せるので、
+ * AI が誤りを直した形で引用したものは出さない。
  * 空白の違いだけは許す。
  */
 export function dropUnquotable(findings: readonly Finding[], draft: string): Finding[] {
@@ -184,6 +188,7 @@ export function parseScoringOutput(text: string): ScoringOutput {
                   criterion: f['criterion'],
                   quote: typeof f['quote'] === 'string' ? f['quote'].trim() : '',
                   hint: f['hint'].trim(),
+                  fix: typeof f['fix'] === 'string' ? f['fix'].trim() : '',
                 },
               ]
             : [],

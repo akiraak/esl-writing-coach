@@ -213,8 +213,13 @@ describe('採点の API', () => {
             scores: SCORES,
             strengths: ['よい'],
             findings: [
-              { criterion: 'grammar', quote: 'I agree', hint: 'そのまま' },
-              { criterion: 'grammar', quote: 'I agreed.', hint: '直した形の引用は消える' },
+              { criterion: 'grammar', quote: 'I agree', hint: 'そのまま', fix: 'I agree that' },
+              {
+                criterion: 'grammar',
+                quote: 'I agreed.',
+                hint: '直した形の引用は消える',
+                fix: 'I agreed.',
+              },
             ],
           },
           model: 'claude-opus-5-5',
@@ -232,6 +237,10 @@ describe('採点の API', () => {
     assert.deepEqual(
       feedback.findings.map((f) => f.quote),
       ['I agree', ''],
+    )
+    assert.deepEqual(
+      feedback.findings.map((f) => f.fix),
+      ['I agree that', 'I agreed.'],
     )
     assert.deepEqual((received as { assignment: { words: unknown } }).assignment.words, {
       min: 100,

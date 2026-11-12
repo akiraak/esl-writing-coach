@@ -63,14 +63,14 @@ describe('summarizeReview', () => {
   })
 
   it('指摘は観点ごと（新しい採点のものから）、観点の並びは指摘の多い順', () => {
-    const g = (hint: string): Finding => ({ criterion: 'grammar', quote: '', hint })
+    const g = (hint: string): Finding => ({ criterion: 'grammar', quote: '', hint, fix: '' })
     const r = summarizeReview([
       entry(
         'old',
         feedback(
           '2026-11-01T00:00:00Z',
           [1, 1, 1, 1, 1],
-          [g('古い'), { criterion: 'content', quote: 'q', hint: '内容' }],
+          [g('古い'), { criterion: 'content', quote: 'q', hint: '内容', fix: '' }],
         ),
       ),
       entry('new', feedback('2026-11-08T00:00:00Z', [1, 1, 1, 1, 1], [g('新しい')])),

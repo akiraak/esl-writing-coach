@@ -82,3 +82,10 @@ export function errorText(error: unknown): string {
 export function errorBox(error: unknown): HTMLElement {
   return h('p', { class: 'error' }, `読み込めません: ${errorText(error)}`)
 }
+
+/** 採点の指摘の修正例の英文（採点のカードと振り返りで共用）。無ければ出さない。 */
+export function fixLine(fix: string): HTMLElement | null {
+  return fix === ''
+    ? null
+    : h('div', { class: 'fix', lang: 'en' }, h('span', { lang: 'ja' }, '修正例'), fix)
+}

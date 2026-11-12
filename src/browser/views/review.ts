@@ -3,7 +3,7 @@ import { type ReviewSummary, summarizeReview } from '../../shared/review.js'
 import { routeHash } from '../../shared/route.js'
 import { readReview } from '../api.js'
 import { h, replace } from '../dom.js'
-import { errorBox, formatDate, header } from '../ui.js'
+import { errorBox, fixLine, formatDate, header } from '../ui.js'
 import { STATIC_VIEW, type View } from '../view.js'
 
 /**
@@ -147,6 +147,7 @@ function findingsSections(r: ReviewSummary): HTMLElement {
                   {},
                   f.quote === '' ? null : h('q', { lang: 'en' }, f.quote),
                   h('p', {}, f.hint),
+                  fixLine(f.fix),
                   h(
                     'small',
                     {},
