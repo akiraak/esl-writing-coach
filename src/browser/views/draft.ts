@@ -15,8 +15,9 @@ import { assignmentBrief } from './brief.js'
  *
  * - 上: 語数・文数のメーター（課題の指定の幅を帯で示す）と課題の帯。日本語が混じっていれば注意
  * - 下: 本文の欄と、右にアウトラインを構成の役割の色で並べたリスト（見るだけ。役割は `outline-roles.ts`）と「書き出し →」
- * - アウトラインのリストは「閉じる ›」で右に閉じて細い帯にでき、本文の欄がその分広がる（開閉はブラウザに覚える。
- *   `docs/plans/archive/draft-outline-toggle.md`）。閉じている間、右の列の「書き出し →」は出さない（ヘッダの「書き出し」がある）
+ * - 本文の欄とアウトラインのリストの境のつまみを押すと、リストを右に閉じて本文の欄を広げられる（もう一度押すと開く。
+ *   開閉はブラウザに覚える。`docs/plans/archive/draft-outline-toggle.md`・`boundary-handles.md`）。
+ *   閉じている間、右の列の「書き出し →」は出さない（ヘッダの「書き出し」がある）
  * - 本文の欄は画面の下いっぱいまで使い、紙のノートのような横罫を背景に敷く（`docs/plans/archive/draft-paper.md`）
  */
 
@@ -92,7 +93,7 @@ function saveOutlineClosed(closed: boolean): void {
   }
 }
 
-function outlineList(id: string, outline: string, close: HTMLElement): HTMLElement {
+function outlineList(id: string, outline: string): HTMLElement {
   const items = outlineRoles(outline)
   const body =
     items.length === 0
@@ -104,7 +105,7 @@ function outlineList(id: string, outline: string, close: HTMLElement): HTMLEleme
   return h(
     'aside',
     { class: 'struct', 'aria-label': 'アウトライン（見るだけ）' },
-    h('h4', {}, 'アウトライン', h('span', {}, '見るだけ'), close),
+    h('h4', {}, 'アウトライン', h('span', {}, '見るだけ')),
     ...body,
   )
 }
@@ -176,44 +177,34 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
   const unregister = setPhraseTarget((phrase) => insertAtCursor(paper, phrase))
 
   /** アウトラインのリストを右に閉じる・開く（閉じると本文の欄が広がる）。 */
-  const setClosed = (closed: boolean, focus: boolean) => {
+  const setClosed = (closed: boolean) => {
     work.classList.toggle('side-closed', closed)
     saveOutlineClosed(closed)
-    if (focus) (closed ? openButton : closeButton).focus()
+    const label = closed ? 'アウトラインを開く' : 'アウトラインを右に閉じて、本文の欄を広げる'
+    handle.title = label
+    handle.setAttribute('aria-label', label)
+    handle.setAttribute('aria-expanded', closed ? 'false' : 'true')
+    replace(handle, closed ? '‹' : '›')
   }
-  const closeButton = h(
-    'button',
-    {
-      class: 'struct-toggle',
-      type: 'button',
-      title: 'アウトラインを右に閉じて、本文の欄を広げる',
-      onclick: () => setClosed(true, true),
-    },
-    '閉じる ›',
-  )
-  const openButton = h(
-    'button',
-    {
-      class: 'struct-open',
-      type: 'button',
-      title: 'アウトラインを開く',
-      onclick: () => setClosed(false, true),
-    },
-    '‹ アウトライン',
-  )
+  /** 本文の欄とアウトラインのリストの境のつまみ。 */
+  const handle = h('button', {
+    class: 'side-handle',
+    type: 'button',
+    onclick: () => setClosed(!work.classList.contains('side-closed')),
+  })
   const work = h(
     'div',
     { class: 'work' },
     paper,
+    handle,
     h(
       'div',
       { class: 'work-side' },
-      openButton,
-      outlineList(options.id, options.outline, closeButton),
+      outlineList(options.id, options.outline),
       options.exportButton(),
     ),
   )
-  setClosed(loadOutlineClosed(), false)
+  setClosed(loadOutlineClosed())
 
   replace(
     container,

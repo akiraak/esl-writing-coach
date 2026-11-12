@@ -292,20 +292,19 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .work-side { display: flex; flex-direction: column; gap: .8rem; min-height: 0; }
 .work-side .struct { flex: 1; }
 .work-side .next-step { align-self: flex-end; }
-/* アウトラインのリストを右に閉じる（draft.ts。閉じると細い帯になり、本文の欄が広がる） */
-.struct h4 { align-items: baseline; gap: .5rem; }
-.struct h4 span { margin-right: auto; }
-.struct-toggle { font: inherit; font-size: 11px; letter-spacing: 0; font-weight: 600; color: var(--brand); background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap; }
-.struct-toggle:hover { text-decoration: underline; }
-.struct-open { display: none; }
-.work.side-closed { grid-template-columns: 1fr 34px; }
-.work.side-closed .struct, .work.side-closed .work-side .next-step { display: none; }
-.work.side-closed .struct-open {
-  display: block; flex: 1; writing-mode: vertical-rl; font: inherit; font-size: 12px; font-weight: 600; letter-spacing: .08em;
-  color: var(--brand); background: var(--card); border: 0; border-radius: 12px; box-shadow: var(--shadow);
-  padding: .8rem 0; cursor: pointer; text-align: start;
+/* 本文の欄とアウトラインのリストの境のつまみ（draft.ts。押すとリストを右に閉じる・開く。形は右ペインの境のつまみと同じ） */
+.work { position: relative; }
+.side-handle {
+  position: absolute; top: 50%; right: 250px; box-sizing: border-box; width: .8rem; height: 53px; transform: translateY(-50%); z-index: 2;
+  display: flex; align-items: center; justify-content: center; padding: 0 0 2px;
+  font: inherit; font-size: 13px; line-height: 1; color: var(--soft);
+  background: var(--card); border: 1px solid var(--line); border-radius: 7px; box-shadow: var(--shadow); cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
 }
-.work.side-closed .struct-open:hover { background: var(--brand-soft); }
+.side-handle:hover, .side-handle:focus-visible { background: var(--brand); border-color: var(--brand); color: #fff; outline: none; }
+.work.side-closed { grid-template-columns: 1fr; padding-right: calc(.8rem + 4px); }
+.work.side-closed .work-side { display: none; }
+.work.side-closed .side-handle { right: 0; }
 /* 本文の欄。紙のノートのような横罫を背景に敷く（daily-note と同じ作り。要素を重ねないので本文・選択・IME・挿入に触らない）
    - 罫線の間隔は 1 行の高さそのもの（--paper-row）。端数があると行ごとにずれるので整数 px（17px × 1.95 ≒ 33px）
    - local: 本文と一緒にスクロールさせる（Firefox は効かないので下の @supports と draft.ts の followRules）
@@ -411,10 +410,19 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .drawer-x:hover { background: var(--line-soft); color: var(--ink); }
 .top .btn.on { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
 /* 右ペインの幅を変える境（右ペインの左端。引き出しより上） */
-.pane-resizer { position: absolute; top: 0; bottom: 0; right: calc(var(--right) - 4px); width: 8px; cursor: col-resize; z-index: 6; touch-action: none; }
-.pane-resizer::after { content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; transition: background .15s; }
+.pane-resizer { position: absolute; top: 0; bottom: 0; right: calc(var(--right) - 6px); width: 13px; cursor: col-resize; z-index: 6; touch-action: none; }
+.pane-resizer::after { content: ''; position: absolute; top: 0; bottom: 0; left: 5px; width: 2px; background: transparent; transition: background .15s; }
 .pane-resizer:hover::after, .pane-resizer.drag::after, .pane-resizer:focus-visible::after { background: var(--brand); }
-.pane-resizer:focus { outline: none; }
+/* 境の中央のつまみ（幅を変えられることが分かるように、いつも出す。点 3 つ） */
+.pane-resizer::before {
+  content: ''; position: absolute; z-index: 1; top: 50%; left: 0; box-sizing: border-box; width: 13px; height: 53px;
+  transform: translateY(-50%); padding: 12px 0; border: 1px solid var(--line); border-radius: 7px; box-shadow: var(--shadow);
+  background: radial-gradient(circle, var(--faint) 1.5px, transparent 2px) center / 100% 9px repeat-y content-box, var(--card);
+}
+.pane-resizer:hover::before, .pane-resizer.drag::before, .pane-resizer:focus-visible::before {
+  border-color: var(--brand);
+  background: radial-gradient(circle, #fff 1.5px, transparent 2px) center / 100% 9px repeat-y content-box, var(--brand);
+}
 body.resizing { cursor: col-resize; user-select: none; }
 /* 学習ガイドのタブの、段階ごとのおすすめの印 */
 .gtab-rec { margin-left: .25rem; font-size: 9px; color: var(--brand); vertical-align: middle; }
