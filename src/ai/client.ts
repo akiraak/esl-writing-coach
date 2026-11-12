@@ -2,7 +2,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { registerSecret } from '../log.js'
 import type { IdeaSuggestions, OutlineReview, ThemeSuggestion } from '../shared/ideas.js'
 import {
-  buildDraftChatPrompt,
+  buildDraftChatMessages,
+  type ChatMessage,
   DRAFT_CHAT_SCHEMA,
   DRAFT_CHAT_SYSTEM,
   type DraftChatInput,
@@ -98,7 +99,8 @@ function describeApiError(error: unknown): string {
 
 interface JsonRequest {
   system: string
-  user: string
+  /** ユーザーのメッセージ 1 つ。続きの会話（「AI に質問」）のときはメッセージの並び。 */
+  user: string | ChatMessage[]
   schema: { [key: string]: unknown }
   effort: 'medium' | 'high'
 }
@@ -122,7 +124,10 @@ export function createAi(apiKey: string): Ai {
           format: { type: 'json_schema', schema: request.schema },
         },
         system: request.system,
-        messages: [{ role: 'user', content: request.user }],
+        messages:
+          typeof request.user === 'string'
+            ? [{ role: 'user', content: request.user }]
+            : request.user,
       })
     } catch (error) {
       throw new AiApiError(describeApiError(error))
@@ -188,7 +193,7 @@ export function createAi(apiKey: string): Ai {
     async answerDraftQuestion(input) {
       const { text } = await callJson({
         system: DRAFT_CHAT_SYSTEM,
-        user: buildDraftChatPrompt(input),
+        user: buildDraftChatMessages(input),
         schema: DRAFT_CHAT_SCHEMA,
         effort: 'medium',
       })
