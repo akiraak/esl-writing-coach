@@ -111,7 +111,7 @@ export function createDraftChatPanel(options: DraftChatPanelOptions): { card: Ai
           { class: 'muted ai-card-desc' },
           '語・文法・表現の違い、下書きのこの文は合っているか、書き方など、自由に聞けます。答えには英文（直した文・例文）も出ます。',
         ),
-        sends: '下書き・課題・語数と文数・質問',
+        sends: '下書き・タイトル・課題・語数と文数・質問',
         after: [box.el, message, resetRow],
       }),
       whenLabel: () => when.create('row'),

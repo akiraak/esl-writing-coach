@@ -49,6 +49,7 @@ describe('プロンプト', () => {
     assert.ok(SYSTEM_PROMPT.includes('段落全体を書き直した文は、どこにも書かないでください'))
     assert.ok(SYSTEM_PROMPT.includes('findings には挙げず、spellings にまとめて全部挙げます'))
     assert.ok(OUTPUT_SCHEMA.required.includes('spellings'))
+    assert.ok(SYSTEM_PROMPT.includes('生徒のタイトル（本文とは別に渡します）も見ます'))
     assert.deepEqual(OUTPUT_SCHEMA.properties.findings.items.required, [
       'criterion',
       'quote',
@@ -66,7 +67,13 @@ describe('プロンプト', () => {
     const assignment = parseAssignment(
       '# Should students wear uniforms?\n\n- 語数: 120-150\n- 文数: 8-\n\n## 条件\n\n理由を 3 つ挙げる。\n',
     )
-    const prompt = buildUserPrompt({ assignment, draft: 'I agree. Uniforms are good.\n' })
+    const prompt = buildUserPrompt({
+      assignment,
+      draft: 'I agree. Uniforms are good.\n',
+      title: ' Uniforms at School \n',
+    })
+    // タイトルは本文とは別に渡し、語数・文数には数えない
+    assert.ok(prompt.includes('## 生徒のタイトル\n<title>Uniforms at School</title>'))
     assert.ok(prompt.includes('テーマ: Should students wear uniforms?'))
     assert.ok(prompt.includes('語数の指定: 120–150 語'))
     assert.ok(prompt.includes('文数の指定: 8 文以上'))
@@ -77,7 +84,8 @@ describe('プロンプト', () => {
   })
 
   it('指定・条件が無ければそう書く', () => {
-    const prompt = buildUserPrompt({ assignment: parseAssignment(''), draft: 'x' })
+    const prompt = buildUserPrompt({ assignment: parseAssignment(''), draft: 'x', title: '' })
+    assert.ok(prompt.includes('## 生徒のタイトル\n（なし）'))
     assert.ok(prompt.includes('テーマ: （未入力）'))
     assert.ok(prompt.includes('語数の指定: 指定なし'))
     assert.ok(prompt.includes('構成や表現の条件: （なし）'))
@@ -161,6 +169,8 @@ describe('parseFeedback（feedback.json）', () => {
     const fb = parseFeedback(text)
     assert.equal(fb?.total, 78)
     assert.equal(fb?.draft, 'I agree.')
+    // タイトルの無い古い結果は空として読む
+    assert.equal(fb?.title, '')
     assert.equal(fb?.findings.length, 1)
     assert.equal(fb?.findings[0]?.fix, 'he goes')
     // fix の無い古い結果は空として読む

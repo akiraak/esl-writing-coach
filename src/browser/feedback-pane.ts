@@ -1,3 +1,4 @@
+import { titleLine } from '../shared/export.js'
 import { CRITERIA, criterionOf, type Feedback } from '../shared/feedback.js'
 import { type AiCard, cardFrame, whenLabels } from './ai-pane.js'
 import { readFeedback, scoreParagraph } from './api.js'
@@ -18,6 +19,8 @@ export interface FeedbackPanelOptions {
   id: string
   /** 手元の最新の下書き。 */
   draftText(): string
+  /** 手元の最新のタイトル。 */
+  titleText(): string
   /**
    * 採点の前に全部の段階を保存し終える。下書きを保存できなかった・競合しているなら、理由の文を返す（採点しない）。
    */
@@ -53,7 +56,7 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
       when: when.create('head'),
       desc: note,
       button,
-      sends: '下書き・課題・語数と文数',
+      sends: '下書き・タイトル・課題・語数と文数',
       after: [message, stale, empty, fold],
     }),
     whenLabel: () => when.create('row'),
@@ -81,8 +84,10 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
     replace(message, error)
     replace(
       stale,
-      feedback !== null && feedback.draft.trim() !== options.draftText().trim()
-        ? '採点した後に本文が変わっています。直したらもう一度採点できます。'
+      feedback !== null &&
+        (feedback.draft.trim() !== options.draftText().trim() ||
+          feedback.title !== titleLine(options.titleText()))
+        ? '採点した後に本文かタイトルが変わっています。直したらもう一度採点できます。'
         : '',
     )
   }

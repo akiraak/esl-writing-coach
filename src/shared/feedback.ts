@@ -60,6 +60,8 @@ export interface Feedback {
   model: string
   /** 採点した下書きの本文。 */
   draft: string
+  /** 採点したときのタイトル（STEP 3 のタイトルの欄。古い結果には無いので空）。 */
+  title: string
   total: number
   scores: Record<CriterionKey, CriterionScore>
   /** よかった点（日本語）。 */
@@ -123,6 +125,7 @@ export function parseFeedback(text: string): Feedback | null {
     scoredAt: typeof value['scoredAt'] === 'string' ? value['scoredAt'] : '',
     model: typeof value['model'] === 'string' ? value['model'] : '',
     draft: typeof value['draft'] === 'string' ? value['draft'] : '',
+    title: typeof value['title'] === 'string' ? value['title'] : '',
     total: totalOf(scores),
     scores,
     strengths: strings(value['strengths']),

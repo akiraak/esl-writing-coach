@@ -340,6 +340,15 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
   }
 }
 .paper:focus { outline: none; border-color: var(--brand); }
+/* 本文の欄の上のタイトル（draft.ts。1 行。提出用のファイルの中央のタイトルになる） */
+.work-main { display: flex; flex-direction: column; gap: .6rem; min-width: 0; min-height: 0; }
+.work-main .paper { flex: 1; height: auto; }
+.draft-title {
+  width: 100%; border: 1px solid transparent; border-radius: 12px; box-shadow: var(--shadow); background: var(--card);
+  padding: .5rem 1.3rem; text-align: center; color: var(--ink); font-family: var(--serif); font-size: 18px; font-weight: 600;
+}
+.draft-title:focus { outline: none; border-color: var(--brand); }
+.draft-title::placeholder { color: var(--faint); font-weight: 400; }
 .paper::placeholder { color: var(--faint); }
 /* 本文の欄の高さに収める（「書き出し →」の分を引いた残り）。中身の長さで欄ごと伸ばさないよう contain: size にして、長ければ中でスクロール */
 .struct { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: .8rem .8rem 1rem; font-size: 12.5px; overflow: auto; contain: size; }
@@ -363,7 +372,9 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .ai-tabs[hidden], .ai-step[hidden] { display: none; }
 /* 日本語訳（translation-pane.ts）。文ごとに英文 → 訳 */
 .tr-list { margin: .1rem 0 0; padding-left: 1.4rem; display: flex; flex-direction: column; gap: .65rem; font-size: 12px; color: var(--faint); }
-.tr-list[hidden] { display: none; }
+.tr-list[hidden], .tr-title[hidden] { display: none; }
+.tr-title { padding-left: 1.4rem; }
+.tr-title small { display: block; font-size: 11px; color: var(--faint); }
 .tr-en { margin: 0; font-family: var(--serif); font-size: 14px; line-height: 1.5; color: var(--soft); }
 .tr-ja { margin: .15rem 0 0; font-size: 13.5px; line-height: 1.7; color: var(--ink); }
 .tr-ja.muted { color: var(--faint); font-size: 12px; }

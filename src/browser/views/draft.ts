@@ -4,6 +4,7 @@ import { phraseToInsert } from '../../shared/insert.js'
 import { meterOf } from '../../shared/meter.js'
 import { outlineRoles } from '../../shared/outline-roles.js'
 import { routeHash } from '../../shared/route.js'
+import { MAX_TITLE_LENGTH } from '../../shared/types.js'
 import { h, replace } from '../dom.js'
 import { setPhraseTarget } from '../phrase-target.js'
 import { roleNodes } from '../role-list.js'
@@ -14,6 +15,7 @@ import { assignmentBrief } from './brief.js'
  * STEP 3 下書き・推敲（`draft.txt`。英語のみ）。モックの編集画面（`decided.html`）。
  *
  * - 上: 語数・文数のメーター（課題の指定の幅を帯で示す）と課題の帯。日本語が混じっていれば注意
+ * - タイトルの欄（1 行。下書きの本文とは別の項目で、語数・文数には数えない。`docs/plans/archive/draft-title.md`）
  * - 下: 本文の欄と、右にアウトラインを構成の役割の色で並べたリスト（見るだけ。役割は `outline-roles.ts`）と「書き出し →」
  * - 本文の欄とアウトラインのリストの境のつまみを押すと、リストを右に閉じて本文の欄を広げられる（もう一度押すと開く。
  *   開閉はブラウザに覚える。`docs/plans/archive/draft-outline-toggle.md`・`boundary-handles.md`）。
@@ -24,6 +26,8 @@ import { assignmentBrief } from './brief.js'
 export interface DraftViewOptions {
   id: string
   editor: StageEditor
+  /** タイトル（下書きの本文とは別に保存する 1 行）。 */
+  title: StageEditor
   assignment: Assignment
   /** 手元の最新のアウトライン（字下げのテキスト）。 */
   outline: string
@@ -155,11 +159,35 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
   const sentences = meterBox('文', assignment.sentences)
   const warn = h('p', { class: 'draft-warn' })
 
-  const refresh = (text: string) => {
+  // 語数・文数は本文だけ（タイトルは数えない）。日本語の注意はタイトルも見る
+  const refresh = () => {
+    const text = paper.value
     words.update(countWords(text))
     sentences.update(countSentences(text))
-    replace(warn, hasJapanese(text) ? '日本語が混じっています。下書きは英語だけで書きます。' : '')
+    replace(
+      warn,
+      hasJapanese(text)
+        ? '日本語が混じっています。下書きは英語だけで書きます。'
+        : hasJapanese(titleInput.value)
+          ? 'タイトルに日本語が混じっています。タイトルも英語で書きます。'
+          : '',
+    )
   }
+
+  const titleInput = h('input', {
+    class: 'draft-title',
+    type: 'text',
+    lang: 'en',
+    maxlength: MAX_TITLE_LENGTH,
+    placeholder: 'Title',
+    'aria-label': 'タイトル（英語）',
+    title: 'タイトル（提出用のファイルの中央のタイトルになる。語数・文数には数えない）',
+    oninput: () => {
+      refresh()
+      options.title.update(titleInput.value)
+    },
+  })
+  titleInput.value = options.title.text
 
   const paper = h('textarea', {
     class: 'paper',
@@ -167,12 +195,12 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
     placeholder: 'In my opinion, …',
     'aria-label': '下書きの本文（英語）',
     oninput: () => {
-      refresh(paper.value)
+      refresh()
       options.editor.update(paper.value)
     },
   })
   paper.value = options.editor.text
-  refresh(paper.value)
+  refresh()
   // 右ペインの表現集から、カーソルの位置に入れられるようにする
   const unregister = setPhraseTarget((phrase) => insertAtCursor(paper, phrase))
 
@@ -195,7 +223,7 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
   const work = h(
     'div',
     { class: 'work' },
-    paper,
+    h('div', { class: 'work-main' }, titleInput, paper),
     handle,
     h(
       'div',

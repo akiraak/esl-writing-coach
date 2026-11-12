@@ -1,5 +1,6 @@
 import type { Assignment } from '../shared/assignment.js'
 import { countSentences, countWords } from '../shared/counting.js'
+import { titleLine } from '../shared/export.js'
 import {
   CRITERIA,
   CRITERION_KEYS,
@@ -52,6 +53,7 @@ export const SYSTEM_PROMPT = [
   '- 段落全体を書き直した文は、どこにも書かないでください。',
   '- 指摘の quote には、問題のある箇所を生徒の本文から**1 文字も変えずに**（誤りもそのまま）短く（15 語まで）抜き出します。誤りを直した形で引用してはいけません（直した形は fix に書きます）。本文全体や構成についての指摘で特定の箇所が無いときは空文字にします。',
   '- **綴りの誤り（誤字）は、findings には挙げず、spellings にまとめて全部挙げます**。wrong は本文の綴りを 1 文字も変えずに（1 語ずつ）、right はその正しい綴りです。同じ誤りは 1 回だけ、本文に出てくる順に挙げます。綴りの誤りが無ければ空の配列にします。文法の誤り（動詞の形・単数と複数など）や語の選び方は綴りの誤りではないので、findings に挙げます。綴りの誤りの多さは文法（grammar）の点数に反映します。',
+  '- 生徒のタイトル（本文とは別に渡します）も見ます。タイトルの綴りの誤りは spellings に、内容に合っていない・文になっているなどの問題は findings に挙げます（quote はタイトルから抜き出してかまいません）。点数は本文で付け、語数・文数にタイトルは数えません。タイトルが無いことは、課題の条件で求められていない限り指摘しません。',
   '- 指摘は大事なものから、多くても 10 個まで。同じ種類の誤りが何度もあるときは 1 つにまとめ、ヒントで「ほかにもある」と伝えます。',
   '- 本文に日本語が混じっていれば、課題の条件（requirements）の指摘として必ず挙げます。',
   '- 観点ごとの comment は日本語 1〜2 文。よかった点（strengths）は具体的に 1〜3 個、日本語で。',
@@ -61,9 +63,11 @@ export const SYSTEM_PROMPT = [
 export interface ScoringInput {
   assignment: Assignment
   draft: string
+  /** STEP 3 のタイトル（空でもよい）。 */
+  title: string
 }
 
-/** ユーザーのメッセージ（課題・アプリが数えた値・本文）。 */
+/** ユーザーのメッセージ（課題・アプリが数えた値・タイトル・本文）。 */
 export function buildUserPrompt(input: ScoringInput): string {
   const { assignment, draft } = input
   const words = describeRange(assignment.words, '語') ?? '指定なし'
@@ -78,6 +82,9 @@ export function buildUserPrompt(input: ScoringInput): string {
     '## アプリが数えた値',
     `- 語数: ${countWords(draft)}`,
     `- 文数: ${countSentences(draft)}`,
+    '',
+    '## 生徒のタイトル',
+    titleLine(input.title) === '' ? '（なし）' : `<title>${titleLine(input.title)}</title>`,
     '',
     '## 生徒の本文',
     '<paragraph>',

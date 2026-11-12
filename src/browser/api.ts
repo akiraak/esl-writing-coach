@@ -11,10 +11,10 @@ import type { ReviewEntry } from '../shared/review.js'
 import type { Translation } from '../shared/translation.js'
 import type {
   ApiErrorBody,
+  Doc,
   ParagraphListItem,
   SaveBase,
   SavedStage,
-  Stage,
   StageContent,
 } from '../shared/types.js'
 
@@ -52,7 +52,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return json as T
 }
 
-const stagePath = (id: string, stage: Stage) =>
+const stagePath = (id: string, stage: Doc) =>
   `/api/paragraphs/${encodeURIComponent(id)}/stages/${stage}`
 
 export async function listParagraphs(): Promise<ParagraphListItem[]> {
@@ -67,14 +67,14 @@ export async function deleteParagraph(id: string): Promise<void> {
   await request<void>('DELETE', `/api/paragraphs/${encodeURIComponent(id)}`)
 }
 
-export async function readStage(id: string, stage: Stage): Promise<StageContent> {
+export async function readStage(id: string, stage: Doc): Promise<StageContent> {
   return request<StageContent>('GET', stagePath(id, stage))
 }
 
 /** 競合なら `ApiError`（`isConflict`）。 */
 export async function saveStage(
   id: string,
-  stage: Stage,
+  stage: Doc,
   text: string,
   base: SaveBase,
 ): Promise<SavedStage> {

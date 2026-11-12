@@ -1,5 +1,6 @@
 import type { Assignment } from '../shared/assignment.js'
 import { countSentences, countWords } from '../shared/counting.js'
+import { titleLine } from '../shared/export.js'
 import type { AiQuestion } from '../shared/ideas.js'
 import { describeRange } from '../shared/stage-summary.js'
 import { AiOutputError } from './errors.js'
@@ -7,7 +8,7 @@ import { AiOutputError } from './errors.js'
 /**
  * STEP 3 の「AI に質問」のプロンプトと出力の検証（`docs/plans/archive/draft-chat.md`）。純関数。
  *
- * - 送るのは、保存されている下書き・課題（テーマ・条件・語数と文数の指定）・アプリが数えた語数と文数・
+ * - 送るのは、保存されている下書きとタイトル・課題（テーマ・条件・語数と文数の指定）・アプリが数えた語数と文数・
  *   それまでの質問と答え・今回の質問（アウトライン・AI案の結果は送らない）。下書きが空でも聞ける
  * - 日本語で短く説明する。**英語は制限しない**（2026-11-11 ユーザーの決定）: 直した文・書き換えた文・例文も、
  *   質問に答えるのに要れば出してよい。アプリのほかの AI（AI案・AI案への質問）の「直した文は出さない」は
@@ -27,7 +28,7 @@ export const DRAFT_CHAT_SYSTEM = [
   'あなたは英語を第二言語として学ぶ日本人の大人を教える ESL のライティングの先生です。',
   '生徒は授業の課題で opinion paragraph（英語の 1 段落で、自分の意見と理由を述べる）の下書きを書いている途中です。',
   '生徒が日本語で自由に質問するので、答えます（語・文法・表現の違い、自分の下書きについて、opinion paragraph の書き方など）。',
-  '最初のメッセージで、生徒の下書き・課題・アプリが数えた語数と文数を渡します。そのあとに、それまでの質問とあなたの答えが続きます。',
+  '最初のメッセージで、生徒の下書きとタイトル（本文とは別の欄に書く 1 行。語数・文数には数えません）・課題・アプリが数えた語数と文数を渡します。そのあとに、それまでの質問とあなたの答えが続きます。',
   '',
   '## 守ること',
   `- 説明は**日本語で**、短く書きます。狭い欄で読むので、**本文は 2〜4 文**、箇条書きを使うなら **3 つまで**（1 つ 1 行）にします。全体で 300 字ほど、長くても ${DRAFT_ANSWER_TARGET_LENGTH} 字以内。`,
@@ -49,6 +50,8 @@ export interface DraftChatInput {
   assignment: Assignment
   /** 保存されている下書き（空でもよい）。 */
   draft: string
+  /** STEP 3 のタイトル（空でもよい）。 */
+  title: string
   /** それまでの質問と答え（古い順）。 */
   history: readonly AiQuestion[]
   question: string
@@ -78,6 +81,11 @@ export function buildDraftChatMessages(input: DraftChatInput): ChatMessage[] {
     '## アプリが数えた値',
     `- 語数: ${countWords(draft)}`,
     `- 文数: ${countSentences(draft)}`,
+    '',
+    '## 生徒のタイトル（今の時点）',
+    titleLine(input.title) === ''
+      ? '（まだ書いていません）'
+      : `<title>${titleLine(input.title)}</title>`,
     '',
     '## 生徒の下書き（今の時点）',
     ...(draft === '' ? ['（まだ書いていません）'] : ['<paragraph>', draft, '</paragraph>']),

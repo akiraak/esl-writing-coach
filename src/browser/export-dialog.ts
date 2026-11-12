@@ -1,7 +1,7 @@
 import { countSentences, countWords, hasJapanese } from '../shared/counting.js'
 import { documentOf, formatSubmissionDate } from '../shared/document.js'
 import { buildDocx, DOCX_MIME, docxFileName } from '../shared/docx.js'
-import { exportFileName, plainTextOf } from '../shared/export.js'
+import { exportFileName, plainTextOf, titleLine } from '../shared/export.js'
 import { h, replace } from './dom.js'
 import { printDocument } from './print.js'
 
@@ -9,14 +9,16 @@ import { printDocument } from './print.js'
  * 下書きの書き出しのダイアログ（`docs/plans/archive/export-plain-text.md`・`docx-pdf-export.md`）。
  *
  * - 書き出す本文を確かめてから、提出用のファイル（.docx・PDF）かプレーンテキスト（コピー・.txt）
+ * - タイトル（STEP 3 のタイトルの欄）は提出用のファイルの中央のタイトルと、プレーンテキストの 1 行目に入れる。
+ *   課題のテーマは出さない（`docs/plans/archive/draft-title.md`）
  * - 提出用のファイルは名前・クラス・日付（任意）を左上に入れる。名前とクラスはこのブラウザに覚えておく（消えても困らない便利のため）
  * - 本文はブラウザの中で出すだけで、サーバへは送らない
  */
 
 export interface ExportOptions {
   id: string
-  /** 課題のテーマ（提出用のファイルのタイトル）。 */
-  theme: string
+  /** 手元の最新のタイトル（STEP 3 のタイトルの欄。空でもよい）。 */
+  title: string
   /** 手元の最新の下書き（まだ保存していない分も含む）。 */
   text: string
 }
@@ -53,12 +55,18 @@ function download(bytes: BlobPart, type: string, fileName: string): void {
 }
 
 export function openExportDialog(app: HTMLElement, options: ExportOptions): void {
-  const text = plainTextOf(options.text)
+  const text = plainTextOf(options.text, options.title)
+  /** 本文だけ（語数・文数はタイトルを数えない）。 */
+  const body = plainTextOf(options.text)
   const empty = text === ''
+  const noTitle = titleLine(options.title) === ''
   const done = h('span', { class: 'muted export-done' })
   const notes = [
     empty ? '下書きがまだ空です。' : null,
     !empty && hasJapanese(text) ? '日本語が混じっています。下書きは英語だけで書きます。' : null,
+    !empty && noTitle
+      ? 'タイトルがまだありません（STEP 3 のタイトルの欄）。タイトルなしで書き出します。'
+      : null,
   ].filter((note) => note !== null)
 
   const remembered = loadRemembered()
@@ -73,7 +81,7 @@ export function openExportDialog(app: HTMLElement, options: ExportOptions): void
   const submission = () => {
     remember(name.input.value.trim(), klass.input.value.trim())
     return documentOf({
-      theme: options.theme,
+      title: options.title,
       draft: options.text,
       name: name.input.value,
       klass: klass.input.value,
@@ -97,7 +105,7 @@ export function openExportDialog(app: HTMLElement, options: ExportOptions): void
       h(
         'p',
         { class: 'muted export-meta' },
-        empty ? '' : `${countWords(text)} 語 ・ ${countSentences(text)} 文`,
+        empty ? '' : `${countWords(body)} 語 ・ ${countSentences(body)} 文（タイトルは数えません）`,
       ),
       ...notes.map((note) => h('p', { class: 'error' }, note)),
       empty ? null : h('pre', { class: 'export-preview', lang: 'en' }, text),
@@ -108,7 +116,7 @@ export function openExportDialog(app: HTMLElement, options: ExportOptions): void
         h(
           'p',
           { class: 'muted export-hint' },
-          '左上に名前・クラス・日付（入れたものだけ）、テーマをタイトルに。A4・Times New Roman 12pt・行間 2 行。PDF は印刷の画面で「PDF に保存」を選ぶ。',
+          '左上に名前・クラス・日付（入れたものだけ）、1 行空けて中央にタイトル（課題のテーマは出しません）。A4・Times New Roman 12pt・行間 2 行。PDF は印刷の画面で「PDF に保存」を選ぶ。',
         ),
         h('div', { class: 'sub-fields' }, name.el, klass.el, date.el),
         h('div', { class: 'export-buttons' }, docx, pdf),
@@ -117,6 +125,7 @@ export function openExportDialog(app: HTMLElement, options: ExportOptions): void
         'section',
         { class: 'export-section' },
         h('h3', {}, 'プレーンテキスト'),
+        h('p', { class: 'muted export-hint' }, 'タイトルがあれば 1 行目に入れ、1 行空けて本文。'),
         h('div', { class: 'export-buttons' }, copy, txt),
       ),
       h('div', { class: 'actions' }, done, close),

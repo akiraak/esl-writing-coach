@@ -6,15 +6,16 @@ import { dropUnknownSpellings, dropUnquotable } from '../ai/scoring.js'
 import { describeError, log } from '../log.js'
 import { isParagraphId } from '../paragraphs/naming.js'
 import {
+  DOCS,
+  type Doc,
   InvalidParagraphIdError,
   ParagraphNotFoundError,
   type ParagraphStore,
-  STAGES,
-  type Stage,
   StageConflictError,
 } from '../paragraphs/store.js'
 import { emptyAssignment, parseAssignment, serializeAssignment } from '../shared/assignment.js'
 import { splitSentences } from '../shared/counting.js'
+import { titleLine } from '../shared/export.js'
 import { type Feedback, parseFeedback, totalOf } from '../shared/feedback.js'
 import {
   AI_KINDS,
@@ -28,6 +29,7 @@ import {
 } from '../shared/ideas.js'
 import type { ReviewEntry } from '../shared/review.js'
 import { parseTranslation, type Translation } from '../shared/translation.js'
+import { MAX_TITLE_LENGTH } from '../shared/types.js'
 
 /**
  * JSON の API（`/api/...`）。保存層（`src/paragraphs/store.ts`。SQLite）をそのまま呼ぶ。
@@ -37,10 +39,10 @@ import { parseTranslation, type Translation } from '../shared/translation.js'
  * | `GET /api/paragraphs` | 一覧（各項目に課題のテーマ `theme` を足す） |
  * | `POST /api/paragraphs` `{ theme }` | 新規作成（テーマだけを入れた課題も書く）→ `{ id }` |
  * | `DELETE /api/paragraphs/:id` | 削除（印を付けるだけ） |
- * | `GET /api/paragraphs/:id/stages/:stage` | 段階 → `{ text, rev }` |
+ * | `GET /api/paragraphs/:id/stages/:stage` | 段階 → `{ text, rev }`（`:stage` は 3 つの段階と、STEP 3 のタイトル `title`） |
  * | `PUT /api/paragraphs/:id/stages/:stage` `{ text, rev }` | 保存 → `{ rev, updatedAt }`。競合は 409 |
  * | `GET /api/paragraphs/:id/feedback` | AI の採点の結果 → `{ feedback, aiConfigured }`（無ければ `feedback: null`） |
- * | `POST /api/paragraphs/:id/feedback` | 保存されている下書きを AI で採点し、保存して返す → `{ feedback }` |
+ * | `POST /api/paragraphs/:id/feedback` | 保存されている下書き（とタイトル）を AI で採点し、保存して返す → `{ feedback }` |
  * | `GET /api/paragraphs/:id/translation` | 下書きの日本語訳 → `{ translation, aiConfigured }`（無ければ `translation: null`） |
  * | `POST /api/paragraphs/:id/translation` | 保存されている下書きを文ごとに日本語に訳し（直訳に近く）、保存して返す → `{ translation }` |
  * | `GET /api/paragraphs/:id/ai` | AI案（種類ごとの最新の 1 回分と、出したときの入力・質問と答え）と「AI に質問」のやりとり → `SavedAiResults` |
@@ -114,8 +116,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function parseStage(raw: string): Stage {
-  const stage = STAGES.find((s) => s === raw)
+function parseStage(raw: string): Doc {
+  const stage = DOCS.find((s) => s === raw)
   if (stage === undefined) throw new HttpError(400, 'bad_stage', `段階が不正です: ${raw}`)
   return stage
 }
@@ -279,6 +281,7 @@ async function askDraftQuestion(
   const answer = await ai.answerDraftQuestion({
     assignment: parseAssignment(store.readStage(id, 'assignment').text),
     draft: store.readStage(id, 'draft').text,
+    title: titleLine(store.readStage(id, 'title').text),
     history,
     question,
   })
@@ -303,20 +306,25 @@ async function scoreParagraph(id: string, options: ApiOptions): Promise<Feedback
   const assignment = store.readStage(id, 'assignment')
   const draft = store.readStage(id, 'draft')
   if (draft.text.trim() === '') throw new HttpError(400, 'empty_draft', '下書きが空です')
+  const title = titleLine(store.readStage(id, 'title').text)
   const { output, model } = await ai.score({
     assignment: parseAssignment(assignment.text),
     draft: draft.text,
+    title,
   })
+  // 引用・綴りはタイトルからでもよい
+  const written = `${title}\n${draft.text}`
   const feedback: Feedback = {
     version: 1,
     scoredAt: nowOf(options),
     model,
     draft: draft.text,
+    title,
     total: totalOf(output.scores),
     ...output,
     // 本文に無い引用（直した形で引用されたもの）は消す
-    findings: dropUnquotable(output.findings, draft.text),
-    spellings: dropUnknownSpellings(output.spellings, draft.text),
+    findings: dropUnquotable(output.findings, written),
+    spellings: dropUnknownSpellings(output.spellings, written),
   }
   // 最新の 1 回分だけを持つ
   store.saveFeedback(id, JSON.stringify(feedback))
@@ -331,12 +339,14 @@ async function translateParagraph(id: string, options: ApiOptions): Promise<Tran
   const draft = store.readStage(id, 'draft').text
   const sentences = splitSentences(draft)
   if (sentences.length === 0) throw new HttpError(400, 'empty_draft', '下書きが空です')
-  const ja = await ai.translate(draft, sentences)
+  const title = titleLine(store.readStage(id, 'title').text)
+  const translated = await ai.translate({ title, draft, sentences })
   const translation: Translation = {
     version: 1,
     translatedAt: nowOf(options),
     draft,
-    sentences: sentences.map((en, i) => ({ en, ja: ja[i] ?? '' })),
+    title: title === '' ? null : { en: title, ja: translated.title },
+    sentences: sentences.map((en, i) => ({ en, ja: translated.sentences[i] ?? '' })),
   }
   // 最新の 1 回分だけを持つ
   store.saveTranslation(id, JSON.stringify(translation))
@@ -409,8 +419,13 @@ export async function handleApi(
         if (rev !== null && (typeof rev !== 'string' || rev === '')) {
           throw new HttpError(400, 'bad_rev', 'rev が不正です')
         }
-        const saved = store.saveStage(id, stage, body['text'], rev)
-        log.info(`保存: ${id}/${stage}（${body['text'].length} 文字）`)
+        // タイトルは 1 行（改行は空白に直す）
+        const text =
+          stage === 'title'
+            ? body['text'].replace(/\s*[\r\n]+\s*/g, ' ').slice(0, MAX_TITLE_LENGTH)
+            : body['text']
+        const saved = store.saveStage(id, stage, text, rev)
+        log.info(`保存: ${id}/${stage}（${text.length} 文字）`)
         sendJson(res, 200, saved)
         return
       }

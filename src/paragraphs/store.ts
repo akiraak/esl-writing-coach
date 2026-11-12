@@ -2,16 +2,19 @@ import type { DatabaseSync } from 'node:sqlite'
 import { parseAssignment } from '../shared/assignment.js'
 import { AI_KINDS, type AiKind, type AiQuestion } from '../shared/ideas.js'
 import {
+  DOCS,
+  type Doc,
   type ParagraphListItem,
   type SavedStage,
   STAGES,
-  type Stage,
   type StageContent,
 } from '../shared/types.js'
 import { transaction } from './database.js'
 import { dateOfParagraphId, isParagraphId, paragraphIdCandidate } from './naming.js'
 
 export {
+  DOCS,
+  type Doc,
   type ParagraphListItem,
   type SavedStage,
   STAGES,
@@ -27,6 +30,7 @@ export {
  *   `rev` が null の保存は「まだ無いときだけ作る」（タブを 2 つ開いて同時に書いたときの上書きを防ぐ）
  * - 削除は印（`deleted_at`）を付けるだけ。一覧にも読み込みにも出さず、同じ id は使い回さない
  * - 段階が「無い・空」なら未着手（一覧の進み具合）
+ * - タイトル（`title`）も段階と同じ行として持つ（`Doc`）。進み具合には数えない
  */
 
 /** id の重複を避けて試す回数の上限。 */
@@ -45,9 +49,9 @@ export class ParagraphNotFoundError extends Error {
 export class StageConflictError extends Error {
   override name = 'StageConflictError'
   readonly id: string
-  readonly stage: Stage
+  readonly stage: Doc
 
-  constructor(id: string, stage: Stage) {
+  constructor(id: string, stage: Doc) {
     super(`${id} の ${stage} は他で更新されています（上書きしていません）`)
     this.id = id
     this.stage = stage
@@ -57,8 +61,8 @@ export class StageConflictError extends Error {
 export interface ParagraphStore {
   /** 新しく保存した順（同じなら id の降順）。テーマは課題の本文から読む。 */
   listParagraphs(): ParagraphListItem[]
-  readStage(id: string, stage: Stage): StageContent
-  saveStage(id: string, stage: Stage, text: string, rev: string | null): SavedStage
+  readStage(id: string, stage: Doc): StageContent
+  saveStage(id: string, stage: Doc, text: string, rev: string | null): SavedStage
   /** パラグラフを作り、課題の本文（テーマだけ）も入れて id を返す。同名があれば `-2`, `-3` … を付ける。 */
   createParagraph(date: string, theme: string, assignmentText: string): string
   /** 印を付けて一覧から外す。既に無ければ何もしない。 */
@@ -134,11 +138,13 @@ export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {
         }
         byId.set(id, item)
       }
-      const stage = STAGES.find((s) => s === row['stage'])
-      if (stage === undefined) continue
+      const doc = DOCS.find((d) => d === row['stage'])
+      if (doc === undefined) continue
       const text = str(row['text'])
-      item.started[stage] = text !== ''
-      if (stage === 'assignment') item.theme = parseAssignment(text).theme
+      // 進み具合は 3 つの段階だけ（タイトルは数えない。更新日には反映する）
+      const stage = STAGES.find((s) => s === doc)
+      if (stage !== undefined) item.started[stage] = text !== ''
+      if (doc === 'assignment') item.theme = parseAssignment(text).theme
       const updatedAt = str(row['updated_at'])
       // ISO8601（UTC）なので文字列の大小で比べられる
       if (updatedAt > item.updatedAt) item.updatedAt = updatedAt
@@ -152,7 +158,7 @@ export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {
     'SELECT text, version FROM stages WHERE paragraph_id = ? AND stage = ?',
   )
 
-  function readStage(id: string, stage: Stage): StageContent {
+  function readStage(id: string, stage: Doc): StageContent {
     assertExists(id)
     const row = selectStage.get(id, stage)
     if (row === undefined) return { text: '', rev: null }
@@ -168,7 +174,7 @@ export function createParagraphStore(db: DatabaseSync, options: StoreOptions = {
     WHERE paragraph_id = ? AND stage = ? AND version = ?
   `)
 
-  function saveStage(id: string, stage: Stage, text: string, rev: string | null): SavedStage {
+  function saveStage(id: string, stage: Doc, text: string, rev: string | null): SavedStage {
     assertExists(id)
     const updatedAt = now()
     if (rev === null) {

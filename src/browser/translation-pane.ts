@@ -1,4 +1,5 @@
-import type { Translation } from '../shared/translation.js'
+import { titleLine } from '../shared/export.js'
+import type { TranslatedSentence, Translation } from '../shared/translation.js'
 import { type AiCard, cardFrame, whenLabels } from './ai-pane.js'
 import { readTranslation, translateParagraph } from './api.js'
 import { h, replace } from './dom.js'
@@ -17,6 +18,8 @@ export interface TranslationPanelOptions {
   id: string
   /** 手元の最新の下書き。 */
   draftText(): string
+  /** 手元の最新のタイトル。 */
+  titleText(): string
   /** 訳す前に全部の段階を保存し終える。下書きを保存できなかった・競合しているなら、理由の文を返す（訳さない）。 */
   prepare(): Promise<string | null>
 }
@@ -39,6 +42,7 @@ export function createTranslationPanel(options: TranslationPanelOptions): Transl
   const message = h('p', { class: 'error ai-error' })
   const stale = h('p', { class: 'ai-stale' })
   const empty = h('p', { class: 'muted ai-sub-note' })
+  const titleRow = h('div', { class: 'tr-title' })
   const result = h('ol', { class: 'tr-list' })
   const when = whenLabels()
   const card: AiCard = {
@@ -47,8 +51,8 @@ export function createTranslationPanel(options: TranslationPanelOptions): Transl
       when: when.create('head'),
       desc: note,
       button,
-      sends: '下書き',
-      after: [message, stale, empty, result],
+      sends: '下書き・タイトル',
+      after: [message, stale, empty, titleRow, result],
     }),
     whenLabel: () => when.create('row'),
   }
@@ -72,8 +76,10 @@ export function createTranslationPanel(options: TranslationPanelOptions): Transl
     replace(message, error)
     replace(
       stale,
-      translation !== null && translation.draft.trim() !== options.draftText().trim()
-        ? '訳した後に本文が変わっています。もう一度訳すと今の本文の訳になります。'
+      translation !== null &&
+        (translation.draft.trim() !== options.draftText().trim() ||
+          (translation.title?.en ?? '') !== titleLine(options.titleText()))
+        ? '訳した後に本文かタイトルが変わっています。もう一度訳すと今の本文の訳になります。'
         : '',
     )
   }
@@ -86,19 +92,16 @@ export function createTranslationPanel(options: TranslationPanelOptions): Transl
     )
     replace(empty, translation === null && loaded ? 'まだ訳していません。' : '')
     result.hidden = translation === null
-    replace(
-      result,
-      ...(translation?.sentences ?? []).map((s) =>
-        h(
-          'li',
-          {},
-          h('p', { class: 'tr-en', lang: 'en' }, s.en),
-          s.ja === ''
-            ? h('p', { class: 'tr-ja muted' }, '（訳がありません。もう一度訳してください）')
-            : h('p', { class: 'tr-ja' }, s.ja),
-        ),
-      ),
-    )
+    const pair = (s: TranslatedSentence) => [
+      h('p', { class: 'tr-en', lang: 'en' }, s.en),
+      s.ja === ''
+        ? h('p', { class: 'tr-ja muted' }, '（訳がありません。もう一度訳してください）')
+        : h('p', { class: 'tr-ja' }, s.ja),
+    ]
+    const title = translation?.title ?? null
+    titleRow.hidden = title === null
+    replace(titleRow, ...(title === null ? [] : [h('small', {}, 'タイトル'), ...pair(title)]))
+    replace(result, ...(translation?.sentences ?? []).map((s) => h('li', {}, ...pair(s))))
   }
 
   button.addEventListener('click', async () => {

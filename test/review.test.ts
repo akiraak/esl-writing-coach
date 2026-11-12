@@ -21,6 +21,7 @@ function feedback(
     scoredAt,
     model: 'm',
     draft: '',
+    title: '',
     total: s.reduce((a, b) => a + b, 0),
     scores,
     strengths: [],

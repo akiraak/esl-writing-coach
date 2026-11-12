@@ -21,7 +21,7 @@ ESL（英語を第二言語として学ぶ）の授業で課されるパラグ�
 |---|---|---|
 | 1. 課題 | テーマ（自分で決める）と、課題の条件（語数・文数の指定、構成や表現の条件）を入力する | 条件は日本語でも可 |
 | 2. アウトライン | マインドマップの上でアイデアを出しながら骨組みを作る。中心 = 意見（topic sentence の元）、子 = 理由、孫 = 例・詳細、最後に結論 | 日本語可 |
-| 3. 下書き・推敲 | 英語で本文を書いて直す | **英語のみ** |
+| 3. 下書き・推敲 | 英語でタイトル（1 行）と本文を書いて直す | **英語のみ** |
 
 2026-11-09、アイデア（自由テキストのメモ）の段階をなくし、最初からアウトラインを作るようにした（メモとマップに繋がりが無く、最終の目的はアウトラインのため。`docs/plans/archive/ideas-outline.md`）。
 旧 URL の `#/p/<id>/ideas` はアウトラインとして開く。
@@ -38,8 +38,14 @@ ESL（英語を第二言語として学ぶ）の授業で課されるパラグ�
   - 本文の欄は画面の下いっぱいまで使い、daily-note と同じく紙のノートのような横罫を背景に敷く（2026-11-11。`docs/plans/archive/draft-paper.md`）。罫線の間隔は 1 行の高さ（33px の整数）と同じで、本文と一緒にスクロールする（Firefox は `draft.ts` の `followRules` で追従）
   - 数え方（2026-11-08。`src/shared/counting.ts`）: 語 = 英字・数字のひと続き（`don't`・`well-known`・`3.5`・`50,000` は 1 語）。文 = `.`・`!`・`?` のあとに空白か終わり。`Mr.` などの敬称は終わりにせず、`etc.`・`e.g.` などは次が大文字か終わりのときだけ。句点の無い最後の文も 1 文。日本語が混じっていれば注意を出す
   - **深さ → 役割**（2026-11-08 決定。`src/shared/outline-roles.ts`）: 中心 = Topic sentence、子 = Reason、孫より深いもの = Example。中心の子のうち**最後のもの**の名前が「結論」「まとめ」「Conclusion」で始まっていれば結論（子孫も）。字下げ 0 の行が 2 つ以上なら、それぞれを Topic sentence として並べる
+- **タイトル**（2026-11-12。`docs/plans/archive/draft-title.md`）: STEP 3 の本文の欄の上に 1 行の「タイトル」の欄。**下書きの本文とは別の項目**として保存する
+  （DB では段階と同じ `stages` の行 `title`。`rev`・競合・自動保存も段階と同じ。`src/shared/types.ts` の `DOCS` = 3 つの段階 + `title`）
+  - 語数・文数には数えない。一覧の進み具合・タイルの状態の行にも数えない（保存の印は下書きのタイルに出す）。日本語が混じっていれば注意を出す
+  - 書き出しでは提出用のファイルの中央のタイトルと、プレーンテキストの 1 行目になる。**課題のテーマはファイルに出さない**（テーマは日本語で書くこともあるため）
+  - AI にも渡す: AI に質問（タイトルについて聞ける）・採点（綴りの誤りと指摘の対象。点数は本文で付ける）・日本語訳（最初にタイトルの訳）。
+    採点・日本語訳の「変わっています」の知らせはタイトルが変わっても出す
 - **自動保存**: 打ち終わって数秒で保存する。`rev` が合わなければ止めて知らせる（「データ保存」の節）
-- **書き出し**: 下書きを**プレーンテキスト**で書き出す。ヘッダの「書き出し」と STEP 3 の右の列（アウトラインのリストの下）の「書き出し →」から開くダイアログで確かめてから「テキストをコピー」か「.txt で保存」（名前はパラグラフの id）。手元の最新（未保存の分も含む）を、末尾の空白・空行を落として改行 1 つで終える（`src/shared/export.ts`）。本文はサーバへ送らない
+- **書き出し**: 下書きを**プレーンテキスト**で書き出す。ヘッダの「書き出し」と STEP 3 の右の列（アウトラインのリストの下）の「書き出し →」から開くダイアログで確かめてから「テキストをコピー」か「.txt で保存」（名前はパラグラフの id）。手元の最新（未保存の分も含む）を、末尾の空白・空行を落として改行 1 つで終える。タイトルがあれば 1 行目に入れ、1 行空けて本文（`src/shared/export.ts`）。本文はサーバへ送らない
 - **学習ガイド**: 書いている途中でも横に開ける（編集画面ではヘッダの「学習ガイド」で右から引き出しで重ねて開く。「画面構成」）
   - 構成の解説: opinion paragraph の型（topic sentence / reasons / examples / concluding sentence）
   - モデル文: 構成ごとに色分けしたお手本のパラグラフ。題材はモックと同じ「High school students should have part-time jobs」で、英文は Claude が書いた 1 本（2026-11-08 決定）。そのモデル文のアウトライン（STEP 2 の見本）と書き方のポイントも添える
@@ -58,8 +64,8 @@ ESL（英語を第二言語として学ぶ）の授業で課されるパラグ�
     理由・例の候補は課題のテーマと条件から、賛成・反対それぞれ理由 3 つと例を**日本語で**（英文は出さない。見るだけ。2026-11-09 にメモをなくしたので「メモに足す」を外した。マップに直接足すのは後で）。
     押したときだけ呼ぶ。送るのは分野・キーワード、テーマと条件だけ。モデルは採点と同じで effort `medium`
 - **`.docx` / PDF の書き出し**と体裁（2026-11-08 実装。`docs/plans/archive/docx-pdf-export.md`）: 書き出しのダイアログの「提出用のファイル」。
-  体裁は A4・余白 1 インチ・Times New Roman 12pt・行間 2 行、左上に名前・クラス・日付（入れたものだけ。名前とクラスはブラウザに覚える）、テーマを中央のタイトル、段落の頭を 0.5 インチ下げる（`src/shared/document.ts`）。
-  .docx はブラウザの中で最小の OOXML を無圧縮 ZIP に詰めて作る（ライブラリなし。`src/shared/docx.ts`）。PDF はブラウザの印刷（「PDF に保存」。`src/browser/print.ts` と印刷の CSS）
+  体裁は A4・余白 1 インチ・Times New Roman 12pt・行間 2 行、左上に名前・クラス・日付（入れたものだけ。名前とクラスはブラウザに覚える）、1 行空けて STEP 3 のタイトルを中央のタイトル（空なら出さない。2026-11-12 まではテーマを出していた）、段落の頭を 0.5 インチ下げる（`src/shared/document.ts`）。
+  .docx はブラウザの中で最小の OOXML を無圧縮 ZIP に詰めて作る（ライブラリなし。`src/shared/docx.ts`）。フォントと行間は文書の既定に加えて段落・文字ごとにも書く（2026-11-12。既定だけだと開くアプリによっては読まれないため）。PDF はブラウザの印刷（「PDF に保存」。`src/browser/print.ts` と印刷の CSS）
 - **間違いの振り返り**: 全パラグラフの最新の指摘・点数を観点別に集める
   - 実装（2026-11-08。`docs/plans/archive/review.md`）: `#/review`（ヘッダの「振り返り」）。採点したパラグラフの数・合計の平均・観点ごとの平均と「伸ばしたいところ」（満点に対する割合がいちばん低い観点）・
     点数の推移（採点した日の古い順の表）・よくする間違い（観点ごとの指摘）。`GET /api/review` が採点のあるパラグラフの採点を DB から読み、集計はブラウザ（`src/shared/review.ts`）
@@ -124,7 +130,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
 - **DB のファイル**: `data/esl-writing.db`（リポジトリの直下。`.gitignore` 済み。`ESL_DB_PATH` で変えられる）。WAL モード。**Dropbox で同期しているフォルダには置かない**（同期中に書くと壊れることがある）
 - **表**（`src/paragraphs/database.ts`。版は `meta` の `schema_version`。上げるときは `migrate()` に足す）
   - `paragraphs(id, created_on, created_at, deleted_at)`
-  - `stages(paragraph_id, stage, text, version, updated_at)`: 段階（課題・アウトライン・下書き）の本文。段階ごとに 1 行
+  - `stages(paragraph_id, stage, text, version, updated_at)`: 段階（課題・アウトライン・下書き）の本文。段階ごとに 1 行。STEP 3 のタイトルも `stage = 'title'` の 1 行として持つ
   - `feedbacks(paragraph_id, json, updated_at)`: AI の採点の最新の結果（形は `src/shared/feedback.ts`）
   - `ai_results(paragraph_id, kind, json, created_at)`: AI案（`themes` / `ideas` / `outline`）の最新の 1 回分と、出したときの入力（形は `src/shared/ideas.ts` の `SavedAiResults`）
   - `ai_questions(paragraph_id, kind, seq, question, answer, created_at)`: AI案への質問と答え（版 2 で足した。AI案を出し直すとその種類の行を消す）
@@ -169,7 +175,7 @@ PC の横幅を使う。2026-11-08、デザイン例 4 案から **構成は案 
   - 認証は付けないので、`127.0.0.1`（と `::1`）だけで待ち受ける
   - **開く名前は `http://esl-writing.localhost:3016`**（2026-11-08。project-manager の `project-manager.localhost:8200` にならう）。`*.localhost` はブラウザが自分の PC に向けるので設定は要らない。`127.0.0.1:3016` でも開ける
   - **安全チェック**（`src/server/guard.ts`。project-manager の `guard.ts` と同じ考え方）: Host が `127.0.0.1` / `localhost` / `esl-writing.localhost` のこのポートのときだけ受ける（DNS rebinding 対策）、Origin があれば同じオリジンだけ、書き込みは `X-ESL-Request: 1` と JSON が必須。CSP はインラインのスクリプト・スタイルを許さない
-  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`。保存の競合は 409 `{ error: 'conflict' }`。無いパラグラフは 404 `not_found`。一覧の各項目には課題のテーマ `theme` を足す。AI の採点は `GET/POST /api/paragraphs/:id/feedback`、下書きの日本語訳は `GET/POST /api/paragraphs/:id/translation`、アイデア出しは `POST /api/ai/themes`・`POST /api/ai/ideas`、アウトラインの指摘は `POST /api/ai/outline`、保存した AI案（質問と答え、「AI に質問」のやりとり `draftQuestions` も）は `GET /api/paragraphs/:id/ai`、AI案への質問は `POST /api/paragraphs/:id/ai/:kind/questions`（`bad_question`・`no_result`・`too_many_questions` は 400、`result_changed` は 409）、STEP 3 の「AI に質問」は `POST /api/paragraphs/:id/draft/questions`（`bad_question`・`too_many_questions` は 400、`chat_changed` は 409）と `DELETE`（はじめから）（下書きが空 400 `empty_draft`・キーが無い 503 `ai_not_configured`・拒否 422 `ai_refusal`・API の失敗 502 `ai_error`）
+  - API（`src/server/api.ts`）: `GET/POST /api/paragraphs`、`DELETE /api/paragraphs/:id`、`GET/PUT /api/paragraphs/:id/stages/:stage`（`:stage` は 3 つの段階と `title`）。保存の競合は 409 `{ error: 'conflict' }`。無いパラグラフは 404 `not_found`。一覧の各項目には課題のテーマ `theme` を足す。AI の採点は `GET/POST /api/paragraphs/:id/feedback`、下書きの日本語訳は `GET/POST /api/paragraphs/:id/translation`、アイデア出しは `POST /api/ai/themes`・`POST /api/ai/ideas`、アウトラインの指摘は `POST /api/ai/outline`、保存した AI案（質問と答え、「AI に質問」のやりとり `draftQuestions` も）は `GET /api/paragraphs/:id/ai`、AI案への質問は `POST /api/paragraphs/:id/ai/:kind/questions`（`bad_question`・`no_result`・`too_many_questions` は 400、`result_changed` は 409）、STEP 3 の「AI に質問」は `POST /api/paragraphs/:id/draft/questions`（`bad_question`・`too_many_questions` は 400、`chat_changed` は 409）と `DELETE`（はじめから）（下書きが空 400 `empty_draft`・キーが無い 503 `ai_not_configured`・拒否 422 `ai_refusal`・API の失敗 502 `ai_error`）
   - Dropbox のトークン類（バックアップ用）と API キーは `.env` に置き、`node --env-file-if-exists=.env` で読む（daily-note と同じ）。`node:sqlite` の試験段階の警告は `--disable-warning=ExperimentalWarning` で消す（`run-server.sh`・`npm start`・`npm test`）
 - **画面**: ブラウザ側の素の TypeScript で描く 1 ページ（一覧・編集・学習ガイドを切り替える）。フレームワークは使わず、esbuild で束ねる
   - 画面の切り替えは URL のハッシュ（`#/` = 一覧、`#/p/<id>/<stage>` = 編集、`#/guide` = 学習ガイド、`#/review` = 振り返り。`src/shared/route.ts`）。サーバが返すページは `/` だけ

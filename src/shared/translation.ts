@@ -19,6 +19,8 @@ export interface Translation {
   translatedAt: string
   /** 訳した下書きの本文。 */
   draft: string
+  /** 訳したときのタイトルとその訳（STEP 3 のタイトルの欄。無ければ null。古い結果にも無い）。 */
+  title: TranslatedSentence | null
   sentences: TranslatedSentence[]
 }
 
@@ -39,6 +41,13 @@ export function parseTranslation(text: string): Translation | null {
     version: 1,
     translatedAt: typeof value['translatedAt'] === 'string' ? value['translatedAt'] : '',
     draft: typeof value['draft'] === 'string' ? value['draft'] : '',
+    title:
+      isRecord(value['title']) && typeof value['title']['en'] === 'string'
+        ? {
+            en: value['title']['en'],
+            ja: typeof value['title']['ja'] === 'string' ? value['title']['ja'] : '',
+          }
+        : null,
     sentences: value['sentences'].flatMap((s): TranslatedSentence[] =>
       isRecord(s) && typeof s['en'] === 'string'
         ? [{ en: s['en'], ja: typeof s['ja'] === 'string' ? s['ja'] : '' }]

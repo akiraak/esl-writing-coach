@@ -1,10 +1,12 @@
-import type { SubmissionDocument } from './document.js'
+import { hasTitleGap, type SubmissionDocument } from './document.js'
 
 /**
  * 提出用の文書を .docx（Word）のバイト列にする（`docs/plans/archive/docx-pdf-export.md`）。純関数。ライブラリは使わない。
  *
  * - 最小の OOXML: `[Content_Types].xml`・`_rels/.rels`・`word/document.xml`・`word/styles.xml`
  * - 体裁: A4・余白 1 インチ・Times New Roman 12pt・行間 2 行。頭の行は左寄せ、タイトルは中央、本文は段落の頭を 0.5 インチ下げる
+ * - フォントと行間は、文書の既定（`styles.xml`）に加えて**段落・文字ごとにも書く**（2026-11-12。既定だけだと、
+ *   開くアプリによっては読まれず、そのアプリの既定のフォント・行間になることがあるため）
  * - ZIP は無圧縮（stored）で詰める（CRC32 は自前）
  */
 
@@ -25,21 +27,33 @@ const escapeXml = (text: string) =>
 
 const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 
+/** 文字の書式: Times New Roman 12pt（sz は半ポイント）。 */
+const FONT =
+  '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman" w:eastAsia="MS Mincho"/><w:sz w:val="24"/><w:szCs w:val="24"/>'
+const RUN_PROPS = `<w:rPr>${FONT}</w:rPr>`
+/** 段落の書式: 行間 2 行（line 480 = 240 × 2）・段落の前後の空きなし。 */
+const SPACING = '<w:spacing w:before="0" w:after="0" w:line="480" w:lineRule="auto"/>'
+
 /** 1 段落。`jc` は揃え、`indent` は段落の頭の下げ（twip。1 インチ = 1440）。 */
 function paragraph(
   text: string,
   options: { jc?: 'left' | 'center'; indent?: number } = {},
 ): string {
+  // 並びは OOXML の決まり（spacing → ind → jc → rPr）。rPr は段落の印（空の行の高さ）にも効かせる
   const props = [
-    options.jc === 'center' ? '<w:jc w:val="center"/>' : '',
+    SPACING,
     options.indent ? `<w:ind w:firstLine="${options.indent}"/>` : '',
+    options.jc === 'center' ? '<w:jc w:val="center"/>' : '',
+    RUN_PROPS,
   ].join('')
-  return `<w:p>${props === '' ? '' : `<w:pPr>${props}</w:pPr>`}<w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`
+  return `<w:p><w:pPr>${props}</w:pPr><w:r>${RUN_PROPS}<w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`
 }
 
 export function documentXml(doc: SubmissionDocument): string {
   const body = [
     ...doc.header.map((line) => paragraph(line)),
+    // 頭の行とタイトルの間を 1 行空ける
+    hasTitleGap(doc) ? paragraph('') : '',
     doc.title === '' ? '' : paragraph(doc.title, { jc: 'center' }),
     ...doc.paragraphs.map((p) => paragraph(p, { indent: 720 })),
   ].join('')
@@ -51,7 +65,7 @@ export function documentXml(doc: SubmissionDocument): string {
 
 /** 既定の書式: Times New Roman 12pt（sz は半ポイント）・行間 2 行（line 480）・段落の後ろの空きなし。 */
 const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:styles xmlns:w="${W_NS}"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman" w:eastAsia="MS Mincho"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="en-US" w:eastAsia="ja-JP"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:before="0" w:after="0" w:line="480" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>`
+<w:styles xmlns:w="${W_NS}"><w:docDefaults><w:rPrDefault><w:rPr>${FONT}<w:lang w:val="en-US" w:eastAsia="ja-JP"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr>${SPACING}</w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:pPr>${SPACING}</w:pPr>${RUN_PROPS}</w:style></w:styles>`
 
 const CONTENT_TYPES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>`

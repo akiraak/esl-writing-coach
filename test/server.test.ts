@@ -148,6 +148,21 @@ describe('API', () => {
     assert.deepEqual(store.readStage(ID, 'draft'), { text: '', rev: null })
   })
 
+  it('タイトルは段階と同じ API で読み書きする（1 行にする。一覧の進み具合には数えない）', async () => {
+    const url = `${base}/api/paragraphs/${ID}/stages/title`
+    assert.deepEqual(await (await fetch(url)).json(), { text: '', rev: null })
+    const put = (rev: string | null, text: string) =>
+      fetch(url, { method: 'PUT', headers: WRITE, body: JSON.stringify({ text, rev }) })
+    assert.equal((await put(null, 'My\nTitle')).status, 200)
+    assert.deepEqual(await (await fetch(url)).json(), { text: 'My Title', rev: '1' })
+    assert.equal((await put(null, 'x')).status, 409)
+    assert.equal((await put('1', 'Better Title')).status, 200)
+    assert.equal(store.readStage(ID, 'title').text, 'Better Title')
+    // 下書きとは別の項目
+    assert.deepEqual(store.readStage(ID, 'draft'), { text: '', rev: null })
+    assert.equal(store.listParagraphs()[0]?.started.draft, false)
+  })
+
   it('知らない段階・不正な id は 400、無いパラグラフは 404', async () => {
     assert.equal((await fetch(`${base}/api/paragraphs/${ID}/stages/notes`)).status, 400)
     assert.equal((await fetch(`${base}/api/paragraphs/..%2Fsecret/stages/draft`)).status, 400)
@@ -226,6 +241,7 @@ describe('採点の API', () => {
             spellings: [
               { wrong: 'agre', right: 'agree' },
               { wrong: 'AGREE', right: 'agree' },
+              { wrong: 'Unifrom', right: 'Uniform' },
             ],
           },
           model: 'claude-opus-5-5',
@@ -234,10 +250,14 @@ describe('採点の API', () => {
     })
     store.saveStage(ID, 'assignment', '# Uniforms\n\n- 語数: 100-\n', '1')
     await putDraft('I agree.')
+    store.saveStage(ID, 'title', ' Unifrom Rules ', null)
     const res = await post()
     assert.equal(res.status, 200)
     const { feedback } = (await res.json()) as { feedback: Feedback }
     assert.equal(feedback.total, 78)
+    // タイトルも渡し、採点したときのタイトルを残す
+    assert.equal((received as { title: string }).title, 'Unifrom Rules')
+    assert.equal(feedback.title, 'Unifrom Rules')
     assert.equal(feedback.draft, 'I agree.')
     assert.equal(feedback.scoredAt, '2026-11-08T03:00:00.000Z')
     assert.deepEqual(
@@ -248,8 +268,11 @@ describe('採点の API', () => {
       feedback.findings.map((f) => f.fix),
       ['I agree that', 'I agreed.'],
     )
-    // 本文に無い綴りは消える
-    assert.deepEqual(feedback.spellings, [{ wrong: 'AGREE', right: 'agree' }])
+    // 本文にもタイトルにも無い綴りは消える（タイトルの綴りは残る）
+    assert.deepEqual(feedback.spellings, [
+      { wrong: 'AGREE', right: 'agree' },
+      { wrong: 'Unifrom', right: 'Uniform' },
+    ])
     assert.deepEqual((received as { assignment: { words: unknown } }).assignment.words, {
       min: 100,
       max: null,
@@ -312,6 +335,7 @@ describe('振り返りの API', () => {
       scoredAt: '2026-11-08T03:00:00.000Z',
       model: 'm',
       draft: 'I agree.',
+      title: '',
       total: 78,
       scores: SCORES,
       strengths: [],
@@ -557,6 +581,7 @@ describe('「AI に質問」の API', () => {
     })
     assert.equal((await ask('1 文目は自然？')).status, 200)
     assert.equal(received[1]?.assignment.theme, 'Uniforms')
+    assert.equal(received[1]?.title, '')
     assert.deepEqual(received[1]?.assignment.words, { min: 120, max: 150 })
     assert.equal(received[1]?.draft, 'I like uniforms.')
     assert.deepEqual(received[1]?.history, [
@@ -645,12 +670,16 @@ describe('下書きの日本語訳', () => {
   it('POST は保存されている下書きをアプリが文に分けて訳し、保存して返す（最新の 1 回分）', async () => {
     let received: unknown = null
     ai = fakeAi({
-      async translate(draft, sentences) {
-        received = { draft, sentences }
-        return sentences.map((_, i) => (i === 1 ? '' : `訳${i + 1}`))
+      async translate(input) {
+        received = input
+        return {
+          title: 'タイトルの訳',
+          sentences: input.sentences.map((_, i) => (i === 1 ? '' : `訳${i + 1}`)),
+        }
       },
     })
     store.saveStage(ID, 'draft', 'I agree.  First, it is cheap.\nMr. Sato said so', null)
+    store.saveStage(ID, 'title', ' Cheap Uniforms ', null)
     const res = await post()
     assert.equal(res.status, 200)
     const { translation } = (await res.json()) as { translation: Translation }
@@ -662,6 +691,9 @@ describe('下書きの日本語訳', () => {
     assert.equal(translation.draft, 'I agree.  First, it is cheap.\nMr. Sato said so')
     assert.equal(translation.translatedAt, '2026-11-08T03:00:00.000Z')
     assert.deepEqual((received as { sentences: string[] }).sentences.length, 3)
+    // タイトルも渡して訳す（本文の文には混ぜない）
+    assert.equal((received as { title: string }).title, 'Cheap Uniforms')
+    assert.deepEqual(translation.title, { en: 'Cheap Uniforms', ja: 'タイトルの訳' })
     const got = (await (await fetch(url())).json()) as {
       translation: Translation
       aiConfigured: boolean

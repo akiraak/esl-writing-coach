@@ -1,4 +1,4 @@
-import type { SubmissionDocument } from '../shared/document.js'
+import { hasTitleGap, type SubmissionDocument } from '../shared/document.js'
 import { h } from './dom.js'
 
 /**
@@ -13,6 +13,8 @@ export function printDocument(doc: SubmissionDocument, fileTitle: string): void 
     'div',
     { id: 'print-sheet', lang: 'en' },
     ...doc.header.map((line) => h('p', { class: 'ps-head' }, line)),
+    // 頭の行とタイトルの間を 1 行空ける（空の段落は高さが無くなるので、改行しない空白を入れる）
+    hasTitleGap(doc) ? h('p', { class: 'ps-head' }, '\u00a0') : null,
     doc.title === '' ? null : h('p', { class: 'ps-title' }, doc.title),
     ...doc.paragraphs.map((p) => h('p', { class: 'ps-body' }, p)),
   )

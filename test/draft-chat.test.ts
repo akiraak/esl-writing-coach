@@ -18,6 +18,7 @@ describe('buildDraftChatMessages', () => {
     const messages = buildDraftChatMessages({
       assignment,
       draft: '  I think students should wear uniforms. First, it save time.\n',
+      title: ' School Uniforms ',
       history: [
         { question: 'because と since の違いは？', answer: ' ほぼ同じです。 ', createdAt: 'x' },
         { question: '例文を見せて', answer: 'I stayed home because it rained.', createdAt: 'y' },
@@ -33,6 +34,7 @@ describe('buildDraftChatMessages', () => {
     assert.match(prompt, /語数の指定: 120–150 語/)
     assert.match(prompt, /First \/ Second \/ Finally を使う。/)
     assert.match(prompt, /- 語数: 10\n- 文数: 2/)
+    assert.match(prompt, /## 生徒のタイトル（今の時点）\n<title>School Uniforms<\/title>/)
     assert.match(
       prompt,
       /<paragraph>\nI think students should wear uniforms\. First, it save time\.\n<\/paragraph>/,
@@ -51,12 +53,14 @@ describe('buildDraftChatMessages', () => {
     const messages = buildDraftChatMessages({
       assignment: parseAssignment(''),
       draft: ' \n',
+      title: '',
       history: [],
       question: '書き出しはどうする？',
     })
     assert.equal(messages.length, 1)
     const prompt = messages[0]?.content ?? ''
     assert.match(prompt, /## 生徒の下書き（今の時点）\n（まだ書いていません）/)
+    assert.match(prompt, /## 生徒のタイトル（今の時点）\n（まだ書いていません）/)
     assert.doesNotMatch(prompt, /<paragraph>/)
     assert.match(prompt, /- 語数: 0\n- 文数: 0/)
     assert.match(prompt, /テーマ: （未入力）/)

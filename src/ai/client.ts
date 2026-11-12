@@ -45,9 +45,10 @@ import {
 } from './scoring.js'
 import {
   buildTranslationPrompt,
-  parseTranslations,
+  parseTranslationOutput,
   TRANSLATION_SCHEMA,
   TRANSLATION_SYSTEM,
+  type TranslationInput,
 } from './translation.js'
 
 /**
@@ -80,8 +81,8 @@ export interface Ai {
   answerQuestion(input: QuestionInput): Promise<string>
   /** STEP 3 の「AI に質問」: 下書きと課題を見て、自由な質問に答える（英語は制限しない）。 */
   answerDraftQuestion(input: DraftChatInput): Promise<string>
-  /** 下書きの日本語訳（直訳に近く）。`sentences` の並びのとおりの訳を返す（返ってこなかった文は空）。 */
-  translate(draft: string, sentences: readonly string[]): Promise<string[]>
+  /** 下書き（とタイトル）の日本語訳（直訳に近く）。`sentences` の並びのとおりの訳を返す（返ってこなかった文は空）。 */
+  translate(input: TranslationInput): Promise<{ title: string; sentences: string[] }>
 }
 
 function describeApiError(error: unknown): string {
@@ -199,14 +200,14 @@ export function createAi(apiKey: string): Ai {
       })
       return parseDraftAnswer(text)
     },
-    async translate(draft, sentences) {
+    async translate(input) {
       const { text } = await callJson({
         system: TRANSLATION_SYSTEM,
-        user: buildTranslationPrompt(draft, sentences),
+        user: buildTranslationPrompt(input),
         schema: TRANSLATION_SCHEMA,
         effort: 'medium',
       })
-      return parseTranslations(text, sentences.length)
+      return parseTranslationOutput(text, input)
     },
   }
 }

@@ -11,6 +11,17 @@
 export const STAGES = ['assignment', 'outline', 'draft'] as const
 export type Stage = (typeof STAGES)[number]
 
+/**
+ * 保存する項目 = 段階 + タイトル（`docs/plans/archive/draft-title.md`）。タイトルは STEP 3 で書く 1 行で、
+ * 下書きの本文とは別に持つ（DB では段階と同じ `stages` の行。`rev`・競合・自動保存も段階と同じ）。
+ * 画面の「段階」（STEP 1〜3 のタイル・一覧の進み具合）は `STAGES` の 3 つのまま。
+ */
+export const DOCS = [...STAGES, 'title'] as const
+export type Doc = (typeof DOCS)[number]
+
+/** タイトルの長さの上限（文字）。 */
+export const MAX_TITLE_LENGTH = 200
+
 export function isStage(value: string): value is Stage {
   return (STAGES as readonly string[]).includes(value)
 }

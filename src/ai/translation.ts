@@ -6,7 +6,7 @@ import { AiOutputError } from './errors.js'
  * - 文に分けるのはアプリ。段落全体（文脈）と番号つきの文を渡し、番号ごとの訳を返させる
  * - **直訳に近い訳**（2026-11-11 ユーザーの決定）: 英語に書いてあるとおりを訳す。誤りを直してから訳さない
  *   （言いたいことが英語で伝わっているかを、訳を読んで確かめるため）
- * - 送るのは下書きだけ
+ * - 送るのは下書きとタイトル（STEP 3 のタイトルの欄。あれば 1 番目の文として訳す。`docs/plans/archive/draft-title.md`）
  */
 
 export const TRANSLATION_SYSTEM = [
@@ -21,19 +21,49 @@ export const TRANSLATION_SYSTEM = [
   '- 訳は「だ・である」の文体で、1 文につき 1 つ。説明・助言・直した英文は書きません。',
   '- 渡された番号の文を、1 つも飛ばさず、まとめたり分けたりせずに、番号ごとに訳します。段落全体は文脈を知るためのものです。',
   '- 英文に日本語が混じっていれば、その部分はそのまま残します。',
+  '- kind="title" の付いた文は段落のタイトルです。文になっていなくても、タイトルとして短く訳します（体言止めでかまいません）。',
 ].join('\n')
 
-/** ユーザーのメッセージ（段落全体と、番号つきの文）。 */
-export function buildTranslationPrompt(draft: string, sentences: readonly string[]): string {
+export interface TranslationInput {
+  /** STEP 3 のタイトル（1 行。空なら訳さない）。 */
+  title: string
+  draft: string
+  /** アプリが分けた本文の文。 */
+  sentences: readonly string[]
+}
+
+/** 訳す並び（タイトルがあれば先頭）。 */
+function itemsOf(input: TranslationInput): { text: string; title: boolean }[] {
+  return [
+    ...(input.title === '' ? [] : [{ text: input.title, title: true }]),
+    ...input.sentences.map((text) => ({ text, title: false })),
+  ]
+}
+
+/** ユーザーのメッセージ（段落全体と、番号つきの文。タイトルがあれば 1 番）。 */
+export function buildTranslationPrompt(input: TranslationInput): string {
   return [
     '## 段落全体',
     '<paragraph>',
-    draft.trim(),
+    input.draft.trim(),
     '</paragraph>',
     '',
     '## 訳す文',
-    ...sentences.map((s, i) => `<s n="${i + 1}">${s}</s>`),
+    ...itemsOf(input).map(
+      (item, i) => `<s n="${i + 1}"${item.title ? ' kind="title"' : ''}>${item.text}</s>`,
+    ),
   ].join('\n')
+}
+
+/** AI の出力を、タイトルの訳（無ければ空）と文の並びに合わせた訳にする。 */
+export function parseTranslationOutput(
+  text: string,
+  input: TranslationInput,
+): { title: string; sentences: string[] } {
+  const all = parseTranslations(text, itemsOf(input).length)
+  return input.title === ''
+    ? { title: '', sentences: all }
+    : { title: all[0] ?? '', sentences: all.slice(1) }
 }
 
 export const TRANSLATION_SCHEMA = {

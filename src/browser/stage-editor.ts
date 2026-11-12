@@ -1,11 +1,11 @@
 import { type Autosave, createAutosave, type SaveState } from '../shared/autosave.js'
-import type { Stage, StageContent } from '../shared/types.js'
+import type { Doc, StageContent } from '../shared/types.js'
 import { ApiError, saveStage } from './api.js'
 import { h, replace } from './dom.js'
 import { errorText, formatTime } from './ui.js'
 
 /**
- * 段階のファイル 1 つを自動保存でつなぐ（状態の移り変わりは `src/shared/autosave.ts`）。
+ * 段階（か STEP 3 のタイトル）1 つを自動保存でつなぐ（状態の移り変わりは `src/shared/autosave.ts`）。
  * 各段階の画面は、本文が変わったら `update(text)` を呼ぶだけでよい。
  *
  * 編集画面はパラグラフを開いている間、段階ごとに 1 つずつ持ち続ける（`src/browser/views/edit.ts`）。
@@ -13,7 +13,7 @@ import { errorText, formatTime } from './ui.js'
  */
 
 export interface StageEditor {
-  readonly stage: Stage
+  readonly stage: Doc
   /** 手元の最新の本文。 */
   readonly text: string
   readonly state: SaveState
@@ -31,7 +31,7 @@ export interface StageEditor {
   discard(): void
 }
 
-export function openStageEditor(id: string, stage: Stage, content: StageContent): StageEditor {
+export function openStageEditor(id: string, stage: Doc, content: StageContent): StageEditor {
   let latest = content.text
   const listeners: (() => void)[] = []
   const notify = () => {

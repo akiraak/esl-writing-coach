@@ -42,15 +42,31 @@ describe('文書の形', () => {
     assert.deepEqual(paragraphsOf('  \n\n '), [])
   })
 
-  it('頭の行は入れたものだけ', () => {
+  it('頭の行は入れたものだけ。タイトルは 1 行にして中央のタイトルに（空なら無し。テーマは受け取らない）', () => {
     const doc = documentOf({
-      theme: ' T ',
+      title: ' My\n Title ',
       draft: 'A.',
       name: 'Akira',
       klass: ' ',
       date: 'November 8, 2026',
     })
-    assert.deepEqual(doc, { header: ['Akira', 'November 8, 2026'], title: 'T', paragraphs: ['A.'] })
+    assert.deepEqual(doc, {
+      header: ['Akira', 'November 8, 2026'],
+      title: 'My Title',
+      paragraphs: ['A.'],
+    })
+    const untitled = documentOf({ title: ' ', draft: 'A.', name: '', klass: '', date: '' })
+    assert.deepEqual(untitled, { header: [], title: '', paragraphs: ['A.'] })
+    // 頭の行とタイトルの間は 1 行空ける（両方あるときだけ）
+    const empty = '<w:t xml:space="preserve"></w:t></w:r></w:p>'
+    const texts = (xml: string) =>
+      [...xml.matchAll(/<w:t xml:space="preserve">([^<]*)<\/w:t>/g)].map((m) => m[1])
+    assert.deepEqual(texts(documentXml(doc)), ['Akira', 'November 8, 2026', '', 'My Title', 'A.'])
+    assert.ok(!documentXml({ ...doc, header: [] }).includes(empty))
+    assert.ok(!documentXml({ ...doc, title: '' }).includes(empty))
+    // タイトルが空なら、中央の段落は出ない
+    assert.ok(!documentXml(untitled).includes('w:jc'))
+    assert.ok(documentXml(doc).includes('<w:jc w:val="center"/>'))
   })
 
   it('日付は November 8, 2026 の形', () => {
@@ -96,9 +112,17 @@ describe('.docx', () => {
     )
     const xml = files.get('word/document.xml') ?? ''
     assert.ok(xml.includes('<w:t xml:space="preserve">Akira</w:t>'))
-    assert.ok(
-      xml.includes('<w:jc w:val="center"/></w:pPr><w:r><w:t xml:space="preserve">Should we?</w:t>'),
+    assert.match(
+      xml,
+      /<w:jc w:val="center"\/>(?:(?!<w:p>).)*<w:t xml:space="preserve">Should we\?<\/w:t>/,
     )
+    // フォントと行間は段落・文字ごとにも書く（Times New Roman 12pt・行間 2 行。頭の行・空行・タイトル・本文 2 つ）
+    const count = (part: string) => xml.split(part).length - 1
+    assert.equal(count('<w:p>'), 5)
+    assert.equal(count('<w:spacing w:before="0" w:after="0" w:line="480" w:lineRule="auto"/>'), 5)
+    // 段落の印と文字の両方に書くので、段落ごとに 2 回
+    assert.equal(count('<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"'), 10)
+    assert.equal(count('<w:sz w:val="24"/>'), 10)
     assert.equal(xml.match(/<w:ind w:firstLine="720"\/>/g)?.length, 2)
     assert.ok((files.get('word/styles.xml') ?? '').includes('w:line="480"'))
     assert.ok((files.get('word/styles.xml') ?? '').includes('Times New Roman'))

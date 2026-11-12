@@ -2,7 +2,7 @@ import { parseAssignment, serializeAssignment } from '../../shared/assignment.js
 import { combineSaveStates, type SaveState } from '../../shared/autosave.js'
 import { type Route, routeHash } from '../../shared/route.js'
 import { summarizeStage } from '../../shared/stage-summary.js'
-import { STAGES, type Stage } from '../../shared/types.js'
+import { DOCS, type Doc, STAGES, type Stage } from '../../shared/types.js'
 import { createAiPane } from '../ai-pane.js'
 import { readStage } from '../api.js'
 import { h, replace } from '../dom.js'
@@ -29,7 +29,8 @@ import { renderOutlineView } from './outline.js'
  * 編集画面（3 ペイン）。左 = 段階のタイル、中央 = 選んだ段階の編集欄、右 = AI（今の段階で使うものを上に。STEP 3 は「AI / 翻訳 / 採点」のタブ。`ai-pane.ts`）。
  * 学習ガイドはヘッダの「学習ガイド」で、右ペインの上に引き出しで重ねて開く（`guide-pane.ts`。`docs/plans/archive/right-pane-layout.md`）。
  *
- * - 開いたら 3 つの段階を並べて読み、段階ごとに自動保存（`StageEditor`）を作って、
+ * - 開いたら 3 つの段階と STEP 3 のタイトル（`DOCS`。タイトルは下書きとは別の項目。`docs/plans/archive/draft-title.md`）を
+ *   並べて読み、それぞれに自動保存（`StageEditor`）を作って、
  *   **パラグラフを開いている間は持ち続ける**。同じパラグラフの中で段階を移るときは中央だけを描き直す（読み直さない）
  * - 段階を離れるときはその段階を待たずに保存する。rev は保存が終わったときに手元で新しくなるので、戻っても古い rev にはならない
  * - ヘッダの保存の状態は 3 つをまとめて出し、タイルには段階ごとの状態の行と保存の印を出す
@@ -90,7 +91,7 @@ export function renderEdit(
   previousSaved: Promise<void>,
 ): View {
   let stage = initialStage
-  let editors: Record<Stage, StageEditor> | null = null
+  let editors: Record<Doc, StageEditor> | null = null
   let closed = false
   /** 中央の段階の画面の片付け（マップのリスナを外す・打ちかけの名前を確定する）。 */
   let cleanupBody: (() => void) | null = null
@@ -115,12 +116,16 @@ export function renderEdit(
   async function prepareDraft(what: string): Promise<string | null> {
     if (editors === null) return '読み込み中です'
     const all = editors
-    await Promise.all(STAGES.map((s) => all[s].flush()))
-    const state = all.draft.state.kind
-    if (state === 'conflict')
-      return `下書きが他で更新されています（自動保存を止めています）。読み直してから${what}してください`
-    if (state === 'error' || all.draft.hasUnsavedChanges)
-      return `下書きを保存できていません。保存できてから${what}してください`
+    await Promise.all(DOCS.map((d) => all[d].flush()))
+    // サーバが読むのは下書きとタイトル
+    for (const d of ['draft', 'title'] as const) {
+      const name = d === 'draft' ? '下書き' : 'タイトル'
+      const state = all[d].state.kind
+      if (state === 'conflict')
+        return `${name}が他で更新されています（自動保存を止めています）。読み直してから${what}してください`
+      if (state === 'error' || all[d].hasUnsavedChanges)
+        return `${name}を保存できていません。保存できてから${what}してください`
+    }
     return null
   }
 
@@ -128,6 +133,7 @@ export function renderEdit(
   const feedback = createFeedbackPanel({
     id,
     draftText: () => editors?.draft.text ?? '',
+    titleText: () => editors?.title.text ?? '',
     prepare: () => prepareDraft('採点'),
   })
 
@@ -135,6 +141,7 @@ export function renderEdit(
   const translation = createTranslationPanel({
     id,
     draftText: () => editors?.draft.text ?? '',
+    titleText: () => editors?.title.text ?? '',
     prepare: () => prepareDraft('翻訳'),
   })
 
@@ -229,7 +236,7 @@ export function renderEdit(
     if (editors === null) return
     openExportDialog(app, {
       id,
-      theme: parseAssignment(editors.assignment.text).theme,
+      title: editors.title.text,
       text: editors.draft.text,
     })
   }
@@ -240,40 +247,46 @@ export function renderEdit(
   const setTheme = (theme: string) => replace(crumbTheme, theme === '' ? id : theme)
 
   const retryAll = () => {
-    for (const s of STAGES) editors?.[s].retry()
+    for (const d of DOCS) editors?.[d].retry()
   }
 
   /** ヘッダの保存の状態（3 つをまとめる）と、タイルの状態の行・保存の印。 */
-  function refresh(s: Stage): void {
+  function refresh(s: Doc): void {
     if (editors === null) return
     const editor = editors[s]
-    const tile = tiles[s]
-    replace(tile.summary, summarizeStage(s, editor.text))
-    const mark = markOf(editor.state)
+    // タイトルにはタイルが無い（保存の状態はヘッダと、下書きのタイルの印に出す）
+    const tileStage: Stage = s === 'title' ? 'draft' : s
+    const tile = tiles[tileStage]
+    if (s !== 'title') replace(tile.summary, summarizeStage(s, editor.text))
+    const states =
+      tileStage === 'draft' ? [editors.draft.state, editors.title.state] : [editor.state]
+    const mark = markOf(combineSaveStates(states))
     tile.mark.className = `mark ${mark.kind}`
     tile.mark.title = mark.title
     replace(tile.mark, mark.text)
     const all = editors
-    renderSaveStatus(status, combineSaveStates(STAGES.map((x) => all[x].state)), retryAll)
+    renderSaveStatus(status, combineSaveStates(DOCS.map((x) => all[x].state)), retryAll)
     // 競合の知らせは、その段階を開いているときだけ出す
-    if (s === stage) renderBanner()
-    if (s === 'draft') {
+    if (shownDocs().includes(s)) renderBanner()
+    if (s === 'draft' || s === 'title') {
       feedback.sync()
       translation.sync()
     }
     if (s === 'assignment' || s === 'outline') ideasPanel.sync()
   }
 
+  /** 今の段階の画面で編集する項目（下書きの画面にはタイトルもある）。 */
+  const shownDocs = (): Doc[] => (stage === 'draft' ? ['draft', 'title'] : [stage])
+
   function renderBanner(): void {
-    const editor = editors?.[stage]
-    if (editor?.state.kind === 'conflict') {
-      replace(
-        banner,
-        conflictBanner(editor, () => reloadStage(editor.stage)),
-      )
-    } else {
-      replace(banner)
-    }
+    const conflicted = shownDocs().flatMap((d) => {
+      const editor = editors?.[d]
+      return editor?.state.kind === 'conflict' ? [editor] : []
+    })
+    replace(
+      banner,
+      ...conflicted.map((editor) => conflictBanner(editor, () => reloadStage(editor.stage))),
+    )
   }
 
   function renderBody(): void {
@@ -283,6 +296,7 @@ export function renderEdit(
     body.className =
       stage === 'outline' ? 'stage-body fill' : stage === 'draft' ? 'stage-body fit' : 'stage-body'
     const editor = editors[stage]
+    const titleEditor = editors.title
     if (stage === 'assignment') {
       renderAssignmentView(body, { text: editor.text, editor, onThemeChange: setTheme })
     } else if (stage === 'outline') {
@@ -295,6 +309,7 @@ export function renderEdit(
       cleanupBody = renderDraftView(body, {
         id,
         editor,
+        title: titleEditor,
         assignment: parseAssignment(editors.assignment.text),
         outline: editors.outline.text,
         exportButton: () => exportButton('書き出し →', 'btn pri next-step'),
@@ -307,7 +322,7 @@ export function renderEdit(
     if (editors !== null && next !== stage) {
       // 先に片付ける（打ちかけの名前を確定してから保存する）
       clearBody()
-      void editors[stage].flush()
+      for (const d of shownDocs()) void editors[d].flush()
     }
     stage = next
     for (const s of STAGES) tiles[s].el.classList.toggle('on', s === stage)
@@ -348,31 +363,32 @@ export function renderEdit(
   }
 
   /** 競合のあと、その段階のファイルだけを読み直す（手元の変更は捨てる）。 */
-  async function reloadStage(s: Stage): Promise<void> {
+  async function reloadStage(s: Doc): Promise<void> {
     if (editors === null) return
     const content = await readStage(id, s)
     if (closed || editors === null) return
-    if (s === stage) clearBody()
+    const shown = shownDocs().includes(s)
+    if (shown) clearBody()
     editors[s].discard()
     const editor = openStageEditor(id, s, content)
     editors[s] = editor
     attach(editor)
     if (s === 'assignment') setTheme(parseAssignment(editor.text).theme)
     refresh(s)
-    if (s === stage) renderBody()
+    if (shown) renderBody()
   }
 
   async function load(): Promise<void> {
     await previousSaved
-    const contents = await Promise.all(STAGES.map((s) => readStage(id, s)))
+    const contents = await Promise.all(DOCS.map((s) => readStage(id, s)))
     if (closed) return
-    const opened = {} as Record<Stage, StageEditor>
-    STAGES.forEach((s, i) => {
+    const opened = {} as Record<Doc, StageEditor>
+    DOCS.forEach((s, i) => {
       const content = contents[i]
       if (content !== undefined) opened[s] = openStageEditor(id, s, content)
     })
     editors = opened
-    for (const s of STAGES) {
+    for (const s of DOCS) {
       attach(opened[s])
       refresh(s)
     }
@@ -385,7 +401,7 @@ export function renderEdit(
     if (!closed) replace(body, errorBox(error))
   })
 
-  const all = () => (editors === null ? [] : STAGES.map((s) => editors?.[s] as StageEditor))
+  const all = () => (editors === null ? [] : DOCS.map((s) => editors?.[s] as StageEditor))
 
   return {
     navigate(route: Route) {
