@@ -29,11 +29,11 @@ describe('aiTabsFor', () => {
     assert.equal(aiTabsFor('assignment'), null)
     assert.equal(aiTabsFor('outline'), null)
     assert.deepEqual(
-      aiTabsFor('draft')?.map((t) => [t.label, t.tools]),
+      aiTabsFor('draft')?.map((t) => [t.key, t.tools]),
       [
-        ['AI', ['chat']],
-        ['翻訳', ['translate']],
-        ['採点', ['score']],
+        ['ai', ['chat']],
+        ['translate', ['translate']],
+        ['score', ['score']],
       ],
     )
   })

@@ -1,6 +1,7 @@
 import {
-  AI_TOOL_INFO,
+  AI_TOOL_STEPS,
   AI_TOOLS,
+  type AiTab,
   type AiTool,
   aiTabsFor,
   aiToolsFor,
@@ -8,7 +9,8 @@ import {
 } from '../shared/ai-tools.js'
 import type { Stage } from '../shared/types.js'
 import { h, replace } from './dom.js'
-import { STAGE_LABELS } from './ui.js'
+import { t } from './i18n.js'
+import { stageLabel } from './ui.js'
 
 /**
  * 編集画面の右ペイン（AI）。`docs/plans/archive/right-pane-layout.md` の Phase 3。
@@ -43,22 +45,22 @@ export function createAiPane(cards: Readonly<Record<AiTool, AiCard>>): AiPane {
   const tabBar = h('div', { class: 'seg ai-tabs', role: 'tablist', hidden: true })
   let stage: Stage = 'assignment'
   /** 選んでいるタブ（`AiTab.key`）。その段階に無ければ最初のタブ。 */
-  let tabKey = ''
+  let tabKey: AiTab['key'] = 'ai'
   const current = h('div', { class: 'ai-now' })
   const othersList = h('div', {})
-  const others = h('div', { class: 'ai-others' }, h('h3', {}, 'ほかの段階の AI'), othersList)
+  const m = t().ai
+  const others = h('div', { class: 'ai-others' }, h('h3', {}, m.others), othersList)
   /** ほかの段階に回ったときの、畳んだ行（開閉の状態を保つよう作り置く）。 */
   const folds = {} as Record<AiTool, HTMLDetailsElement>
   for (const tool of AI_TOOLS) {
-    const info = AI_TOOL_INFO[tool]
     folds[tool] = h(
       'details',
       { class: 'ai-other' },
       h(
         'summary',
         {},
-        h('b', {}, info.title),
-        h('span', { class: 'ai-other-step' }, info.steps),
+        h('b', {}, m.tools[tool]),
+        h('span', { class: 'ai-other-step' }, m.steps(AI_TOOL_STEPS[tool])),
         cards[tool].whenLabel(),
       ),
     )
@@ -70,21 +72,12 @@ export function createAiPane(cards: Readonly<Record<AiTool, AiCard>>): AiPane {
     stepTitle,
     current,
     others,
-    h(
-      'p',
-      { class: 'muted ai-foot' },
-      '押したときだけ、各欄の「送るもの」を Anthropic の API に送ります。AI案に質問すると、その結果とそれまでの質問も送ります。結果と質問はパラグラフごとに最新の 1 回分を残します（「AI に質問」のやりとりは「はじめから」で消すまで）。',
-    ),
+    h('p', { class: 'muted ai-foot' }, m.foot),
   )
   const el = h(
     'aside',
-    { class: 'side ai-pane', 'aria-label': 'AI' },
-    h(
-      'div',
-      { class: 'ai-pane-head' },
-      h('h2', {}, 'AI'),
-      h('small', {}, '押したときだけ呼びます'),
-    ),
+    { class: 'side ai-pane', 'aria-label': m.title },
+    h('div', { class: 'ai-pane-head' }, h('h2', {}, m.title), h('small', {}, m.subtitle)),
     tabBar,
     body,
   )
@@ -92,31 +85,31 @@ export function createAiPane(cards: Readonly<Record<AiTool, AiCard>>): AiPane {
   function render(): void {
     const tools = aiToolsFor(stage)
     const tabs = aiTabsFor(stage)
-    const tab = tabs === null ? null : (tabs.find((t) => t.key === tabKey) ?? tabs[0] ?? null)
+    const tab = tabs === null ? null : (tabs.find((x) => x.key === tabKey) ?? tabs[0] ?? null)
     tabBar.hidden = tabs === null
     replace(
       tabBar,
-      ...(tabs ?? []).map((t) =>
+      ...(tabs ?? []).map((x) =>
         h(
           'button',
           {
             type: 'button',
             role: 'tab',
-            class: t === tab ? 'on' : '',
-            'aria-selected': t === tab ? 'true' : 'false',
+            class: x === tab ? 'on' : '',
+            'aria-selected': x === tab ? 'true' : 'false',
             onclick: () => {
-              tabKey = t.key
+              tabKey = x.key
               render()
               body.scrollTop = 0
             },
           },
-          t.label,
+          m.tabs[x.key],
         ),
       ),
     )
     // タブがあれば見出しの代わりになる
     stepTitle.hidden = tab !== null
-    replace(stepTitle, `STEP ${stepNumber(stage)} ${STAGE_LABELS[stage]}で使う AI`)
+    replace(stepTitle, m.stepTitle(stepNumber(stage), stageLabel(stage)))
     const shown = tab === null ? tools.current : tab.tools
     tools.current.forEach((tool, i) => {
       // タブに分けたときは 1 つずつなので畳まない
@@ -150,10 +143,11 @@ export function whenLabels(): {
 } {
   let current = ''
   const els: { el: HTMLElement; place: 'head' | 'row' }[] = []
-  const textOf = (place: 'head' | 'row') => (current === '' && place === 'row' ? 'まだ' : current)
+  const textOf = (place: 'head' | 'row') =>
+    current === '' && place === 'row' ? t().ai.notYet : current
   return {
     create(place) {
-      const el = h('span', { class: 'ai-when', title: '出した日時' }, textOf(place))
+      const el = h('span', { class: 'ai-when', title: t().ai.when }, textOf(place))
       els.push({ el, place })
       return el
     },
@@ -187,7 +181,7 @@ export function cardFrame(parts: {
       'div',
       { class: 'ai-card-act' },
       parts.button ?? null,
-      h('span', { class: 'ai-sends' }, `送るもの: ${parts.sends}`),
+      h('span', { class: 'ai-sends' }, t().ai.sends(parts.sends)),
     ),
     ...parts.after,
   )

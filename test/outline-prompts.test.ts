@@ -14,51 +14,61 @@ const OUTLINE = [
 
 describe('outlinePrompt', () => {
   it('空のマップはまず中心に意見を書く', () => {
-    const p = outlinePrompt('', -1)
+    const p = outlinePrompt('', -1, 'ja')
     assert.equal(p.role, null)
     assert.match(p.write, /中心/)
     assert.equal(p.next, null)
-    assert.equal(outlinePrompt(' \n\n', -1).role, null)
+    assert.equal(outlinePrompt(' \n\n', -1, 'ja').role, null)
   })
 
   it('意見: 理由が 2 つ未満なら理由を足す、そろって結論が無ければ結論、あれば答えているかを見直す', () => {
-    assert.match(outlinePrompt('制服は不要', 0).next ?? '', /理由を子に足す/)
-    assert.match(outlinePrompt('制服は不要\n\t個性', 0).next ?? '', /理由を子に足す/)
-    assert.match(outlinePrompt('制服は不要\n\t個性\n\tお金', 0).next ?? '', /結論/)
-    const p = outlinePrompt(OUTLINE, 0)
+    assert.match(outlinePrompt('制服は不要', 0, 'ja').next ?? '', /理由を子に足す/)
+    assert.match(outlinePrompt('制服は不要\n\t個性', 0, 'ja').next ?? '', /理由を子に足す/)
+    assert.match(outlinePrompt('制服は不要\n\t個性\n\tお金', 0, 'ja').next ?? '', /結論/)
+    const p = outlinePrompt(OUTLINE, 0, 'ja')
     assert.equal(p.role, 'topic')
     assert.match(p.write, /賛成か反対か/)
     assert.match(p.next ?? '', /はっきり答えている/)
   })
 
   it('理由: 例が無ければ例を足す、あれば次の理由を兄弟に', () => {
-    const withExample = outlinePrompt(OUTLINE, 1)
+    const withExample = outlinePrompt(OUTLINE, 1, 'ja')
     assert.equal(withExample.role, 'reason')
     assert.match(withExample.next ?? '', /兄弟/)
-    assert.match(outlinePrompt(OUTLINE, 3).next ?? '', /たとえば/)
+    assert.match(outlinePrompt(OUTLINE, 3, 'ja').next ?? '', /たとえば/)
   })
 
   it('例・結論（結論の子も結論）', () => {
-    const example = outlinePrompt(OUTLINE, 2)
+    const example = outlinePrompt(OUTLINE, 2, 'ja')
     assert.equal(example.role, 'example')
     assert.match(example.next ?? '', /具体的/)
-    assert.equal(outlinePrompt(OUTLINE, 4).role, 'conclusion')
-    assert.equal(outlinePrompt(OUTLINE, 5).role, 'conclusion')
-    assert.match(outlinePrompt(OUTLINE, 4).write, /言い直す/)
+    assert.equal(outlinePrompt(OUTLINE, 4, 'ja').role, 'conclusion')
+    assert.equal(outlinePrompt(OUTLINE, 5, 'ja').role, 'conclusion')
+    assert.match(outlinePrompt(OUTLINE, 4, 'ja').write, /言い直す/)
   })
 
   it('字下げ 0 の行が複数なら、仮の中心で意見を 1 つにまとめるよう促す。それぞれの意見は自分の下の理由だけを数える', () => {
     const text = '意見A\n\t理由1\n\t理由2\n\t結論: A\n意見B\n\t理由3'
-    const root = outlinePrompt(text, -1)
+    const root = outlinePrompt(text, -1, 'ja')
     assert.equal(root.role, null)
     assert.match(root.write, /2 つ/)
     assert.match(root.next ?? '', /1 つにまとめ/)
-    assert.match(outlinePrompt(text, 0).next ?? '', /はっきり答えている/)
-    assert.match(outlinePrompt(text, 4).next ?? '', /理由を子に足す/)
+    assert.match(outlinePrompt(text, 0, 'ja').next ?? '', /はっきり答えている/)
+    assert.match(outlinePrompt(text, 4, 'ja').next ?? '', /理由を子に足す/)
   })
 
   it('知らない行（消した直後など）は、意見が 1 つならその意見として出す', () => {
-    assert.equal(outlinePrompt(OUTLINE, 99).role, 'topic')
-    assert.equal(outlinePrompt(OUTLINE, -1).role, 'topic')
+    assert.equal(outlinePrompt(OUTLINE, 99, 'ja').role, 'topic')
+    assert.equal(outlinePrompt(OUTLINE, -1, 'ja').role, 'topic')
+  })
+})
+
+describe('outlinePrompt（英語の UI）', () => {
+  it('役割は言語によらず同じで、文は英語', () => {
+    for (const line of [-1, 0, 1, 2, 3, 4, 5]) {
+      assert.equal(outlinePrompt(OUTLINE, line, 'en').role, outlinePrompt(OUTLINE, line, 'ja').role)
+    }
+    assert.match(outlinePrompt('', -1, 'en').write, /Start by writing/)
+    assert.match(outlinePrompt(OUTLINE, 3, 'en').next ?? '', /For example\?/)
   })
 })

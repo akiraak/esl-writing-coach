@@ -6,6 +6,7 @@ import {
 } from '../shared/ideas.js'
 import { askAiQuestion } from './api.js'
 import { h, replace } from './dom.js'
+import { t } from './i18n.js'
 import { errorText } from './ui.js'
 
 /**
@@ -51,8 +52,8 @@ function bubble(q: { question: string; answer?: string }): HTMLElement[] {
   return [
     h('p', { class: 'ai-q' }, q.question),
     q.answer === undefined
-      ? h('p', { class: 'ai-a pending' }, '答えています…')
-      : h('p', { class: 'ai-a' }, q.answer),
+      ? h('p', { class: 'ai-a pending' }, t().questions.answering)
+      : h('p', { class: 'ai-a', lang: 'ja' }, q.answer),
   ]
 }
 
@@ -62,9 +63,9 @@ export function createQuestionBox(id: string, kind: AiKind): QuestionBox {
     key: `${id}/${kind}`,
     ask: (question) => askAiQuestion(id, kind, question),
     max: MAX_QUESTIONS,
-    placeholder: 'この結果について質問する（日本語で。Ctrl+Enter で送る）',
-    ariaLabel: 'AI案への質問',
-    fullNote: `質問は ${MAX_QUESTIONS} 回までです。AI案を出し直すと新しく聞けます。`,
+    placeholder: t().questions.placeholder,
+    ariaLabel: t().questions.label,
+    fullNote: t().questions.full(MAX_QUESTIONS),
   })
 }
 
@@ -88,7 +89,7 @@ export function createQuestionBoxWith(options: QuestionBoxOptions): QuestionBox 
     placeholder: options.placeholder,
     'aria-label': options.ariaLabel,
   })
-  const button = h('button', { class: 'btn', type: 'button' }, '質問する')
+  const button = h('button', { class: 'btn', type: 'button' }, t().questions.ask)
   const message = h('p', { class: 'error ai-error' })
   const limit = h('p', { class: 'muted ai-sub-note' })
   const form = h('div', { class: 'ai-qa-form' }, input, button)
@@ -101,7 +102,7 @@ export function createQuestionBoxWith(options: QuestionBoxOptions): QuestionBox 
     ]
     const latest = entries.at(-1)
     const before = entries.slice(0, -1)
-    replace(olderSummary, `前の質問（${before.length}）`)
+    replace(olderSummary, t().questions.older(before.length))
     replace(olderBox, ...before.flatMap((q) => bubble(q)))
     replace(
       log,
@@ -114,7 +115,7 @@ export function createQuestionBoxWith(options: QuestionBoxOptions): QuestionBox 
     const busy = inFlight !== null
     input.disabled = busy || locked
     button.disabled = busy || locked
-    replace(button, busy ? '答えています…' : '質問する')
+    replace(button, busy ? t().questions.answering : t().questions.ask)
     options.onChange?.(questions, busy)
   }
 
@@ -127,7 +128,7 @@ export function createQuestionBoxWith(options: QuestionBoxOptions): QuestionBox 
       // 保存してある分をもう描いていれば重ねない
       if (!questions.some((q) => q.createdAt === answered.createdAt)) questions.push(answered)
     } catch (error) {
-      replace(message, `答えを出せませんでした: ${errorText(error)}`)
+      replace(message, t().questions.failed(errorText(error)))
       // 送れなかった質問は欄に戻す（打ち直さずに済むよう）
       if (input.value === '') input.value = entry.question
     } finally {
@@ -173,7 +174,7 @@ export function createQuestionBoxWith(options: QuestionBoxOptions): QuestionBox 
       paint()
     },
     setStale(value) {
-      replace(stale, value ? '前のテーマ・アウトラインについての質問になります。' : '')
+      replace(stale, value ? t().questions.stale : '')
     },
   }
 }

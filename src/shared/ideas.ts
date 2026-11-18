@@ -16,6 +16,7 @@ export interface ThemeSuggestion {
 
 export type Stance = 'for' | 'against'
 
+/** 立場の名前（AI のプロンプト用。日本語のまま。画面は辞書の `ideas.stance`）。 */
 export const STANCE_LABEL: Readonly<Record<Stance, string>> = { for: '賛成', against: '反対' }
 
 export interface ReasonSuggestion {

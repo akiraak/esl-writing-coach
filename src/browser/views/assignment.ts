@@ -5,7 +5,9 @@ import {
   parseAssignment,
   serializeAssignment,
 } from '../../shared/assignment.js'
+import type { CountKind } from '../../shared/i18n/ja.js'
 import { h, replace } from '../dom.js'
+import { t } from '../i18n.js'
 import type { StageEditor } from '../stage-editor.js'
 
 /**
@@ -27,7 +29,9 @@ function numberValue(input: HTMLInputElement): number | null {
   return Number.isInteger(n) && n >= 0 ? n : null
 }
 
-function rangeInputs(label: string, unit: string, initial: CountRange, onInput: () => void) {
+function rangeInputs(kind: CountKind, initial: CountRange, onInput: () => void) {
+  const label = t().counts.label[kind]
+  const unit = t().counts.unit(2, kind)
   const attrs = (value: number | null, aria: string) => ({
     type: 'number',
     min: 0,
@@ -37,8 +41,8 @@ function rangeInputs(label: string, unit: string, initial: CountRange, onInput: 
     'aria-label': aria,
     oninput: onInput,
   })
-  const min = h('input', attrs(initial.min, `${label}の下限`))
-  const max = h('input', attrs(initial.max, `${label}の上限`))
+  const min = h('input', attrs(initial.min, t().assignment.min(label)))
+  const max = h('input', attrs(initial.max, t().assignment.max(label)))
   const warn = h('span', { class: 'warn' })
   const row = h(
     'div',
@@ -56,7 +60,7 @@ function rangeInputs(label: string, unit: string, initial: CountRange, onInput: 
       return { min: numberValue(min), max: numberValue(max) }
     },
     showWarning(range: CountRange) {
-      replace(warn, isReversed(range) ? '下限が上限より大きくなっています' : '')
+      replace(warn, isReversed(range) ? t().assignment.reversed : '')
     },
   }
 }
@@ -82,17 +86,16 @@ export function renderAssignmentView(container: HTMLElement, options: Assignment
     type: 'text',
     value: initial.theme,
     placeholder: 'Should students wear school uniforms?',
-    'aria-label': 'テーマ',
+    'aria-label': t().assignment.theme,
     oninput: onInput,
   })
-  const words = rangeInputs('語数', '語', initial.words, onInput)
-  const sentences = rangeInputs('文数', '文', initial.sentences, onInput)
+  const words = rangeInputs('words', initial.words, onInput)
+  const sentences = rangeInputs('sentences', initial.sentences, onInput)
   const conditions = h('textarea', {
     class: 'conditions-input',
     rows: 8,
-    placeholder:
-      '例: 理由を 3 つ挙げ、First / Second / Finally を使う。結論で topic sentence を言い換える。',
-    'aria-label': '構成や表現の条件',
+    placeholder: t().assignment.conditionsPlaceholder,
+    'aria-label': t().assignment.conditions,
     oninput: onInput,
   })
   conditions.value = initial.conditions
@@ -107,32 +110,24 @@ export function renderAssignmentView(container: HTMLElement, options: Assignment
       h(
         'section',
         { class: 'field' },
-        h('label', { class: 'field-label' }, 'テーマ'),
+        h('label', { class: 'field-label' }, t().assignment.theme),
         theme,
-        h('p', { class: 'hint' }, '自分で決めたテーマ（問い）。英語でも日本語でもよい。'),
+        h('p', { class: 'hint' }, t().assignment.themeHint),
       ),
       h(
         'section',
         { class: 'field' },
-        h('label', { class: 'field-label' }, '語数・文数の指定'),
+        h('label', { class: 'field-label' }, t().assignment.counts),
         words.row,
         sentences.row,
-        h(
-          'p',
-          { class: 'hint' },
-          '下限〜上限。片方だけでもよい。「約 150 語」のような指定は 140〜160 のように幅に直して入れる。',
-        ),
+        h('p', { class: 'hint' }, t().assignment.countsHint),
       ),
       h(
         'section',
         { class: 'field' },
-        h('label', { class: 'field-label' }, '構成や表現の条件'),
+        h('label', { class: 'field-label' }, t().assignment.conditions),
         conditions,
-        h(
-          'p',
-          { class: 'hint' },
-          '授業で出された条件をそのまま書く（日本語でよい）。下書きの画面の上に出る。',
-        ),
+        h('p', { class: 'hint' }, t().assignment.conditionsHint),
       ),
     ),
   )

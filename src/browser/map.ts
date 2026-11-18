@@ -23,6 +23,7 @@ import {
   removeNode,
   renameNode,
 } from '../shared/outline.js'
+import { t } from './i18n.js'
 
 /**
  * マインドマップの部品: 字下げのテキストを木として図で見せて編集する。
@@ -65,8 +66,6 @@ const PAD_Y = 6
 const WRAP_COLUMNS = 40
 /** 畳んだノードの右に出す「+3」の幅（px）。 */
 const BADGE_GAP = 6
-/** 新しく足すノードを並べるときの仮の名前（並べるためだけに使い、本文には書かない）。 */
-const DRAFT_LABEL = '新しい枝'
 const ZOOM_MIN = 0.4
 const ZOOM_MAX = 2.5
 const UNDO_LIMIT = 200
@@ -106,6 +105,7 @@ function countDescendants(node: OutlineNode): number {
 
 export function mountMap(host: HTMLElement, options: MapOptions): MapHandle {
   const { title } = options
+  const m = t().map
   /** 外すもの（destroy で呼ぶ）。 */
   const cleanups: (() => void)[] = []
 
@@ -113,7 +113,7 @@ export function mountMap(host: HTMLElement, options: MapOptions): MapHandle {
   scroller.className = 'map-scroll'
   scroller.tabIndex = 0
   scroller.setAttribute('role', 'tree')
-  scroller.setAttribute('aria-label', 'マインドマップ')
+  scroller.setAttribute('aria-label', m.tree)
   const svg = el('svg', { class: 'map-svg' })
   // 名前の入力欄。Shift+Enter で改行を入れられるよう textarea（本文には行末の \ で続けて書く。outline.ts）
   const input = document.createElement('textarea')
@@ -122,12 +122,12 @@ export function mountMap(host: HTMLElement, options: MapOptions): MapHandle {
   input.spellcheck = false
   input.rows = 1
   input.setAttribute('autocomplete', 'off')
-  input.setAttribute('aria-label', 'ノードの名前（Shift+Enter で改行）')
+  input.setAttribute('aria-label', m.input)
   // 選んだノードへの操作のボタン。キーの早見も添える
   const bar = document.createElement('div')
   bar.className = 'map-bar'
   bar.setAttribute('role', 'toolbar')
-  bar.setAttribute('aria-label', 'マップの操作')
+  bar.setAttribute('aria-label', m.toolbar)
   const button = (label: string, tip: string): HTMLButtonElement => {
     const b = document.createElement('button')
     b.type = 'button'
@@ -139,19 +139,18 @@ export function mountMap(host: HTMLElement, options: MapOptions): MapHandle {
     bar.append(b)
     return b
   }
-  const addChildButton = button('＋子', '子を足す（Tab）')
-  const addSiblingButton = button('＋兄弟', '兄弟を足す（Enter）')
-  const renameButton = button('名前', '名前を変える（Space・F2・ダブルクリック）')
-  const removeButton = button('削除', '消す（Delete）')
-  const toggleButton = button('畳む', '畳む・開く（Ctrl+↑ / Ctrl+↓）')
-  const undoButton = button('↶', '元に戻す（Ctrl+Z）')
-  const redoButton = button('↷', 'やり直す（Ctrl+Shift+Z）')
-  const zoomOutButton = button('－', '縮小（Ctrl+-）')
-  const zoomInButton = button('＋', '拡大（Ctrl++）')
+  const addChildButton = button(m.addChild, m.addChildTip)
+  const addSiblingButton = button(m.addSibling, m.addSiblingTip)
+  const renameButton = button(m.rename, m.renameTip)
+  const removeButton = button(m.remove, m.removeTip)
+  const toggleButton = button(m.fold, m.foldTip)
+  const undoButton = button('↶', m.undoTip)
+  const redoButton = button('↷', m.redoTip)
+  const zoomOutButton = button('－', m.zoomOutTip)
+  const zoomInButton = button('＋', m.zoomInTip)
   const hint = document.createElement('span')
   hint.className = 'map-hint'
-  hint.textContent =
-    'Tab: 子 / Enter: 兄弟 / Space: 名前 / Delete: 消す / Alt+矢印・ドラッグ: 付け替え / Ctrl+↑↓: 畳む・開く / Ctrl+C・X・V: 枝のコピー'
+  hint.textContent = m.hint
   bar.append(hint)
   scroller.append(svg, input)
   host.append(scroller, bar)
@@ -260,7 +259,7 @@ export function mountMap(host: HTMLElement, options: MapOptions): MapHandle {
     renameButton.disabled = node === null || (node.line === -1 && node.children.length > 0)
     removeButton.disabled = node === null || node === outline.root
     toggleButton.disabled = node === null || node.children.length === 0
-    toggleButton.textContent = node !== null && shown.has(node.line) ? '開く' : '畳む'
+    toggleButton.textContent = node !== null && shown.has(node.line) ? m.unfold : m.fold
     undoButton.disabled = undo.length === 0
     redoButton.disabled = redo.length === 0
     options.onSelect?.({ text: draft?.text ?? text, line: selected })
@@ -460,7 +459,7 @@ export function mountMap(host: HTMLElement, options: MapOptions): MapHandle {
       return
     }
     const make = kind === 'child' ? addChild : addSibling
-    const shaped = make(text, selected, DRAFT_LABEL)
+    const shaped = make(text, selected, m.draftLabel)
     if (shaped === null) return
     // 畳んでいるノードに子を足すときは開く
     if (kind === 'child' || selected === outline.root.line) collapsed.delete(selected)

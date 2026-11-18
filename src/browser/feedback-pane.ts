@@ -1,7 +1,8 @@
-import { CRITERIA, criterionOf, type Feedback, isFeedbackStale } from '../shared/feedback.js'
+import { CRITERIA, type Feedback, isFeedbackStale } from '../shared/feedback.js'
 import { type AiCard, cardFrame, whenLabels } from './ai-pane.js'
 import { readFeedback, scoreParagraph } from './api.js'
 import { h, replace } from './dom.js'
+import { t } from './i18n.js'
 import { errorText, fixLine, formatDate, formatTime } from './ui.js'
 
 /**
@@ -33,29 +34,30 @@ export interface FeedbackPanel {
 }
 
 export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPanel {
+  const m = t().feedback
   let feedback: Feedback | null = null
   let configured = true
   let loaded = false
   let busy = false
   let error = ''
 
-  const button = h('button', { class: 'btn pri', type: 'button' }, '採点する')
+  const button = h('button', { class: 'btn pri', type: 'button' }, m.button)
   const note = h('p', { class: 'muted ai-card-desc' })
   const message = h('p', { class: 'error score-error' })
   const stale = h('p', { class: 'score-stale' })
   const result = h('div', { class: 'score-result' })
   /** 結果は長いので、上に出す 2 つ目のとき（STEP 3 では「AI に質問」の下）は畳む（`setFolded`）。 */
-  const foldSummary = h('summary', {}, '採点の結果を見る')
+  const foldSummary = h('summary', {}, m.summary)
   const fold = h('details', { class: 'ai-fold', open: true, hidden: true }, foldSummary, result)
   const empty = h('p', { class: 'muted ai-sub-note' })
   const when = whenLabels()
   const card: AiCard = {
     el: cardFrame({
-      title: '採点',
+      title: t().ai.tools.score,
       when: when.create('head'),
       desc: note,
       button,
-      sends: '下書き・タイトル・課題・語数と文数',
+      sends: m.sends,
       after: [message, stale, empty, fold],
     }),
     whenLabel: () => when.create('row'),
@@ -67,24 +69,24 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
   function sync(): void {
     const empty = options.draftText().trim() === ''
     button.disabled = busy || empty || !configured || !loaded
-    replace(button, busy ? '採点中…' : feedback === null ? '採点する' : 'もう一度採点する')
+    replace(button, busy ? m.busy : feedback === null ? m.button : m.again)
     replace(
       note,
       !loaded
-        ? '読み込み中…'
+        ? t().loading
         : !configured
-          ? 'ANTHROPIC_API_KEY が設定されていません。.env に入れてサーバを起動し直すと使えます。'
+          ? t().ai.noApiKey
           : busy
-            ? '30 秒〜1 分ほどかかります。'
+            ? m.slow
             : empty
-              ? '下書きを書くと採点できます。'
-              : '100 点満点と観点ごとの点数、綴りの誤りの一覧、直すところのヒントと修正例の英文。',
+              ? m.noDraft
+              : m.desc,
     )
     replace(message, error)
     replace(
       stale,
       feedback !== null && isFeedbackStale(feedback, options.draftText(), options.titleText())
-        ? '採点した後に本文かタイトルが変わっています。直したらもう一度採点できます。'
+        ? m.stale
         : '',
     )
   }
@@ -96,13 +98,13 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
         : `${formatDate(feedback.scoredAt)} ${formatTime(feedback.scoredAt)}`,
     )
     fold.hidden = feedback === null
-    replace(empty, feedback === null && loaded ? 'まだ採点していません。' : '')
+    replace(empty, feedback === null && loaded ? m.none : '')
     if (feedback === null) {
       replace(result)
       return
     }
     const fb = feedback
-    replace(foldSummary, `採点の結果を見る（${fb.total} 点）`)
+    replace(foldSummary, m.summaryTotal(fb.total))
     replace(
       result,
       h('div', { class: 'score-total' }, h('b', {}, String(fb.total)), h('span', {}, ' / 100')),
@@ -119,11 +121,11 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
             h(
               'div',
               { class: 'crit-head' },
-              h('span', {}, c.label),
+              h('span', {}, m.criteria[c.key]),
               h('b', {}, `${s.score} / ${c.max}`),
             ),
             h('div', { class: 'crit-bar' }, fill),
-            s.comment === '' ? null : h('p', {}, s.comment),
+            s.comment === '' ? null : h('p', { lang: 'ja' }, s.comment),
           )
         }),
       ),
@@ -132,15 +134,15 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
         : h(
             'div',
             { class: 'score-block' },
-            h('h4', {}, 'よかった点'),
-            h('ul', { class: 'strengths' }, ...fb.strengths.map((s) => h('li', {}, s))),
+            h('h4', {}, m.strengths),
+            h('ul', { class: 'strengths', lang: 'ja' }, ...fb.strengths.map((s) => h('li', {}, s))),
           ),
       fb.spellings.length === 0
         ? null
         : h(
             'div',
             { class: 'score-block' },
-            h('h4', {}, `綴りの誤り（${fb.spellings.length}）`),
+            h('h4', {}, m.spellings(fb.spellings.length)),
             h(
               'ul',
               { class: 'spellings', lang: 'en' },
@@ -152,9 +154,9 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
       h(
         'div',
         { class: 'score-block' },
-        h('h4', {}, `直すところ（${fb.findings.length}）`),
+        h('h4', {}, m.findings(fb.findings.length)),
         fb.findings.length === 0
-          ? h('p', { class: 'muted' }, '大きな指摘はありません。')
+          ? h('p', { class: 'muted' }, m.noFindings)
           : h(
               'ol',
               { class: 'findings' },
@@ -162,9 +164,9 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
                 h(
                   'li',
                   {},
-                  h('span', { class: `crit-tag t-${f.criterion}` }, criterionOf(f.criterion).label),
+                  h('span', { class: `crit-tag t-${f.criterion}` }, m.criteria[f.criterion]),
                   f.quote === '' ? null : h('q', { lang: 'en' }, f.quote),
-                  h('p', {}, f.hint),
+                  h('p', { lang: 'ja' }, f.hint),
                   fixLine(f.fix),
                 ),
               ),
@@ -189,7 +191,7 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
         fold.open = true
       }
     } catch (e) {
-      error = `採点できませんでした: ${errorText(e)}`
+      error = m.failed(errorText(e))
     } finally {
       busy = false
       sync()
@@ -206,7 +208,7 @@ export function createFeedbackPanel(options: FeedbackPanelOptions): FeedbackPane
     },
     (e: unknown) => {
       loaded = true
-      error = `採点の結果を読めません: ${errorText(e)}`
+      error = m.loadFailed(errorText(e))
       renderResult()
       sync()
     },

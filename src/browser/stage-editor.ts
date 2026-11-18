@@ -2,6 +2,7 @@ import { type Autosave, createAutosave, type SaveState } from '../shared/autosav
 import type { Doc, StageContent } from '../shared/types.js'
 import { ApiError, saveStage } from './api.js'
 import { h, replace } from './dom.js'
+import { t } from './i18n.js'
 import { errorText, formatTime } from './ui.js'
 
 /**
@@ -90,23 +91,23 @@ export function renderSaveStatus(status: HTMLElement, state: SaveState, retry: (
   status.title = state.kind === 'error' ? state.message : ''
   switch (state.kind) {
     case 'saved':
-      replace(status, state.at === null ? '保存済み' : `✓ 保存済み ${formatTime(state.at)}`)
+      replace(status, state.at === null ? t().save.saved : t().save.savedAt(formatTime(state.at)))
       break
     case 'dirty':
-      replace(status, '未保存')
+      replace(status, t().save.dirty)
       break
     case 'saving':
-      replace(status, '保存中…')
+      replace(status, t().save.saving)
       break
     case 'error':
       replace(
         status,
-        '保存できません ',
-        h('button', { class: 'link', type: 'button', onclick: () => retry() }, '再試行'),
+        `${t().save.failed} `,
+        h('button', { class: 'link', type: 'button', onclick: () => retry() }, t().save.retry),
       )
       break
     case 'conflict':
-      replace(status, '自動保存を停止')
+      replace(status, t().save.stopped)
       break
   }
 }
@@ -119,8 +120,8 @@ export function conflictBanner(editor: StageEditor, reload: () => void): HTMLEle
   return h(
     'div',
     { class: 'conflict-banner' },
-    h('b', {}, '他の端末（または別のタブ）で更新されています。'),
-    ' 上書きしないよう、この段階の自動保存を止めました。手元の変更は画面に残っています。',
+    h('b', {}, t().conflict.title),
+    t().conflict.body,
     h(
       'div',
       { class: 'actions' },
@@ -131,12 +132,12 @@ export function conflictBanner(editor: StageEditor, reload: () => void): HTMLEle
           type: 'button',
           onclick: () => {
             navigator.clipboard.writeText(editor.text).then(
-              () => replace(copied, 'コピーしました'),
-              () => replace(copied, 'コピーできません'),
+              () => replace(copied, t().conflict.copied),
+              () => replace(copied, t().conflict.copyFailed),
             )
           },
         },
-        '手元の内容をコピー',
+        t().conflict.copy,
       ),
       h(
         'button',
@@ -144,10 +145,10 @@ export function conflictBanner(editor: StageEditor, reload: () => void): HTMLEle
           class: 'btn',
           type: 'button',
           onclick: () => {
-            if (confirm('手元の変更を捨てて、保存されている内容を読み直しますか？')) reload()
+            if (confirm(t().conflict.reloadConfirm)) reload()
           },
         },
-        '読み直す（手元の変更は捨てる）',
+        t().conflict.reload,
       ),
       copied,
     ),

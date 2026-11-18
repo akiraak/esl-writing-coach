@@ -2,6 +2,7 @@ import { type GuideTabKey, guideTabFor, RECOMMENDED_GUIDE_TAB } from '../shared/
 import type { Stage } from '../shared/types.js'
 import { h } from './dom.js'
 import { guideTabs } from './guide-content.js'
+import { t } from './i18n.js'
 
 /**
  * 編集画面の学習ガイドの引き出し（`docs/plans/archive/right-pane-layout.md`）。
@@ -38,20 +39,25 @@ export function createGuideDrawer(): GuideDrawer {
   })
   const close = h(
     'button',
-    { class: 'drawer-x', type: 'button', title: '閉じる', 'aria-label': '学習ガイドを閉じる' },
+    {
+      class: 'drawer-x',
+      type: 'button',
+      title: t().guide.close,
+      'aria-label': t().guide.closeLabel,
+    },
     '×',
   )
   const el = h(
     'aside',
-    { class: 'side drawer', id: 'guide-drawer', 'aria-label': '学習ガイド', hidden: true },
+    { class: 'side drawer', id: 'guide-drawer', 'aria-label': t().header.guide, hidden: true },
     h(
       'div',
       { class: 'drawer-head' },
-      h('h2', {}, '学習ガイド'),
+      h('h2', {}, t().header.guide),
       h(
         'a',
-        { class: 'drawer-page', href: '#/guide', title: '学習ガイドの画面へ移る' },
-        '別の画面で開く',
+        { class: 'drawer-page', href: '#/guide', title: t().guide.toPageTip },
+        t().guide.toPage,
       ),
       close,
     ),
@@ -66,7 +72,7 @@ export function createGuideDrawer(): GuideDrawer {
       'aria-controls': 'guide-drawer',
       'aria-expanded': 'false',
     },
-    '学習ガイド',
+    t().header.guide,
   )
   let open = false
   const setOpen = (value: boolean) => {

@@ -3,6 +3,7 @@ import { FLOW, MODEL, PHRASES, STRUCTURE } from '../shared/guide.js'
 import { outlineRoles } from '../shared/outline-roles.js'
 import type { GuideTabKey } from '../shared/side-pane.js'
 import { h, replace } from './dom.js'
+import { getLang, t } from './i18n.js'
 import { insertPhrase } from './phrase-target.js'
 import { ROLE_KEY, roleNodes } from './role-list.js'
 
@@ -14,11 +15,8 @@ import { ROLE_KEY, roleNodes } from './role-list.js'
 
 export type GuideTab = GuideTabKey
 
-export const GUIDE_TABS: readonly { key: GuideTab; label: string; short: string }[] = [
-  { key: 'structure', label: '構成の解説', short: '構成' },
-  { key: 'model', label: 'モデル文', short: 'モデル文' },
-  { key: 'phrases', label: '表現集', short: '表現集' },
-]
+/** タブの並び（名前は辞書の `guide.tabs`）。 */
+export const GUIDE_TABS: readonly GuideTab[] = ['structure', 'model', 'phrases']
 
 /** 学習ガイド画面で選んだタブ（このブラウザのタブを開いている間は覚える）。 */
 let pageSelected: GuideTab = 'structure'
@@ -49,12 +47,12 @@ function structureBody(): HTMLElement {
         h(
           'div',
           { class: `part p-${ROLE_KEY[part.role]}` },
-          h('h3', {}, part.name, h('small', {}, part.ja)),
-          h('p', {}, part.description),
+          h('h3', {}, part.name, h('small', { lang: 'ja' }, part.ja)),
+          h('p', {}, part.description[getLang()]),
         ),
       ),
     ),
-    h('div', { class: 'flow' }, h('span', { class: 'flow-label' }, '並び:'), ...flow),
+    h('div', { class: 'flow' }, h('span', { class: 'flow-label' }, t().guide.flow), ...flow),
   )
 }
 
@@ -71,11 +69,11 @@ function modelBody(): HTMLElement {
     h('p', { class: 'model-theme' }, MODEL.theme),
     paragraph,
     legend(),
-    h('p', { class: 'muted model-stats' }, `${countWords(text)} 語 ・ ${countSentences(text)} 文`),
-    h('h3', { class: 'gsub' }, 'このモデル文のアウトライン（STEP 2 の見本）'),
-    h('div', { class: 'model-outline' }, ...roleNodes(outlineRoles(MODEL.outline))),
-    h('h3', { class: 'gsub' }, '書き方のポイント'),
-    h('ul', { class: 'points' }, ...MODEL.points.map((point) => h('li', {}, point))),
+    h('p', { class: 'muted model-stats' }, t().guide.stats(countWords(text), countSentences(text))),
+    h('h3', { class: 'gsub' }, t().guide.modelOutline),
+    h('div', { class: 'model-outline', lang: 'ja' }, ...roleNodes(outlineRoles(MODEL.outline))),
+    h('h3', { class: 'gsub' }, t().guide.points),
+    h('ul', { class: 'points' }, ...MODEL.points.map((point) => h('li', {}, point[getLang()]))),
   )
 }
 
@@ -88,19 +86,19 @@ function phrasesBody(insertable: boolean, compact: boolean): HTMLElement {
   const notice = h('p', { class: 'phr-notice' })
   let noticeTimer: ReturnType<typeof setTimeout> | undefined
   const chip = (phrase: { en: string; ja: string }) => {
-    const parts = [h('code', { lang: 'en' }, phrase.en), h('small', {}, phrase.ja)]
+    const parts = [h('code', { lang: 'en' }, phrase.en), h('small', { lang: 'ja' }, phrase.ja)]
     if (!insertable) return h('span', { class: 'phrase' }, ...parts)
     return h(
       'button',
       {
         type: 'button',
         class: 'phrase',
-        title: '下書きのカーソルの位置に入れる',
+        title: t().guide.insertTip,
         onmousedown: (event: Event) => event.preventDefault(),
         onclick: () => {
           if (insertPhrase(phrase.en)) return
           // 下書きを開いていなければ知らせる（段階を移ってから残らないよう、数秒で消す）
-          replace(notice, '下書き（STEP 3）を開くと、押して本文に入れられます。')
+          replace(notice, t().guide.openDraft)
           clearTimeout(noticeTimer)
           noticeTimer = setTimeout(() => replace(notice), 4000)
         },
@@ -112,13 +110,9 @@ function phrasesBody(insertable: boolean, compact: boolean): HTMLElement {
     'div',
     {},
     insertable
-      ? h('p', { class: 'muted phr-hint' }, '押すと下書きのカーソルの位置に入ります。')
+      ? h('p', { class: 'muted phr-hint' }, t().guide.insertHint)
       : compact
-        ? h(
-            'p',
-            { class: 'muted phr-hint' },
-            'STEP 3（下書き）で押すと本文に入ります。ここでは見るだけ。',
-          )
+        ? h('p', { class: 'muted phr-hint' }, t().guide.viewOnlyHint)
         : null,
     insertable ? notice : null,
     h(
@@ -128,7 +122,7 @@ function phrasesBody(insertable: boolean, compact: boolean): HTMLElement {
         h(
           'div',
           { class: `pg${group.role === null ? '' : ` p-${ROLE_KEY[group.role]}`}` },
-          h('h3', {}, group.title),
+          h('h3', {}, group.title[getLang()]),
           h('div', { class: 'phrases' }, ...group.phrases.map(chip)),
         ),
       ),
@@ -174,7 +168,7 @@ export function guideTabs(compact: boolean, options: GuideTabsOptions = {}): Gui
   const marks = GUIDE_TABS.map(() =>
     h(
       'span',
-      { class: 'gtab-rec', title: 'この段階のおすすめ', 'aria-label': '（おすすめ）' },
+      { class: 'gtab-rec', title: t().guide.recommended, 'aria-label': t().guide.recommendedLabel },
       '●',
     ),
   )
@@ -184,22 +178,22 @@ export function guideTabs(compact: boolean, options: GuideTabsOptions = {}): Gui
       {
         type: 'button',
         onclick: () => {
-          select(tab.key)
-          if (usePage) pageSelected = tab.key
-          options.onSelect?.(tab.key)
+          select(tab)
+          if (usePage) pageSelected = tab
+          options.onSelect?.(tab)
         },
       },
-      compact ? tab.short : tab.label,
+      compact ? t().guide.tabs[tab].short : t().guide.tabs[tab].label,
       marks[i],
     ),
   )
   function select(tab: GuideTab): void {
     selected = tab
     const recommended = options.recommended?.() ?? null
-    GUIDE_TABS.forEach((t, i) => {
-      buttons[i]?.classList.toggle('on', t.key === selected)
-      buttons[i]?.setAttribute('aria-pressed', String(t.key === selected))
-      if (marks[i]) marks[i].hidden = t.key !== recommended
+    GUIDE_TABS.forEach((key, i) => {
+      buttons[i]?.classList.toggle('on', key === selected)
+      buttons[i]?.setAttribute('aria-pressed', String(key === selected))
+      if (marks[i]) marks[i].hidden = key !== recommended
     })
     replace(body, bodyOf(selected, compact, options.insertable?.() ?? false))
   }

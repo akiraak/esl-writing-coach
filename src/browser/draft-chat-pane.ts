@@ -3,6 +3,7 @@ import { type AiCard, cardFrame, whenLabels } from './ai-pane.js'
 import { createQuestionBoxWith } from './ai-questions.js'
 import { askDraftQuestion, clearDraftQuestions, readAiResults } from './api.js'
 import { h, replace } from './dom.js'
+import { t } from './i18n.js'
 import { errorText, formatDate, formatTime } from './ui.js'
 
 /**
@@ -24,13 +25,14 @@ export interface DraftChatPanelOptions {
 
 export function createDraftChatPanel(options: DraftChatPanelOptions): { card: AiCard } {
   const { id } = options
+  const m = t().draftChat
   let count = 0
   let busy = false
   let clearing = false
 
   const when = whenLabels()
   const message = h('p', { class: 'error ai-error' })
-  const reset = h('button', { class: 'ai-chat-reset', type: 'button' }, 'はじめから')
+  const reset = h('button', { class: 'ai-chat-reset', type: 'button' }, m.reset)
   const resetRow = h(
     'div',
     { class: 'ai-chat-foot', hidden: true },
@@ -41,10 +43,7 @@ export function createDraftChatPanel(options: DraftChatPanelOptions): { card: Ai
   function syncReset(): void {
     resetRow.hidden = count === 0
     reset.disabled = busy || clearing
-    replace(
-      resetRow.firstElementChild as HTMLElement,
-      `${count} / ${MAX_DRAFT_QUESTIONS} 回（前のやりとりも送ります）`,
-    )
+    replace(resetRow.firstElementChild as HTMLElement, m.count(count, MAX_DRAFT_QUESTIONS))
   }
 
   const box = createQuestionBoxWith({
@@ -55,9 +54,9 @@ export function createDraftChatPanel(options: DraftChatPanelOptions): { card: Ai
       return askDraftQuestion(id, question)
     },
     max: MAX_DRAFT_QUESTIONS,
-    placeholder: '英語や下書きについて質問（Ctrl+Enter で送る）',
-    ariaLabel: 'AI に質問',
-    fullNote: `質問は ${MAX_DRAFT_QUESTIONS} 回までです。「はじめから」で消すと新しく聞けます。`,
+    placeholder: m.placeholder,
+    ariaLabel: m.label,
+    fullNote: m.full(MAX_DRAFT_QUESTIONS),
     onChange(questions: readonly AiQuestion[], asking: boolean) {
       count = questions.length
       busy = asking
@@ -72,7 +71,7 @@ export function createDraftChatPanel(options: DraftChatPanelOptions): { card: Ai
 
   reset.addEventListener('click', async () => {
     if (busy || clearing || count === 0) return
-    if (!window.confirm('「AI に質問」のやりとりを全部消して、はじめから聞き直しますか？')) return
+    if (!window.confirm(m.resetConfirm)) return
     clearing = true
     replace(message)
     syncReset()
@@ -80,7 +79,7 @@ export function createDraftChatPanel(options: DraftChatPanelOptions): { card: Ai
       await clearDraftQuestions(id)
       box.show([])
     } catch (error) {
-      replace(message, `消せませんでした: ${errorText(error)}`)
+      replace(message, m.clearFailed(errorText(error)))
     } finally {
       clearing = false
       syncReset()
@@ -97,21 +96,17 @@ export function createDraftChatPanel(options: DraftChatPanelOptions): { card: Ai
     },
     (error: unknown) => {
       box.setLocked(false)
-      replace(message, `前のやりとりを読めません: ${errorText(error)}`)
+      replace(message, m.loadFailed(errorText(error)))
     },
   )
 
   return {
     card: {
       el: cardFrame({
-        title: 'AI に質問',
+        title: t().ai.tools.chat,
         when: when.create('head'),
-        desc: h(
-          'p',
-          { class: 'muted ai-card-desc' },
-          '語・文法・表現の違い、下書きのこの文は合っているか、書き方など、自由に聞けます。答えには英文（直した文・例文）も出ます。',
-        ),
-        sends: '下書き・タイトル・課題・語数と文数・質問',
+        desc: h('p', { class: 'muted ai-card-desc' }, m.desc),
+        sends: m.sends,
         after: [box.el, message, resetRow],
       }),
       whenLabel: () => when.create('row'),

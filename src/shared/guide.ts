@@ -5,14 +5,23 @@ import type { Role } from './outline-roles.js'
  * 学習ガイド画面と編集画面の右ペインで同じものを出す（描き方は `src/browser/guide-content.ts`）。
  *
  * 構成の 4 役割の色はアプリ全体で同じ（Topic = 青 / Reason = 緑 / Example = 橙 / Conclusion = 紫）。
+ *
+ * 画面の言語（英語 / 日本語の UI。`docs/plans/archive/ui-english.md`）で変わる文は `Localized`（解説・書き方のポイント・表現集の見出し）。
+ * 学習の中身として、役割の日本語の名前・表現の日本語の意味・モデル文のアウトライン（日本語）はどちらの UI でもそのまま出す（2026-11-17 決定）。
  */
+
+/** 画面の言語ごとの文。 */
+export interface Localized {
+  en: string
+  ja: string
+}
 
 export interface StructurePart {
   role: Role
   name: string
-  /** 日本語の名前。 */
+  /** 日本語の名前（どちらの UI でも出す）。 */
   ja: string
-  description: string
+  description: Localized
 }
 
 /** 構成の解説（opinion paragraph の型）。 */
@@ -21,28 +30,37 @@ export const STRUCTURE: readonly StructurePart[] = [
     role: 'topic',
     name: 'Topic sentence',
     ja: '意見',
-    description:
-      '段落の最初の 1 文。テーマに対する自分の意見をはっきり書く。「賛成か反対か」が読み手にすぐ分かるようにする。',
+    description: {
+      ja: '段落の最初の 1 文。テーマに対する自分の意見をはっきり書く。「賛成か反対か」が読み手にすぐ分かるようにする。',
+      en: 'The first sentence of the paragraph. State your opinion on the topic clearly, so the reader knows right away whether you are for or against it.',
+    },
   },
   {
     role: 'reason',
     name: 'Reasons',
     ja: '理由',
-    description:
-      '意見を支える理由を 2〜3 つ。First, / Second, / Finally, などの transition words で始め、順番を示す。',
+    description: {
+      ja: '意見を支える理由を 2〜3 つ。First, / Second, / Finally, などの transition words で始め、順番を示す。',
+      en: 'Two or three reasons that support your opinion. Start them with transition words such as First, / Second, / Finally, to show the order.',
+    },
   },
   {
     role: 'example',
     name: 'Examples / Details',
     ja: '例・詳細',
-    description: '理由ごとに、具体的な例・数字・体験を 1〜2 文添える。理由だけでは説得力が弱い。',
+    description: {
+      ja: '理由ごとに、具体的な例・数字・体験を 1〜2 文添える。理由だけでは説得力が弱い。',
+      en: 'For each reason, add one or two sentences with a concrete example, numbers or a personal experience. A reason alone is not very convincing.',
+    },
   },
   {
     role: 'conclusion',
     name: 'Concluding sentence',
     ja: '結論',
-    description:
-      '最後の 1 文。topic sentence の意見を別の言葉で言い換えて締める。新しい理由は出さない。',
+    description: {
+      ja: '最後の 1 文。topic sentence の意見を別の言葉で言い換えて締める。新しい理由は出さない。',
+      en: 'The last sentence. Restate the opinion of your topic sentence in other words to finish. Do not add new reasons.',
+    },
   },
 ]
 
@@ -68,8 +86,8 @@ export interface ModelParagraph {
   sentences: readonly ModelSentence[]
   /** このモデル文のアウトライン（STEP 2 で作るものの見本。字下げのテキスト）。 */
   outline: string
-  /** 書き方のポイント（日本語）。 */
-  points: readonly string[]
+  /** 書き方のポイント。 */
+  points: readonly Localized[]
 }
 
 /** モデル文（題材はモックと同じ。2026-11-08 決定）。 */
@@ -105,18 +123,34 @@ export const MODEL: ModelParagraph = {
     '\t結論: アルバイトは高校生にとって価値のある経験だ',
   ].join('\n'),
   points: [
-    '1 文目で意見をはっきり言う（I believe that …）。読み手が最初の 1 文で立場を分かるように。',
-    '理由は First, / Second, / Finally, で始めて、いくつ目の理由かを示す。',
-    '理由のすぐ後に、その理由の例を 1 文続ける（For example, …）。例の文は理由より具体的に。',
-    '結論は For these reasons, で始め、topic sentence を別の言葉で言い換える（should have part-time jobs → a valuable experience）。',
-    'アウトラインの 1 項目がおおよそ 1 文になる。日本語のアウトラインを英語の文に置き換えていく。',
+    {
+      ja: '1 文目で意見をはっきり言う（I believe that …）。読み手が最初の 1 文で立場を分かるように。',
+      en: 'State your opinion clearly in the first sentence (I believe that …), so the reader knows your position from the start.',
+    },
+    {
+      ja: '理由は First, / Second, / Finally, で始めて、いくつ目の理由かを示す。',
+      en: 'Start each reason with First, / Second, / Finally, to show which reason it is.',
+    },
+    {
+      ja: '理由のすぐ後に、その理由の例を 1 文続ける（For example, …）。例の文は理由より具体的に。',
+      en: 'Right after each reason, add one sentence with an example (For example, …). Make the example more specific than the reason.',
+    },
+    {
+      ja: '結論は For these reasons, で始め、topic sentence を別の言葉で言い換える（should have part-time jobs → a valuable experience）。',
+      en: 'Start the conclusion with For these reasons, and restate the topic sentence in other words (should have part-time jobs → a valuable experience).',
+    },
+    {
+      ja: 'アウトラインの 1 項目がおおよそ 1 文になる。日本語のアウトラインを英語の文に置き換えていく。',
+      en: 'Each outline item becomes roughly one sentence. Turn your Japanese outline into English sentences one by one.',
+    },
   ],
 }
 
 export interface PhraseGroup {
   /** 役割の色（つなぎの言葉は役割に属さないので null）。 */
   role: Role | null
-  title: string
+  title: Localized
+  /** 表現と日本語の意味（意味はどちらの UI でも日本語）。 */
   phrases: readonly { en: string; ja: string }[]
 }
 
@@ -124,7 +158,7 @@ export interface PhraseGroup {
 export const PHRASES: readonly PhraseGroup[] = [
   {
     role: 'topic',
-    title: '意見を述べる',
+    title: { ja: '意見を述べる', en: 'Stating your opinion' },
     phrases: [
       { en: 'In my opinion,', ja: '私の意見では' },
       { en: 'I believe that', ja: '〜だと思う' },
@@ -142,7 +176,7 @@ export const PHRASES: readonly PhraseGroup[] = [
   },
   {
     role: 'reason',
-    title: '理由を並べる',
+    title: { ja: '理由を並べる', en: 'Listing reasons' },
     phrases: [
       { en: 'First,', ja: 'まず' },
       { en: 'Second,', ja: '次に' },
@@ -162,7 +196,7 @@ export const PHRASES: readonly PhraseGroup[] = [
   },
   {
     role: 'example',
-    title: '例を挙げる',
+    title: { ja: '例を挙げる', en: 'Giving examples' },
     phrases: [
       { en: 'For example,', ja: 'たとえば' },
       { en: 'For instance,', ja: 'たとえば' },
@@ -181,7 +215,7 @@ export const PHRASES: readonly PhraseGroup[] = [
   },
   {
     role: 'conclusion',
-    title: '結論で締める',
+    title: { ja: '結論で締める', en: 'Concluding' },
     phrases: [
       { en: 'In conclusion,', ja: '結論として' },
       { en: 'For these reasons,', ja: 'これらの理由から' },
@@ -197,7 +231,7 @@ export const PHRASES: readonly PhraseGroup[] = [
   },
   {
     role: null,
-    title: 'つなぎ（transition words）',
+    title: { ja: 'つなぎ（transition words）', en: 'Transition words' },
     phrases: [
       { en: 'However,', ja: 'しかし' },
       { en: 'In addition,', ja: 'さらに' },
@@ -219,7 +253,7 @@ export const PHRASES: readonly PhraseGroup[] = [
   },
   {
     role: null,
-    title: '反対の意見にふれる',
+    title: { ja: '反対の意見にふれる', en: 'Mentioning the other side' },
     phrases: [
       { en: 'Some people say that', ja: '〜と言う人もいる' },
       { en: 'Some people may think that', ja: '〜と考える人もいるかもしれない' },

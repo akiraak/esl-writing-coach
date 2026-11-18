@@ -1,7 +1,8 @@
 import type { Assignment } from '../../shared/assignment.js'
 import { routeHash } from '../../shared/route.js'
-import { describeRange } from '../../shared/stage-summary.js'
+import { describeCountRange } from '../../shared/stage-summary.js'
 import { h } from '../dom.js'
+import { getLang, t } from '../i18n.js'
 
 /**
  * 課題のテーマと条件を小さく出す帯（アウトライン・下書きの画面の上。モックの `.req`）。
@@ -9,9 +10,13 @@ import { h } from '../dom.js'
  */
 export function assignmentBrief(id: string, assignment: Assignment): HTMLElement {
   const toAssignment = routeHash({ name: 'edit', id, stage: 'assignment' })
-  const counts = [describeRange(assignment.words, '語'), describeRange(assignment.sentences, '文')]
+  const lang = getLang()
+  const counts = [
+    describeCountRange(assignment.words, 'words', lang),
+    describeCountRange(assignment.sentences, 'sentences', lang),
+  ]
     .filter((x) => x !== null)
-    .join(' ・ ')
+    .join(t().brief.separator)
   const conditions = assignment.conditions.trim()
   return h(
     'div',
@@ -20,8 +25,8 @@ export function assignmentBrief(id: string, assignment: Assignment): HTMLElement
       ? h(
           'div',
           { class: 'brief-theme empty' },
-          'テーマがまだありません。',
-          h('a', { href: toAssignment }, '課題で入れる'),
+          t().brief.noTheme,
+          h('a', { href: toAssignment }, t().brief.toAssignment),
         )
       : h('div', { class: 'brief-theme' }, assignment.theme),
     counts === '' && conditions === ''
@@ -29,7 +34,7 @@ export function assignmentBrief(id: string, assignment: Assignment): HTMLElement
       : h(
           'div',
           { class: 'req' },
-          h('b', {}, '課題の条件'),
+          h('b', {}, t().brief.conditions),
           counts === '' ? null : h('span', { class: 'req-counts' }, counts),
           conditions === '' ? null : h('span', { class: 'req-text' }, conditions),
         ),

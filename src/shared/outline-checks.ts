@@ -1,3 +1,4 @@
+import { type Lang, MESSAGES } from './i18n/index.js'
 import { outlineRoles } from './outline-roles.js'
 
 /**
@@ -15,7 +16,8 @@ export interface OutlineCheck {
 export const MIN_REASONS = 2
 export const MAX_REASONS = 3
 
-export function checkOutline(text: string): OutlineCheck[] {
+export function checkOutline(text: string, lang: Lang): OutlineCheck[] {
+  const m = MESSAGES[lang].outlineChecks
   const items = outlineRoles(text)
   const topics = items.filter((i) => i.role === 'topic')
   const reasons = items.filter((i) => i.role === 'reason')
@@ -32,32 +34,24 @@ export function checkOutline(text: string): OutlineCheck[] {
   return [
     {
       ok: topics.length === 1,
-      label: '意見（中心）が 1 つ',
-      detail:
-        topics.length === 0
-          ? '中心に意見を書こう。'
-          : `意見が ${topics.length} つあります（字下げ 0 の行が複数）。1 つにまとめよう。`,
+      label: m.oneTopic,
+      detail: topics.length === 0 ? m.noTopic : m.manyTopics(topics.length),
     },
     {
       ok: reasons.length >= MIN_REASONS && reasons.length <= MAX_REASONS,
-      label: `理由が ${MIN_REASONS}〜${MAX_REASONS} つ`,
+      label: m.reasons(MIN_REASONS, MAX_REASONS),
       detail:
-        reasons.length < MIN_REASONS
-          ? `理由が ${reasons.length} つです。中心の子として理由を足そう。`
-          : `理由が ${reasons.length} つです。説得力のあるものに絞ろう（課題の指定があればそれに合わせる）。`,
+        reasons.length < MIN_REASONS ? m.fewReasons(reasons.length) : m.manyReasons(reasons.length),
     },
     {
       ok: reasons.length > 0 && bare.length === 0,
-      label: 'どの理由にも例・詳細',
-      detail:
-        reasons.length === 0
-          ? '理由を書いたら、その子として例・詳細を足そう。'
-          : `例・詳細の無い理由: ${bare.join(' / ')}`,
+      label: m.examples,
+      detail: reasons.length === 0 ? m.noReasons : m.bareReasons(bare.join(' / ')),
     },
     {
       ok: hasConclusion,
-      label: '結論',
-      detail: '中心の最後の子として「結論: …」を足そう。',
+      label: m.conclusion,
+      detail: m.noConclusion,
     },
   ]
 }

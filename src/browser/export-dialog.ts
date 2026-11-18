@@ -3,6 +3,7 @@ import { documentOf, formatSubmissionDate } from '../shared/document.js'
 import { buildDocx, DOCX_MIME, docxFileName } from '../shared/docx.js'
 import { exportFileName, plainTextOf, titleLine } from '../shared/export.js'
 import { h, replace } from './dom.js'
+import { t } from './i18n.js'
 import { printDocument } from './print.js'
 
 /**
@@ -61,12 +62,11 @@ export function openExportDialog(app: HTMLElement, options: ExportOptions): void
   const empty = text === ''
   const noTitle = titleLine(options.title) === ''
   const done = h('span', { class: 'muted export-done' })
+  const m = t().exportDialog
   const notes = [
-    empty ? '下書きがまだ空です。' : null,
-    !empty && hasJapanese(text) ? '日本語が混じっています。下書きは英語だけで書きます。' : null,
-    !empty && noTitle
-      ? 'タイトルがまだありません（STEP 3 のタイトルの欄）。タイトルなしで書き出します。'
-      : null,
+    empty ? m.empty : null,
+    !empty && hasJapanese(text) ? m.japanese : null,
+    !empty && noTitle ? m.noTitle : null,
   ].filter((note) => note !== null)
 
   const remembered = loadRemembered()
@@ -74,9 +74,9 @@ export function openExportDialog(app: HTMLElement, options: ExportOptions): void
     const input = h('input', { type: 'text', value, placeholder, 'aria-label': label })
     return { input, el: h('label', { class: 'sub-field' }, h('span', {}, label), input) }
   }
-  const name = field('名前', remembered.name, 'Akira Kozakai')
-  const klass = field('クラス', remembered.klass, 'ESL Writing 101')
-  const date = field('日付', formatSubmissionDate(new Date()), 'November 8, 2026')
+  const name = field(m.name, remembered.name, 'Akira Kozakai')
+  const klass = field(m.klass, remembered.klass, 'ESL Writing 101')
+  const date = field(m.date, formatSubmissionDate(new Date()), 'November 8, 2026')
 
   const submission = () => {
     remember(name.input.value.trim(), klass.input.value.trim())
@@ -89,11 +89,11 @@ export function openExportDialog(app: HTMLElement, options: ExportOptions): void
     })
   }
 
-  const docx = h('button', { class: 'btn pri', type: 'button', disabled: empty }, '.docx で保存')
-  const pdf = h('button', { class: 'btn pri', type: 'button', disabled: empty }, 'PDF（印刷）')
-  const copy = h('button', { class: 'btn', type: 'button', disabled: empty }, 'テキストをコピー')
-  const txt = h('button', { class: 'btn', type: 'button', disabled: empty }, '.txt で保存')
-  const close = h('button', { class: 'btn', type: 'button' }, '閉じる')
+  const docx = h('button', { class: 'btn pri', type: 'button', disabled: empty }, m.docx)
+  const pdf = h('button', { class: 'btn pri', type: 'button', disabled: empty }, m.pdf)
+  const copy = h('button', { class: 'btn', type: 'button', disabled: empty }, m.copy)
+  const txt = h('button', { class: 'btn', type: 'button', disabled: empty }, m.txt)
+  const close = h('button', { class: 'btn', type: 'button' }, m.close)
 
   const dialog = h(
     'dialog',
@@ -101,31 +101,27 @@ export function openExportDialog(app: HTMLElement, options: ExportOptions): void
     h(
       'div',
       { class: 'export-body' },
-      h('h2', {}, '書き出し'),
+      h('h2', {}, m.title),
       h(
         'p',
         { class: 'muted export-meta' },
-        empty ? '' : `${countWords(body)} 語 ・ ${countSentences(body)} 文（タイトルは数えません）`,
+        empty ? '' : m.meta(countWords(body), countSentences(body)),
       ),
       ...notes.map((note) => h('p', { class: 'error' }, note)),
       empty ? null : h('pre', { class: 'export-preview', lang: 'en' }, text),
       h(
         'section',
         { class: 'export-section' },
-        h('h3', {}, '提出用のファイル'),
-        h(
-          'p',
-          { class: 'muted export-hint' },
-          '左上に名前・クラス・日付（入れたものだけ）、1 行空けて中央にタイトル（課題のテーマは出しません）。A4・Times New Roman 12pt・行間 2 行。PDF は印刷の画面で「PDF に保存」を選ぶ。',
-        ),
+        h('h3', {}, m.submission),
+        h('p', { class: 'muted export-hint' }, m.submissionHint),
         h('div', { class: 'sub-fields' }, name.el, klass.el, date.el),
         h('div', { class: 'export-buttons' }, docx, pdf),
       ),
       h(
         'section',
         { class: 'export-section' },
-        h('h3', {}, 'プレーンテキスト'),
-        h('p', { class: 'muted export-hint' }, 'タイトルがあれば 1 行目に入れ、1 行空けて本文。'),
+        h('h3', {}, m.plain),
+        h('p', { class: 'muted export-hint' }, m.plainHint),
         h('div', { class: 'export-buttons' }, copy, txt),
       ),
       h('div', { class: 'actions' }, done, close),
@@ -134,20 +130,20 @@ export function openExportDialog(app: HTMLElement, options: ExportOptions): void
 
   docx.addEventListener('click', () => {
     download(buildDocx(submission()), DOCX_MIME, docxFileName(options.id))
-    replace(done, `${docxFileName(options.id)} を保存しました`)
+    replace(done, m.saved(docxFileName(options.id)))
   })
   pdf.addEventListener('click', () => {
     printDocument(submission(), options.id)
   })
   copy.addEventListener('click', () => {
     navigator.clipboard.writeText(text).then(
-      () => replace(done, 'コピーしました'),
-      () => replace(done, 'コピーできません'),
+      () => replace(done, m.copied),
+      () => replace(done, m.copyFailed),
     )
   })
   txt.addEventListener('click', () => {
     download(text, 'text/plain;charset=utf-8', exportFileName(options.id))
-    replace(done, `${exportFileName(options.id)} を保存しました`)
+    replace(done, m.saved(exportFileName(options.id)))
   })
   close.addEventListener('click', () => dialog.close())
   dialog.addEventListener('close', () => dialog.remove())

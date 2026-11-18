@@ -7,12 +7,12 @@ import {
   type SavedIdeas,
   type SavedOutlineReview,
   type SavedThemes,
-  STANCE_LABEL,
 } from '../shared/ideas.js'
 import { type AiCard, cardFrame, whenLabels } from './ai-pane.js'
 import { createQuestionBox } from './ai-questions.js'
 import { readAiResults, reviewOutline, suggestIdeas, suggestThemes } from './api.js'
 import { h, replace } from './dom.js'
+import { getLang, t } from './i18n.js'
 import { errorText, formatDate, formatTime } from './ui.js'
 
 /**
@@ -64,6 +64,8 @@ const createdText = (iso: string) => `${formatDate(iso)} ${formatTime(iso)}`
 
 export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
   const { id } = options
+  const m = t().ideas
+  const tools = t().ai.tools
   const keyOf = (kind: AiKind) => `${id}/${kind}`
 
   /** 1 つの種類の状態（ボタン・エラー・出した日時・質問の欄）。カードの外枠は `cardFrame`。 */
@@ -98,7 +100,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
       try {
         show((await promise) as T & { createdAt: string })
       } catch (error) {
-        replace(message, `出せませんでした: ${errorText(error)}`)
+        replace(message, m.failed(errorText(error)))
       } finally {
         busy = false
         paint()
@@ -139,18 +141,18 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     class: 'ai-hint',
     type: 'text',
     maxlength: 200,
-    placeholder: '分野・キーワード（任意）例: 部活、スマホ、環境',
-    'aria-label': 'テーマの分野・キーワード',
+    placeholder: m.hintPlaceholder,
+    'aria-label': m.hintLabel,
   })
   const themesList = h('div', { class: 'ai-themes' })
   /** 候補ごとの「課題のテーマにする」（今のテーマと同じなら押せなくする）。 */
   let themeButtons: { en: string; button: HTMLButtonElement }[] = []
-  const themes = section<SavedThemes>('themes', 'テーマの候補を出す', '考えています…', (saved) => {
+  const themes = section<SavedThemes>('themes', m.themesButton, m.thinking, (saved) => {
     themeButtons = []
     replace(
       themesList,
       ...saved.themes.map((theme) => {
-        const use = h('button', { class: 'btn ai-use', type: 'button' }, '課題のテーマにする')
+        const use = h('button', { class: 'btn ai-use', type: 'button' }, m.useTheme)
         use.addEventListener('click', () => {
           options.setTheme(theme.en)
           sync()
@@ -160,7 +162,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
           'div',
           { class: 'ai-theme' },
           h('p', { class: 'ai-theme-en', lang: 'en' }, theme.en),
-          theme.ja === '' ? null : h('p', { class: 'ai-theme-ja' }, theme.ja),
+          theme.ja === '' ? null : h('p', { class: 'ai-theme-ja', lang: 'ja' }, theme.ja),
           use,
         )
       }),
@@ -180,28 +182,37 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
   const ideasStale = h('p', { class: 'ai-stale' })
   const ideasList = h('div', { class: 'ai-ideas' })
   /** 結果は長いので、上に出す 2 つ目のときは畳む（`setFolded`）。 */
-  const ideasSummary = h('summary', {}, '理由と例を見る')
+  const ideasSummary = h('summary', {}, m.ideasSummary)
   const ideasFold = h(
     'details',
     { class: 'ai-fold', open: true, hidden: true },
     ideasSummary,
     ideasList,
   )
-  const ideas = section<SavedIdeas>('ideas', '理由・例の候補を出す', '考えています…', (saved) => {
+  const ideas = section<SavedIdeas>('ideas', m.ideasButton, m.thinking, (saved) => {
     const sides = saved.ideas.sides
     replace(
       ideasSummary,
-      `理由と例を見る（${sides.map((side) => `${STANCE_LABEL[side.stance]} ${side.reasons.length}`).join('・')}）`,
+      m.ideasSummaryCount(
+        sides
+          .map((side) => m.stanceCount(m.stance[side.stance], side.reasons.length))
+          .join(m.stanceSeparator),
+      ),
     )
     ideasFold.hidden = false
     replace(
       ideasList,
-      h('p', { class: 'muted ai-sub-note' }, `テーマ: ${saved.theme}`),
+      h('p', { class: 'muted ai-sub-note' }, m.theme(saved.theme)),
       ...sides.map((side) =>
         h(
           'div',
-          { class: `ai-side ${side.stance}` },
-          h('h5', {}, h('span', { class: 'ai-stance' }, STANCE_LABEL[side.stance]), side.opinion),
+          { class: `ai-side ${side.stance}`, lang: 'ja' },
+          h(
+            'h5',
+            {},
+            h('span', { class: 'ai-stance', lang: getLang() }, m.stance[side.stance]),
+            side.opinion,
+          ),
           ...side.reasons.map((reason) =>
             h(
               'div',
@@ -234,17 +245,19 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
   const reviewResult = h('div', { class: 'ai-review' })
   const review = section<SavedOutlineReview>(
     'outline',
-    'アウトラインを見てもらう',
-    '見ています…',
+    m.reviewButton,
+    m.reviewing,
     ({ review: result }) =>
       replace(
         reviewResult,
-        result.summary === '' ? null : h('p', { class: 'ai-review-summary' }, result.summary),
+        result.summary === ''
+          ? null
+          : h('p', { class: 'ai-review-summary', lang: 'ja' }, result.summary),
         result.findings.length === 0
-          ? h('p', { class: 'muted' }, '大きな指摘はありません。')
+          ? h('p', { class: 'muted' }, m.noFindings)
           : h(
               'ol',
-              { class: 'findings' },
+              { class: 'findings', lang: 'ja' },
               ...result.findings.map((f) =>
                 h('li', {}, f.quote === '' ? null : h('q', {}, f.quote), h('p', {}, f.hint)),
               ),
@@ -266,70 +279,54 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
   function sync(): void {
     const { theme: rawTheme, conditions } = options.assignment()
     const theme = rawTheme.trim()
-    replace(currentTheme, theme === '' ? '課題のテーマを入れると出せます。' : `テーマ: ${theme}`)
+    replace(currentTheme, theme === '' ? m.noTheme : m.theme(theme))
     currentTheme.classList.toggle('empty', theme === '')
     ideas.setDisabled(theme === '')
     for (const { en, button } of themeButtons) {
       const current = en === theme
       button.disabled = current
-      replace(button, current ? '今のテーマです' : '課題のテーマにする')
+      replace(button, current ? m.currentTheme : m.useTheme)
     }
     const savedIdeas = ideas.saved
     const ideasOld =
       savedIdeas !== null && !ideas.busy && isIdeasStale(savedIdeas, rawTheme, conditions)
-    replace(ideasStale, ideasOld ? '課題のテーマか条件を変える前に出した候補です。' : '')
+    replace(ideasStale, ideasOld ? m.ideasStale : '')
     ideas.setStale(ideasOld)
 
     const outline = options.outline()
     const emptyOutline = outline.trim() === ''
-    replace(
-      reviewNote,
-      emptyOutline
-        ? 'アウトラインを作ると見てもらえます。'
-        : '意見・理由・例・結論のつながりを見て、直すところをヒントで返します（直した項目は出しません）。',
-    )
+    replace(reviewNote, emptyOutline ? m.noOutline : m.reviewDesc)
     review.setDisabled(emptyOutline)
     const savedReview = review.saved
     const reviewOld =
       savedReview !== null &&
       !review.busy &&
       isOutlineReviewStale(savedReview, rawTheme, conditions, outline)
-    replace(
-      reviewStale,
-      reviewOld ? 'アウトラインか課題を直す前の指摘です。もう一度見てもらえます。' : '',
-    )
+    replace(reviewStale, reviewOld ? m.reviewStale : '')
     review.setStale(reviewOld)
   }
 
   const cards = {
     themes: {
       el: cardFrame({
-        title: 'テーマの候補',
+        title: tools.themes,
         when: themes.when.create('head'),
-        desc: h(
-          'p',
-          { class: 'muted ai-card-desc' },
-          '分野・キーワードから、英語の問いと日本語訳を出します。',
-        ),
+        desc: h('p', { class: 'muted ai-card-desc' }, m.themesDesc),
         before: [hint],
         button: themes.button,
-        sends: '分野・キーワード',
+        sends: m.themesSends,
         after: [themes.message, themesList, themes.qa],
       }),
       whenLabel: () => themes.when.create('row'),
     },
     ideas: {
       el: cardFrame({
-        title: '理由・例の候補',
+        title: tools.ideas,
         when: ideas.when.create('head'),
-        desc: h(
-          'p',
-          { class: 'muted ai-card-desc' },
-          '賛成・反対それぞれの理由と例（日本語）。見るだけ。使えそうなものは自分の言葉でアウトラインに足す。',
-        ),
+        desc: h('p', { class: 'muted ai-card-desc' }, m.ideasDesc),
         before: [currentTheme],
         button: ideas.button,
-        sends: '課題のテーマ・条件',
+        sends: m.ideasSends,
         after: [ideas.message, ideasStale, ideasFold, ideas.qa],
       }),
       whenLabel: () => ideas.when.create('row'),
@@ -339,11 +336,11 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
     },
     outline: {
       el: cardFrame({
-        title: 'アウトラインの指摘',
+        title: tools.outline,
         when: review.when.create('head'),
         desc: reviewNote,
         button: review.button,
-        sends: '課題のテーマ・条件・アウトライン',
+        sends: m.reviewSends,
         after: [review.message, reviewStale, reviewResult, review.qa],
       }),
       whenLabel: () => review.when.create('row'),
@@ -360,7 +357,7 @@ export function createIdeasPanel(options: IdeasPanelOptions): IdeasPanel {
       review.restore(saved.outline, saved.questions.outline)
     },
     (error: unknown) => {
-      replace(themes.message, `前に出した AI案を読めません: ${errorText(error)}`)
+      replace(themes.message, m.loadFailed(errorText(error)))
       themes.restore(null, [])
       ideas.restore(null, [])
       review.restore(null, [])

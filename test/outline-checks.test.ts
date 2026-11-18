@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { checkOutline } from '../src/shared/outline-checks.js'
 
-const oks = (text: string) => checkOutline(text).map((c) => c.ok)
+const oks = (text: string) => checkOutline(text, 'ja').map((c) => c.ok)
 
 describe('checkOutline', () => {
   it('型どおりなら全部 ✓', () => {
@@ -11,7 +11,7 @@ describe('checkOutline', () => {
   })
 
   it('空なら全部 !（意見を書くよう促す）', () => {
-    const checks = checkOutline('')
+    const checks = checkOutline('', 'ja')
     assert.deepEqual(
       checks.map((c) => c.ok),
       [false, false, false, false],
@@ -20,21 +20,38 @@ describe('checkOutline', () => {
   })
 
   it('理由が 1 つ・4 つなら理由の数が !', () => {
-    assert.equal(checkOutline('意見\n\t理由\n\t\t例')[1]?.ok, false)
-    assert.equal(checkOutline('意見\n\ta\n\t\tx\n\tb\n\t\tx\n\tc\n\t\tx\n\td\n\t\tx')[1]?.ok, false)
-    assert.match(checkOutline('意見\n\ta\n\tb\n\tc\n\td')[1]?.detail ?? '', /4 つ/)
+    assert.equal(checkOutline('意見\n\t理由\n\t\t例', 'ja')[1]?.ok, false)
+    assert.equal(
+      checkOutline('意見\n\ta\n\t\tx\n\tb\n\t\tx\n\tc\n\t\tx\n\td\n\t\tx', 'ja')[1]?.ok,
+      false,
+    )
+    assert.match(checkOutline('意見\n\ta\n\tb\n\tc\n\td', 'ja')[1]?.detail ?? '', /4 つ/)
   })
 
   it('例の無い理由の名前を出す（結論の前の理由も）', () => {
-    const checks = checkOutline('意見\n\t理由A\n\t\t例\n\t理由B\n\t理由C\n\t結論')
+    const checks = checkOutline('意見\n\t理由A\n\t\t例\n\t理由B\n\t理由C\n\t結論', 'ja')
     assert.equal(checks[2]?.ok, false)
     assert.equal(checks[2]?.detail, '例・詳細の無い理由: 理由B / 理由C')
   })
 
   it('意見が複数・結論が無いとき', () => {
-    const checks = checkOutline('意見A\n\t理由\n意見B')
+    const checks = checkOutline('意見A\n\t理由\n意見B', 'ja')
     assert.equal(checks[0]?.ok, false)
     assert.match(checks[0]?.detail ?? '', /2 つ/)
     assert.equal(checks[3]?.ok, false)
+  })
+})
+
+describe('checkOutline（英語の UI）', () => {
+  it('ok は言語によらず同じで、文は英語', () => {
+    const text = '意見\n\t理由A\n\t\t例\n\t理由B\n\t結論'
+    assert.deepEqual(
+      checkOutline(text, 'en').map((c) => c.ok),
+      checkOutline(text, 'ja').map((c) => c.ok),
+    )
+    const checks = checkOutline(text, 'en')
+    assert.equal(checks[1]?.label, '2–3 reasons')
+    assert.equal(checks[2]?.detail, 'Reasons without an example: 理由B')
+    assert.equal(checkOutline('意見\n\ta', 'en')[1]?.detail.startsWith('1 reason so far.'), true)
   })
 })

@@ -1,18 +1,19 @@
+import { apiErrorText, LANGS, type Lang } from '../shared/i18n/index.js'
 import type { Stage } from '../shared/types.js'
+import { ApiError } from './api.js'
 import { h } from './dom.js'
+import { getLang, requestLang, t } from './i18n.js'
 
-/** 画面の共通部品と表示用の言葉。 */
+/** 画面の共通部品と表示用の言葉（文は `t()`。`src/shared/i18n/`）。 */
 
-export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
-  assignment: '課題',
-  outline: 'アウトライン',
-  draft: '下書き・推敲',
+/** 段階の名前（今の言語）。 */
+export function stageLabel(stage: Stage): string {
+  return t().stages[stage]
 }
 
 /** 一覧のカードの進み具合に添える短い名前（幅が狭いので）。 */
-export const STAGE_SHORT_LABELS: Readonly<Record<Stage, string>> = {
-  ...STAGE_LABELS,
-  draft: '下書き',
+export function stageShortLabel(stage: Stage): string {
+  return t().stagesShort[stage]
 }
 
 /** 段階ごとの言語（`CLAUDE.md` の「書く流れ」）。下書きだけ英語のみ。 */
@@ -50,12 +51,38 @@ export function header(
     ...middle,
     h('span', { class: 'sp' }),
     ...right,
-    h('a', { class: 'btn', href: '#/review' }, '振り返り'),
+    h('a', { class: 'btn', href: '#/review' }, t().header.review),
     end === 'guide'
-      ? h('a', { class: 'btn', href: '#/guide' }, '学習ガイド')
+      ? h('a', { class: 'btn', href: '#/guide' }, t().header.guide)
       : end === 'list'
-        ? h('a', { class: 'btn', href: '#/' }, 'パラグラフ一覧へ')
+        ? h('a', { class: 'btn', href: '#/' }, t().header.toList)
         : end,
+    langSwitch(),
+  )
+}
+
+/** 切り替えのボタンの文字（どちらの言語のときも、その言語自身の名前で出す）。 */
+const LANG_NAMES: Readonly<Record<Lang, string>> = { en: 'EN', ja: '日本語' }
+
+/** ヘッダの右端の `EN | 日本語`。押すと `main.ts` が保存を待って画面を作り直す。 */
+function langSwitch(): HTMLElement {
+  const current = getLang()
+  return h(
+    'div',
+    { class: 'lang-switch', role: 'group', 'aria-label': t().lang.group },
+    ...LANGS.map((lang) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          lang,
+          class: lang === current ? 'on' : '',
+          'aria-pressed': lang === current ? 'true' : 'false',
+          onclick: () => requestLang(lang),
+        },
+        LANG_NAMES[lang],
+      ),
+    ),
   )
 }
 
@@ -75,17 +102,19 @@ export function formatTime(iso: string): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+/** エラーの文。サーバのエラーはコードから今の言語の文にする（`apiErrorText`）。 */
 export function errorText(error: unknown): string {
+  if (error instanceof ApiError) return apiErrorText(t(), error.code, error.message)
   return error instanceof Error ? error.message : String(error)
 }
 
 export function errorBox(error: unknown): HTMLElement {
-  return h('p', { class: 'error' }, `読み込めません: ${errorText(error)}`)
+  return h('p', { class: 'error' }, t().errors.loadFailed(errorText(error)))
 }
 
 /** 採点の指摘の修正例の英文（採点のカードと振り返りで共用）。無ければ出さない。 */
 export function fixLine(fix: string): HTMLElement | null {
   return fix === ''
     ? null
-    : h('div', { class: 'fix', lang: 'en' }, h('span', { lang: 'ja' }, '修正例'), fix)
+    : h('div', { class: 'fix', lang: 'en' }, h('span', { lang: getLang() }, t().feedback.fix), fix)
 }

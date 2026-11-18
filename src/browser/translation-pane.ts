@@ -3,6 +3,7 @@ import type { TranslatedSentence, Translation } from '../shared/translation.js'
 import { type AiCard, cardFrame, whenLabels } from './ai-pane.js'
 import { readTranslation, translateParagraph } from './api.js'
 import { h, replace } from './dom.js'
+import { t } from './i18n.js'
 import { errorText, formatDate, formatTime } from './ui.js'
 
 /**
@@ -31,13 +32,14 @@ export interface TranslationPanel {
 }
 
 export function createTranslationPanel(options: TranslationPanelOptions): TranslationPanel {
+  const m = t().translation
   let translation: Translation | null = null
   let configured = true
   let loaded = false
   let busy = false
   let error = ''
 
-  const button = h('button', { class: 'btn pri', type: 'button' }, '日本語に訳す')
+  const button = h('button', { class: 'btn pri', type: 'button' }, m.button)
   const note = h('p', { class: 'muted ai-card-desc' })
   const message = h('p', { class: 'error ai-error' })
   const stale = h('p', { class: 'ai-stale' })
@@ -47,11 +49,11 @@ export function createTranslationPanel(options: TranslationPanelOptions): Transl
   const when = whenLabels()
   const card: AiCard = {
     el: cardFrame({
-      title: '日本語訳',
+      title: t().ai.tools.translate,
       when: when.create('head'),
       desc: note,
       button,
-      sends: '下書き・タイトル',
+      sends: m.sends,
       after: [message, stale, empty, titleRow, result],
     }),
     whenLabel: () => when.create('row'),
@@ -60,18 +62,18 @@ export function createTranslationPanel(options: TranslationPanelOptions): Transl
   function sync(): void {
     const noDraft = options.draftText().trim() === ''
     button.disabled = busy || noDraft || !configured || !loaded
-    replace(button, busy ? '訳しています…' : translation === null ? '日本語に訳す' : 'もう一度訳す')
+    replace(button, busy ? m.busy : translation === null ? m.button : m.again)
     replace(
       note,
       !loaded
-        ? '読み込み中…'
+        ? t().loading
         : !configured
-          ? 'ANTHROPIC_API_KEY が設定されていません。.env に入れてサーバを起動し直すと使えます。'
+          ? t().ai.noApiKey
           : busy
-            ? '数秒〜30 秒ほどかかります。'
+            ? m.slow
             : noDraft
-              ? '下書きを書くと訳せます。'
-              : '下書きを文ごとに、直訳に近い日本語にします。言いたいことが英語で伝わっているかを確かめられます（誤りは直さずに、書いてあるとおりに訳します）。',
+              ? m.noDraft
+              : m.desc,
     )
     replace(message, error)
     replace(
@@ -79,7 +81,7 @@ export function createTranslationPanel(options: TranslationPanelOptions): Transl
       translation !== null &&
         (translation.draft.trim() !== options.draftText().trim() ||
           (translation.title?.en ?? '') !== titleLine(options.titleText()))
-        ? '訳した後に本文かタイトルが変わっています。もう一度訳すと今の本文の訳になります。'
+        ? m.stale
         : '',
     )
   }
@@ -90,17 +92,17 @@ export function createTranslationPanel(options: TranslationPanelOptions): Transl
         ? ''
         : `${formatDate(translation.translatedAt)} ${formatTime(translation.translatedAt)}`,
     )
-    replace(empty, translation === null && loaded ? 'まだ訳していません。' : '')
+    replace(empty, translation === null && loaded ? m.none : '')
     result.hidden = translation === null
     const pair = (s: TranslatedSentence) => [
       h('p', { class: 'tr-en', lang: 'en' }, s.en),
       s.ja === ''
-        ? h('p', { class: 'tr-ja muted' }, '（訳がありません。もう一度訳してください）')
-        : h('p', { class: 'tr-ja' }, s.ja),
+        ? h('p', { class: 'tr-ja muted' }, m.missing)
+        : h('p', { class: 'tr-ja', lang: 'ja' }, s.ja),
     ]
     const title = translation?.title ?? null
     titleRow.hidden = title === null
-    replace(titleRow, ...(title === null ? [] : [h('small', {}, 'タイトル'), ...pair(title)]))
+    replace(titleRow, ...(title === null ? [] : [h('small', {}, m.title), ...pair(title)]))
     replace(result, ...(translation?.sentences ?? []).map((s) => h('li', {}, ...pair(s))))
   }
 
@@ -118,7 +120,7 @@ export function createTranslationPanel(options: TranslationPanelOptions): Transl
         renderResult()
       }
     } catch (e) {
-      error = `訳せませんでした: ${errorText(e)}`
+      error = m.failed(errorText(e))
     } finally {
       busy = false
       sync()
@@ -135,7 +137,7 @@ export function createTranslationPanel(options: TranslationPanelOptions): Transl
     },
     (e: unknown) => {
       loaded = true
-      error = `訳を読めません: ${errorText(e)}`
+      error = m.loadFailed(errorText(e))
       renderResult()
       sync()
     },

@@ -11,14 +11,17 @@ import { STAGES, type Stage } from './types.js'
 export const AI_TOOLS = ['themes', 'ideas', 'outline', 'chat', 'translate', 'score'] as const
 export type AiTool = (typeof AI_TOOLS)[number]
 
-/** 機能の名前と、使う段階の短い印（「ほかの段階の AI」の行に出す）。 */
-export const AI_TOOL_INFO: Readonly<Record<AiTool, { title: string; steps: string }>> = {
-  themes: { title: 'テーマの候補', steps: 'STEP 1' },
-  ideas: { title: '理由・例の候補', steps: 'STEP 1・2' },
-  outline: { title: 'アウトラインの指摘', steps: 'STEP 2' },
-  chat: { title: 'AI に質問', steps: 'STEP 3' },
-  translate: { title: '日本語訳', steps: 'STEP 3' },
-  score: { title: '採点', steps: 'STEP 3' },
+/**
+ * 機能を使う段階の番号（「ほかの段階の AI」の行に `STEP 1・2` と出す）。
+ * 機能の名前と印の書き方は画面の言語の辞書（`src/shared/i18n/` の `ai.tools`・`ai.steps`）。
+ */
+export const AI_TOOL_STEPS: Readonly<Record<AiTool, readonly number[]>> = {
+  themes: [1],
+  ideas: [1, 2],
+  outline: [2],
+  chat: [3],
+  translate: [3],
+  score: [3],
 }
 
 /** 段階ごとに上に出す機能（使う順）。 */
@@ -34,18 +37,17 @@ export function aiToolsFor(stage: Stage): { current: readonly AiTool[]; others: 
   return { current, others: AI_TOOLS.filter((tool) => !current.includes(tool)) }
 }
 
-/** 右ペインのタブ（STEP 3 だけ）。 */
+/** 右ペインのタブ（STEP 3 だけ）。名前は辞書の `ai.tabs[key]`。 */
 export interface AiTab {
-  key: string
-  label: string
+  key: 'ai' | 'translate' | 'score'
   /** そのタブに出す機能。 */
   tools: readonly AiTool[]
 }
 
 const DRAFT_TABS: readonly AiTab[] = [
-  { key: 'ai', label: 'AI', tools: ['chat'] },
-  { key: 'translate', label: '翻訳', tools: ['translate'] },
-  { key: 'score', label: '採点', tools: ['score'] },
+  { key: 'ai', tools: ['chat'] },
+  { key: 'translate', tools: ['translate'] },
+  { key: 'score', tools: ['score'] },
 ]
 
 /**

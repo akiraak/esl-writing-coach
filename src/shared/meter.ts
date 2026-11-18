@@ -1,4 +1,6 @@
 import type { CountRange } from './assignment.js'
+import { type Lang, MESSAGES } from './i18n/index.js'
+import type { CountKind } from './i18n/ja.js'
 
 /**
  * 下書きの語数・文数のメーター（モックの `.meter`）。数と課題の指定の幅から、状態・文言・帯と目盛りの位置を出す。純関数。
@@ -12,7 +14,7 @@ export type MeterStatus = 'none' | 'under' | 'within' | 'over'
 export interface Meter {
   count: number
   status: MeterStatus
-  /** 「あと 52 語」「範囲内」「12 語多い」「指定なし」。 */
+  /** 「あと 52 語」「範囲内」「12 語多い」「指定なし」（画面の言語で）。 */
   message: string
   /** 今の数の位置（%）。 */
   fill: number
@@ -22,22 +24,23 @@ export interface Meter {
   ticks: { value: number; at: number }[]
 }
 
-export function meterOf(count: number, range: CountRange, unit: string): Meter {
+export function meterOf(count: number, range: CountRange, kind: CountKind, lang: Lang): Meter {
   const { min, max } = range
   const upper = max ?? min
+  const c = MESSAGES[lang].counts
   if (upper === null) {
-    return { count, status: 'none', message: '指定なし', fill: 0, band: null, ticks: [] }
+    return { count, status: 'none', message: c.none, fill: 0, band: null, ticks: [] }
   }
   const scale = Math.max(upper * 1.2, count, 1)
   const at = (value: number) => Math.min(100, (value / scale) * 100)
   let status: MeterStatus = 'within'
-  let message = '範囲内'
+  let message = c.inRange
   if (min !== null && count < min) {
     status = 'under'
-    message = `あと ${min - count} ${unit}`
+    message = c.short(min - count, kind)
   } else if (max !== null && count > max) {
     status = 'over'
-    message = `${count - max} ${unit}多い`
+    message = c.over(count - max, kind)
   }
   const values = [...new Set([min, max].filter((v): v is number => v !== null))]
   return {

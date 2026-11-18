@@ -10,6 +10,7 @@ import { createDraftChatPanel } from '../draft-chat-pane.js'
 import { openExportDialog } from '../export-dialog.js'
 import { createFeedbackPanel } from '../feedback-pane.js'
 import { createGuideDrawer } from '../guide-pane.js'
+import { getLang, t } from '../i18n.js'
 import { createIdeasPanel } from '../ideas-pane.js'
 import { mountPaneResizer } from '../pane-resizer.js'
 import {
@@ -19,7 +20,7 @@ import {
   type StageEditor,
 } from '../stage-editor.js'
 import { createTranslationPanel } from '../translation-pane.js'
-import { errorBox, header, STAGE_LABELS, STAGE_LANG } from '../ui.js'
+import { errorBox, header, STAGE_LANG, stageLabel } from '../ui.js'
 import type { View } from '../view.js'
 import { renderAssignmentView } from './assignment.js'
 import { renderDraftView } from './draft.js'
@@ -69,17 +70,13 @@ function markOf(state: SaveState): { text: string; kind: string; title: string }
     case 'saved':
       return { text: '', kind: '', title: '' }
     case 'dirty':
-      return { text: '●', kind: 'dirty', title: '未保存' }
+      return { text: '●', kind: 'dirty', title: t().save.markDirty }
     case 'saving':
-      return { text: '●', kind: 'dirty', title: '保存中' }
+      return { text: '●', kind: 'dirty', title: t().save.markSaving }
     case 'error':
-      return { text: '●', kind: 'error', title: `保存できません: ${state.message}` }
+      return { text: '●', kind: 'error', title: t().save.markFailed(state.message) }
     case 'conflict':
-      return {
-        text: '競合',
-        kind: 'conflict',
-        title: '他で更新されています（自動保存を止めました）',
-      }
+      return { text: t().save.markConflict, kind: 'conflict', title: t().save.markConflictTitle }
   }
 }
 
@@ -104,27 +101,26 @@ export function renderEdit(
   const status = h('span', { class: 'save-status' })
   const title = h('h2', {})
   const banner = h('div', { class: 'banner' })
-  const body = h('div', { class: 'stage-body' }, h('p', { class: 'muted' }, '読み込み中…'))
+  const body = h('div', { class: 'stage-body' }, h('p', { class: 'muted' }, t().loading))
   /** 中央の一番下の「次のステップへ」（最後の下書きは書き出し）。 */
   const footer = h('div', { class: 'stage-next' })
   const center = h('main', { class: 'center' }, title, banner, body, footer)
 
   /**
    * サーバが保存されている下書きを読む AI（採点・AI に質問・日本語訳）の前に、全部の段階を保存し終える。
-   * 下書きが保存できていなければ理由の文を返す（呼ばない）。`what` は「採点」「質問」「翻訳」。
+   * 下書きが保存できていなければ理由の文を返す（呼ばない）。`what` は採点・翻訳・質問。
    */
-  async function prepareDraft(what: string): Promise<string | null> {
-    if (editors === null) return '読み込み中です'
+  async function prepareDraft(what: 'score' | 'translate' | 'ask'): Promise<string | null> {
+    const m = t().edit.prepare
+    if (editors === null) return m.loading
     const all = editors
     await Promise.all(DOCS.map((d) => all[d].flush()))
     // サーバが読むのは下書きとタイトル
     for (const d of ['draft', 'title'] as const) {
-      const name = d === 'draft' ? '下書き' : 'タイトル'
       const state = all[d].state.kind
-      if (state === 'conflict')
-        return `${name}が他で更新されています（自動保存を止めています）。読み直してから${what}してください`
+      if (state === 'conflict') return m.conflict(m.docs[d], m.actions[what])
       if (state === 'error' || all[d].hasUnsavedChanges)
-        return `${name}を保存できていません。保存できてから${what}してください`
+        return m.unsaved(m.docs[d], m.actions[what])
     }
     return null
   }
@@ -134,7 +130,7 @@ export function renderEdit(
     id,
     draftText: () => editors?.draft.text ?? '',
     titleText: () => editors?.title.text ?? '',
-    prepare: () => prepareDraft('採点'),
+    prepare: () => prepareDraft('score'),
   })
 
   /** 右ペインの日本語訳（STEP 3 の「翻訳」のタブ）。訳す前に保存し終えるのは採点と同じ。 */
@@ -142,11 +138,11 @@ export function renderEdit(
     id,
     draftText: () => editors?.draft.text ?? '',
     titleText: () => editors?.title.text ?? '',
-    prepare: () => prepareDraft('翻訳'),
+    prepare: () => prepareDraft('translate'),
   })
 
   /** 右ペインの「AI に質問」（STEP 3 で上に出る）。送る前に保存し終えるのは採点と同じ。 */
-  const draftChat = createDraftChatPanel({ id, prepare: () => prepareDraft('質問') })
+  const draftChat = createDraftChatPanel({ id, prepare: () => prepareDraft('ask') })
 
   /**
    * 右ペインの AI 案。結果はサーバがパラグラフごとに保存する（開いたら描き直す）。
@@ -175,10 +171,10 @@ export function renderEdit(
       h(
         'span',
         { class: `lang ${STAGE_LANG[s]}` },
-        STAGE_LANG[s] === 'en' ? '英語のみ' : '日本語可',
+        STAGE_LANG[s] === 'en' ? t().edit.langEn : t().edit.langJa,
       ),
       h('div', { class: 'k' }, `STEP ${i + 1}`),
-      h('div', { class: 't' }, STAGE_LABELS[s], mark),
+      h('div', { class: 't' }, stageLabel(s), mark),
       summary,
     )
     tiles[s] = { el, summary, mark }
@@ -208,9 +204,7 @@ export function renderEdit(
   function setLeftClosed(leftClosed: boolean): void {
     panes.classList.toggle('left-closed', leftClosed)
     saveLeftClosed(leftClosed)
-    const label = leftClosed
-      ? '段階の一覧（左ペイン）を開く'
-      : '段階の一覧（左ペイン）を閉じて、中央を広げる'
+    const label = leftClosed ? t().edit.openLeft : t().edit.closeLeft
     leftHandle.title = label
     leftHandle.setAttribute('aria-label', label)
     leftHandle.setAttribute('aria-expanded', leftClosed ? 'false' : 'true')
@@ -225,7 +219,7 @@ export function renderEdit(
     app,
     header(
       [h('span', { class: 'crumb' }, '／ ', crumbTheme)],
-      [status, exportButton()],
+      [status, exportButton(t().header.export)],
       guide.button,
     ),
     panes,
@@ -240,7 +234,7 @@ export function renderEdit(
       text: editors.draft.text,
     })
   }
-  function exportButton(label = '書き出し', className = 'btn'): HTMLButtonElement {
+  function exportButton(label: string, className = 'btn'): HTMLButtonElement {
     return h('button', { class: className, type: 'button', onclick: openExport }, label)
   }
 
@@ -257,7 +251,7 @@ export function renderEdit(
     // タイトルにはタイルが無い（保存の状態はヘッダと、下書きのタイルの印に出す）
     const tileStage: Stage = s === 'title' ? 'draft' : s
     const tile = tiles[tileStage]
-    if (s !== 'title') replace(tile.summary, summarizeStage(s, editor.text))
+    if (s !== 'title') replace(tile.summary, summarizeStage(s, editor.text, getLang()))
     const states =
       tileStage === 'draft' ? [editors.draft.state, editors.title.state] : [editor.state]
     const mark = markOf(combineSaveStates(states))
@@ -312,7 +306,7 @@ export function renderEdit(
         title: titleEditor,
         assignment: parseAssignment(editors.assignment.text),
         outline: editors.outline.text,
-        exportButton: () => exportButton('書き出し →', 'btn pri next-step'),
+        exportButton: () => exportButton(t().edit.exportNext, 'btn pri next-step'),
       })
     }
   }
@@ -328,7 +322,7 @@ export function renderEdit(
     for (const s of STAGES) tiles[s].el.classList.toggle('on', s === stage)
     aiPane.setStage(stage)
     guide.setStage(stage)
-    replace(title, STAGE_LABELS[stage])
+    replace(title, stageLabel(stage))
     renderFooter()
     renderBanner()
     renderBody()
@@ -351,7 +345,7 @@ export function renderEdit(
       h(
         'a',
         { class: 'btn pri next-step', href: routeHash({ name: 'edit', id, stage: next }) },
-        `STEP ${index + 2} ${STAGE_LABELS[next]}へ →`,
+        t().edit.nextStep(index + 2, stageLabel(next)),
       ),
     )
   }

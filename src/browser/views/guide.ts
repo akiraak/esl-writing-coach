@@ -1,5 +1,6 @@
 import { h, replace } from '../dom.js'
 import { guideTabs } from '../guide-content.js'
+import { t } from '../i18n.js'
 import { header } from '../ui.js'
 import { STATIC_VIEW, type View } from '../view.js'
 
@@ -8,11 +9,11 @@ export function renderGuide(app: HTMLElement): View {
   const { tabs, body } = guideTabs(false)
   replace(
     app,
-    header([h('span', { class: 'crumb' }, '／ ', h('b', {}, '学習ガイド'))], [], 'list'),
+    header([h('span', { class: 'crumb' }, '／ ', h('b', {}, t().header.guide))], [], 'list'),
     h(
       'main',
       { class: 'gpage' },
-      h('div', { class: 'gin' }, h('h1', {}, 'Opinion paragraph の書き方'), tabs, body),
+      h('div', { class: 'gin' }, h('h1', {}, t().guide.pageTitle), tabs, body),
     ),
   )
   return STATIC_VIEW

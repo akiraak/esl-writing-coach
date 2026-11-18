@@ -5,6 +5,7 @@ import {
   parseStoredPaneWidth,
 } from '../shared/side-pane.js'
 import { h } from './dom.js'
+import { t } from './i18n.js'
 
 /**
  * 編集画面の右ペインの幅を変える境（右ペインの左端。`docs/plans/archive/right-pane-layout.md` の Phase 4）。
@@ -48,8 +49,8 @@ export function mountPaneResizer(panes: HTMLElement): PaneResizer {
     role: 'separator',
     tabindex: 0,
     'aria-orientation': 'vertical',
-    'aria-label': '右ペインの幅',
-    title: 'ドラッグで右ペインの幅を変える（ダブルクリックで戻す・← → でも動く）',
+    'aria-label': t().resizer.label,
+    title: t().resizer.tip,
   })
 
   const apply = () => {

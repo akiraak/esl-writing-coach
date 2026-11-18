@@ -2,7 +2,8 @@ import { routeHash } from '../../shared/route.js'
 import { type ParagraphListItem, STAGES } from '../../shared/types.js'
 import { createParagraph, deleteParagraph, listParagraphs } from '../api.js'
 import { h, replace } from '../dom.js'
-import { errorBox, errorText, formatDate, header, STAGE_SHORT_LABELS } from '../ui.js'
+import { t } from '../i18n.js'
+import { errorBox, errorText, formatDate, header, stageShortLabel } from '../ui.js'
 import { STATIC_VIEW, type View } from '../view.js'
 
 /**
@@ -13,11 +14,11 @@ import { STATIC_VIEW, type View } from '../view.js'
  * - 新規作成はダイアログでテーマを聞き、作ったら課題の画面を開く（テーマは空でもよい）
  */
 export function renderList(app: HTMLElement, previousSaved: Promise<void>): View {
-  const grid = h('div', { class: 'grid' }, h('p', { class: 'muted' }, '読み込み中…'))
+  const grid = h('div', { class: 'grid' }, h('p', { class: 'muted' }, t().loading))
   const newCard = h(
     'button',
     { class: 'pc new', type: 'button', onclick: () => openCreateDialog(app) },
-    '＋ 新しいパラグラフ',
+    t().list.newCard,
   )
   replace(
     app,
@@ -28,12 +29,12 @@ export function renderList(app: HTMLElement, previousSaved: Promise<void>): View
       h(
         'div',
         { class: 'lhead' },
-        h('h1', {}, 'パラグラフ'),
+        h('h1', {}, t().list.title),
         h('span', { class: 'sp' }),
         h(
           'button',
           { class: 'btn pri', type: 'button', onclick: () => openCreateDialog(app) },
-          '＋ 新規作成',
+          t().list.create,
         ),
       ),
       grid,
@@ -41,7 +42,7 @@ export function renderList(app: HTMLElement, previousSaved: Promise<void>): View
   )
   previousSaved.then(listParagraphs).then(
     (list) => {
-      const empty = h('p', { class: 'muted empty' }, 'まだパラグラフはありません。')
+      const empty = h('p', { class: 'muted empty' }, t().list.empty)
       const cards = list.map((p) =>
         card(p, () => {
           if (grid.querySelector('.pc:not(.new)') === null) grid.prepend(empty)
@@ -56,7 +57,7 @@ export function renderList(app: HTMLElement, previousSaved: Promise<void>): View
 
 function card(p: ParagraphListItem, onRemoved: () => void): HTMLElement {
   const title = p.theme === '' ? p.id : p.theme
-  const remove = h('button', { class: 'x', type: 'button' }, '削除')
+  const remove = h('button', { class: 'x', type: 'button' }, t().list.remove)
   const el = h(
     'div',
     { class: 'pc' },
@@ -74,17 +75,15 @@ function card(p: ParagraphListItem, onRemoved: () => void): HTMLElement {
       { class: 'prog' },
       ...STAGES.map((s) => h('span', { class: p.started[s] ? 'f' : '' })),
     ),
-    h('div', { class: 'plabels' }, ...STAGES.map((s) => h('span', {}, STAGE_SHORT_LABELS[s]))),
+    h('div', { class: 'plabels' }, ...STAGES.map((s) => h('span', {}, stageShortLabel(s)))),
     scoreLine(p),
-    h('div', { class: 'meta' }, h('span', {}, `更新 ${formatDate(p.updatedAt)}`), remove),
+    h('div', { class: 'meta' }, h('span', {}, t().list.updated(formatDate(p.updatedAt))), remove),
   )
   remove.addEventListener('click', () => {
-    const ok = window.confirm(
-      `「${title}」を削除しますか？\n\n一覧から消します（DB には印を付けて残すので、手で戻せます）。`,
-    )
+    const ok = window.confirm(t().list.removeConfirm(title))
     if (!ok) return
     remove.disabled = true
-    replace(remove, '削除中…')
+    replace(remove, t().list.removing)
     deleteParagraph(p.id).then(
       () => {
         el.remove()
@@ -92,8 +91,8 @@ function card(p: ParagraphListItem, onRemoved: () => void): HTMLElement {
       },
       (error: unknown) => {
         remove.disabled = false
-        replace(remove, '削除')
-        window.alert(`削除できません: ${errorText(error)}`)
+        replace(remove, t().list.remove)
+        window.alert(t().list.removeFailed(errorText(error)))
       },
     )
   })
@@ -108,8 +107,8 @@ function scoreLine(p: ParagraphListItem): HTMLElement {
     'div',
     { class: 'pscore' },
     h('span', { class: 'pscore-total' }, h('b', {}, String(score.total)), ' / 100'),
-    score.scoredAt === '' ? '' : h('span', {}, `採点 ${formatDate(score.scoredAt)}`),
-    score.stale ? h('span', { class: 'pscore-stale' }, '採点後に変更あり') : '',
+    score.scoredAt === '' ? '' : h('span', {}, t().list.scored(formatDate(score.scoredAt))),
+    score.stale ? h('span', { class: 'pscore-stale' }, t().list.staleScore) : '',
   )
 }
 
@@ -120,24 +119,20 @@ function openCreateDialog(app: HTMLElement): void {
     type: 'text',
     maxlength: 300,
     placeholder: 'Should students wear school uniforms?',
-    'aria-label': 'テーマ',
+    'aria-label': t().list.theme,
   })
   const message = h('p', { class: 'error' })
-  const submit = h('button', { class: 'btn pri', type: 'submit' }, '作成')
-  const cancel = h('button', { class: 'btn', type: 'button' }, 'やめる')
+  const submit = h('button', { class: 'btn pri', type: 'submit' }, t().list.submit)
+  const cancel = h('button', { class: 'btn', type: 'button' }, t().list.cancel)
   let busy = false
 
   const form = h(
     'form',
     { class: 'create-form' },
-    h('h2', {}, '新しいパラグラフ'),
-    h('label', { class: 'field-label' }, 'テーマ'),
+    h('h2', {}, t().list.dialogTitle),
+    h('label', { class: 'field-label' }, t().list.theme),
     theme,
-    h(
-      'p',
-      { class: 'hint' },
-      '自分で決めたテーマ（問い）。英語でも日本語でもよい。空のままでも作れ、あとで課題の画面で入れられる。',
-    ),
+    h('p', { class: 'hint' }, t().list.themeHint),
     message,
     h('div', { class: 'actions' }, cancel, submit),
   )
@@ -160,7 +155,7 @@ function openCreateDialog(app: HTMLElement): void {
     submit.disabled = true
     cancel.disabled = true
     replace(message)
-    replace(submit, '作成中…')
+    replace(submit, t().list.submitting)
     createParagraph(theme.value.trim()).then(
       (id) => {
         close()
@@ -170,8 +165,8 @@ function openCreateDialog(app: HTMLElement): void {
         busy = false
         submit.disabled = false
         cancel.disabled = false
-        replace(submit, '作成')
-        replace(message, `作成できません: ${errorText(error)}`)
+        replace(submit, t().list.submit)
+        replace(message, t().list.createFailed(errorText(error)))
       },
     )
   })

@@ -1,11 +1,13 @@
 import type { Assignment, CountRange } from '../../shared/assignment.js'
 import { countSentences, countWords, hasJapanese } from '../../shared/counting.js'
+import type { CountKind } from '../../shared/i18n/ja.js'
 import { phraseToInsert } from '../../shared/insert.js'
 import { meterOf } from '../../shared/meter.js'
 import { outlineRoles } from '../../shared/outline-roles.js'
 import { routeHash } from '../../shared/route.js'
 import { MAX_TITLE_LENGTH } from '../../shared/types.js'
 import { h, replace } from '../dom.js'
+import { getLang, t } from '../i18n.js'
 import { setPhraseTarget } from '../phrase-target.js'
 import { roleNodes } from '../role-list.js'
 import type { StageEditor } from '../stage-editor.js'
@@ -35,8 +37,10 @@ export interface DraftViewOptions {
   exportButton(): HTMLElement
 }
 
-function meterBox(unit: string, range: CountRange) {
+function meterBox(kind: CountKind, range: CountRange) {
+  const lang = getLang()
   const count = h('b')
+  const unit = h('span')
   const need = h('span', { class: 'need' })
   const fill = h('div', { class: 'fill' })
   const band = h('div', { class: 'band' })
@@ -48,7 +52,7 @@ function meterBox(unit: string, range: CountRange) {
     bar,
   )
   // 目盛り（指定の下限・上限）は指定が変わらないので最初に置く
-  const first = meterOf(0, range, unit)
+  const first = meterOf(0, range, kind, lang)
   for (const tick of first.ticks) {
     const el = h('span', { class: 'tick' }, String(tick.value))
     bar.append(el)
@@ -56,8 +60,9 @@ function meterBox(unit: string, range: CountRange) {
   return {
     box,
     update(n: number) {
-      const meter = meterOf(n, range, unit)
+      const meter = meterOf(n, range, kind, lang)
       replace(count, String(n))
+      replace(unit, t().counts.unit(n, kind))
       replace(need, meter.message)
       need.className = `need ${meter.status}`
       bar.hidden = meter.band === null
@@ -102,14 +107,14 @@ function outlineList(id: string, outline: string): HTMLElement {
   const body =
     items.length === 0
       ? [
-          h('p', { class: 'muted' }, 'アウトラインはまだありません。'),
-          h('a', { href: routeHash({ name: 'edit', id, stage: 'outline' }) }, 'STEP 2 で作る'),
+          h('p', { class: 'muted' }, t().draft.noOutline),
+          h('a', { href: routeHash({ name: 'edit', id, stage: 'outline' }) }, t().draft.toOutline),
         ]
       : roleNodes(items)
   return h(
     'aside',
-    { class: 'struct', 'aria-label': 'アウトライン（見るだけ）' },
-    h('h4', {}, 'アウトライン', h('span', {}, '見るだけ')),
+    { class: 'struct', 'aria-label': t().draft.outlineLabel },
+    h('h4', {}, t().draft.outline, h('span', {}, t().draft.readOnly)),
     ...body,
   )
 }
@@ -155,8 +160,8 @@ function followRules(paper: HTMLTextAreaElement): () => void {
 /** 描いて、片付けの関数を返す（表現集から入れる先の登録と、罫線の追従を外す）。 */
 export function renderDraftView(container: HTMLElement, options: DraftViewOptions): () => void {
   const { assignment } = options
-  const words = meterBox('語', assignment.words)
-  const sentences = meterBox('文', assignment.sentences)
+  const words = meterBox('words', assignment.words)
+  const sentences = meterBox('sentences', assignment.sentences)
   const warn = h('p', { class: 'draft-warn' })
 
   // 語数・文数は本文だけ（タイトルは数えない）。日本語の注意はタイトルも見る
@@ -167,9 +172,9 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
     replace(
       warn,
       hasJapanese(text)
-        ? '日本語が混じっています。下書きは英語だけで書きます。'
+        ? t().draft.japaneseInBody
         : hasJapanese(titleInput.value)
-          ? 'タイトルに日本語が混じっています。タイトルも英語で書きます。'
+          ? t().draft.japaneseInTitle
           : '',
     )
   }
@@ -180,8 +185,8 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
     lang: 'en',
     maxlength: MAX_TITLE_LENGTH,
     placeholder: 'Title',
-    'aria-label': 'タイトル（英語）',
-    title: 'タイトル（提出用のファイルの中央のタイトルになる。語数・文数には数えない）',
+    'aria-label': t().draft.titleLabel,
+    title: t().draft.titleTip,
     oninput: () => {
       refresh()
       options.title.update(titleInput.value)
@@ -193,7 +198,7 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
     class: 'paper',
     lang: 'en',
     placeholder: 'In my opinion, …',
-    'aria-label': '下書きの本文（英語）',
+    'aria-label': t().draft.bodyLabel,
     oninput: () => {
       refresh()
       options.editor.update(paper.value)
@@ -208,7 +213,7 @@ export function renderDraftView(container: HTMLElement, options: DraftViewOption
   const setClosed = (closed: boolean) => {
     work.classList.toggle('side-closed', closed)
     saveOutlineClosed(closed)
-    const label = closed ? 'アウトラインを開く' : 'アウトラインを右に閉じて、本文の欄を広げる'
+    const label = closed ? t().draft.openOutline : t().draft.closeOutline
     handle.title = label
     handle.setAttribute('aria-label', label)
     handle.setAttribute('aria-expanded', closed ? 'false' : 'true')

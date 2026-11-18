@@ -40,6 +40,19 @@ describe('学習ガイドの中身', () => {
   it('表現集の表現は重複していない', () => {
     const all = PHRASES.flatMap((g) => g.phrases.map((p) => p.en.toLowerCase()))
     assert.equal(new Set(all).size, all.length)
-    for (const g of PHRASES) assert.ok(g.phrases.length > 0, g.title)
+    for (const g of PHRASES) assert.ok(g.phrases.length > 0, g.title.ja)
+  })
+
+  it('英語の UI の文（解説・書き方のポイント・表現集の見出し）に日本語が混じらず、日本語の文と数がそろう', () => {
+    const texts = [
+      ...STRUCTURE.map((p) => p.description),
+      ...MODEL.points,
+      ...PHRASES.map((g) => g.title),
+    ]
+    for (const text of texts) {
+      assert.notEqual(text.en.trim(), '', text.ja)
+      assert.notEqual(text.ja.trim(), '', text.en)
+      assert.equal(hasJapanese(text.en), false, text.en)
+    }
   })
 })

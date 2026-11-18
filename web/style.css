@@ -185,6 +185,8 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 }
 .range-row { display: flex; align-items: center; gap: .5rem; margin: .3rem 0; }
 .range-label { width: 3rem; font-weight: 600; }
+/* 英語の UI は「Sentences」が入る幅に（`docs/plans/archive/ui-english.md`） */
+html[lang='en'] .range-label { width: 5.5rem; }
 .range-row input { width: 6rem; font: inherit; padding: .3rem .5rem; border: 1px solid var(--line); border-radius: 8px; background: #fff; text-align: right; }
 .range-row .tilde, .range-row .unit { color: var(--soft); }
 .range-row .warn { color: var(--warn); font-size: 12px; margin-left: .5rem; }
@@ -229,7 +231,7 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .outline-prompt-role { font-size: 11.5px; padding: .05rem .5rem; border-radius: 999px; background: var(--brand-soft); color: var(--brand); }
 .outline-prompt-write { color: var(--ink); font-weight: 600; }
 .outline-prompt-next { color: var(--soft); }
-.outline-prompt-next::before { content: '次に → '; color: var(--faint); }
+.outline-prompt-next-label { color: var(--faint); }
 .outline-prompt.topic { border-left-color: var(--ts); } .outline-prompt.topic .outline-prompt-role { background: var(--ts-bg); color: var(--ts); }
 .outline-prompt.reason { border-left-color: var(--rs); } .outline-prompt.reason .outline-prompt-role { background: var(--rs-bg); color: var(--rs); }
 .outline-prompt.example { border-left-color: var(--ex); } .outline-prompt.example .outline-prompt-role { background: var(--ex-bg); color: var(--ex); }
@@ -385,7 +387,8 @@ button.link { font: inherit; background: none; border: 0; padding: 0; color: var
 .ai-now { display: flex; flex-direction: column; gap: .7rem; }
 /* AI の 1 つの機能のカード（ai-pane.ts の cardFrame） */
 .ai-card { display: flex; flex-direction: column; gap: .45rem; padding: .7rem .8rem .8rem; border: 1px solid var(--line-soft); border-radius: 12px; background: #fff; }
-.ai-card-head { display: flex; align-items: baseline; gap: .5rem; }
+/* 見出しが長い（英語の UI）と日時は次の行の右に回す */
+.ai-card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .5rem; }
 .ai-card-head h4 { margin: 0; font-size: 13.5px; white-space: nowrap; }
 .ai-card-head .ai-when { margin-left: auto; font-size: 11px; color: var(--faint); white-space: nowrap; }
 .ai-card-desc { margin: 0; font-size: 12px; line-height: 1.6; }
@@ -536,6 +539,9 @@ body.resizing { cursor: col-resize; user-select: none; }
 .rv-card b { font-size: 30px; color: var(--brand); }
 .rv-card span { color: var(--soft); }
 .rv-card.weak b { color: var(--warn); }
+/* 伸ばしたいところ: 英語の観点の名前（Requirements など）は長いので字を少し小さくし、平均は折り返すならまとめて次の行へ */
+html[lang='en'] .rv-card.weak b { font-size: 24px; }
+.rv-card.weak span { white-space: nowrap; }
 .rv-section { margin-top: 1.6rem; }
 .rv-section h2 { margin: 0 0 .6rem; font-size: 16px; }
 .rv-note { margin: -.3rem 0 .6rem; font-size: 12px; }
@@ -643,3 +649,12 @@ button.phrase:hover { border-color: var(--brand); background: var(--brand-soft);
 .guide-content.compact .phrase code { font-size: 13.5px; }
 .guide-content.compact .points { font-size: 12.5px; line-height: 1.7; }
 .guide-content.compact .gsub { margin-top: 1.1rem; font-size: 12px; }
+
+/* --- 表示の言語の切り替え（ヘッダの右端。`docs/plans/archive/ui-english.md`） ----------------- */
+.lang-switch { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: none; }
+.lang-switch button {
+  font: inherit; font-size: 12px; font-weight: 600; padding: .32rem .6rem; border: 0;
+  background: var(--card); color: var(--soft); cursor: pointer;
+}
+.lang-switch button + button { border-left: 1px solid var(--line); }
+.lang-switch button.on { background: var(--brand-soft); color: var(--brand); cursor: default; }
